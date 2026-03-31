@@ -14,16 +14,280 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_log: {
+        Row: {
+          action_type: string
+          batch_name: string
+          created_at: string
+          description: string
+          id: string
+          mod_id: string
+          mod_name: string
+        }
+        Insert: {
+          action_type: string
+          batch_name?: string
+          created_at?: string
+          description: string
+          id?: string
+          mod_id: string
+          mod_name?: string
+        }
+        Update: {
+          action_type?: string
+          batch_name?: string
+          created_at?: string
+          description?: string
+          id?: string
+          mod_id?: string
+          mod_name?: string
+        }
+        Relationships: []
+      }
+      attendance: {
+        Row: {
+          batch_id: string
+          id: string
+          session_index: number
+          state: string
+          student_id: string
+        }
+        Insert: {
+          batch_id: string
+          id?: string
+          session_index: number
+          state?: string
+          student_id: string
+        }
+        Update: {
+          batch_id?: string
+          id?: string
+          session_index?: number
+          state?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      batches: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          mod_id: string
+          month: number
+          name: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          mod_id: string
+          month: number
+          name: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          mod_id?: string
+          month?: number
+          name?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      demo_days: {
+        Row: {
+          batch_id: string
+          date: string | null
+          day_number: number
+          id: string
+          title: string
+        }
+        Insert: {
+          batch_id: string
+          date?: string | null
+          day_number: number
+          id?: string
+          title: string
+        }
+        Update: {
+          batch_id?: string
+          date?: string | null
+          day_number?: number
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_days_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demo_scores: {
+        Row: {
+          criterion: string
+          demo_day_id: string
+          id: string
+          score: number
+          student_id: string
+        }
+        Insert: {
+          criterion: string
+          demo_day_id: string
+          id?: string
+          score?: number
+          student_id: string
+        }
+        Update: {
+          criterion?: string
+          demo_day_id?: string
+          id?: string
+          score?: number
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_scores_demo_day_id_fkey"
+            columns: ["demo_day_id"]
+            isOneToOne: false
+            referencedRelation: "demo_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demo_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          id: string
+          key: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          value: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +414,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator"],
+    },
   },
 } as const
