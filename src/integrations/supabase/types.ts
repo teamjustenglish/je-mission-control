@@ -46,6 +46,7 @@ export type Database = {
       }
       attendance: {
         Row: {
+          absence_note: string | null
           batch_id: string
           id: string
           session_index: number
@@ -53,6 +54,7 @@ export type Database = {
           student_id: string
         }
         Insert: {
+          absence_note?: string | null
           batch_id: string
           id?: string
           session_index: number
@@ -60,6 +62,7 @@ export type Database = {
           student_id: string
         }
         Update: {
+          absence_note?: string | null
           batch_id?: string
           id?: string
           session_index?: number
