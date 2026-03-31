@@ -10,7 +10,7 @@ interface Props {
   student: { id: string; name: string; batch_id: string };
   batch: { id: string; name: string };
   students: { id: string; name: string }[];
-  attendance: { student_id: string; session_index: number; state: string }[];
+  attendance: { student_id: string; session_index: number; state: string; absence_note?: string | null }[];
   demoDays: { id: string; title: string; date: string | null; day_number: number }[];
   demoScores: { id: string; demo_day_id: string; student_id: string; criterion: string; score: number }[];
   modName: string;
@@ -55,8 +55,10 @@ const StudentReport: React.FC<Props> = ({
     return [0, 1, 2, 3].map(d => {
       const idx = startIdx + d;
       const info = getSessionLabel(idx);
-      const state = studentAttendance.find(a => a.session_index === idx)?.state || 'e';
-      return { ...info, state, idx };
+      const rec = studentAttendance.find(a => a.session_index === idx);
+      const state = rec?.state || 'e';
+      const absenceNote = rec?.absence_note || null;
+      return { ...info, state, idx, absenceNote };
     });
   };
 
@@ -118,16 +120,28 @@ const StudentReport: React.FC<Props> = ({
             {[1, 2, 3, 4, 5, 6].map(w => {
               const days = getWeekAttendance(w);
               return (
-                <div key={w} className="flex items-center gap-3 text-sm">
-                  <span className="text-muted-foreground w-14">Week {w}</span>
-                  <div className="flex gap-1">
-                    {days.map(d => (
-                      <span key={d.idx} style={emojiStyle} className="text-base">
-                        {d.state === 'c' ? (d.isDemo ? '🟠' : '✅') : d.state === 'x' ? '❌' : '⬜'}
-                      </span>
-                    ))}
+                <div key={w}>
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-muted-foreground w-14">Week {w}</span>
+                    <div className="flex gap-1">
+                      {days.map(d => (
+                        <span key={d.idx} style={emojiStyle} className="text-base">
+                          {d.state === 'c' ? (d.isDemo ? '🟠' : '✅') : d.state === 'x' ? '❌' : '⬜'}
+                        </span>
+                      ))}
+                    </div>
+                    <span className="text-muted-foreground text-xs">{weekPct(w)}%</span>
                   </div>
-                  <span className="text-muted-foreground text-xs">{weekPct(w)}%</span>
+                  {/* Show absence notes below the dots */}
+                  {days.some(d => d.state === 'x' && d.absenceNote) && (
+                    <div className="ml-[68px] mt-0.5">
+                      {days.filter(d => d.state === 'x' && d.absenceNote).map(d => (
+                        <div key={d.idx} style={{ fontSize: 11, color: '#555', fontStyle: 'italic', lineHeight: 1.3 }}>
+                          {d.day}: {d.absenceNote}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -179,12 +193,9 @@ const StudentReport: React.FC<Props> = ({
 
           <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-2">Moderator Remarks</h2>
           <div className="p-4 mb-4" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
-            <textarea
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
+            <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)}
               placeholder="Add remarks about this student's progress…"
-              className="w-full bg-transparent text-sm text-foreground resize-none outline-none min-h-[60px] placeholder:text-muted-foreground"
-            />
+              className="w-full bg-transparent text-sm text-foreground resize-none outline-none min-h-[60px] placeholder:text-muted-foreground" />
             <p className="text-xs text-muted-foreground mt-1">Editable before export</p>
           </div>
 
