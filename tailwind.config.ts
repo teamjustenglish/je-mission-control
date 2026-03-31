@@ -63,6 +63,11 @@ export default {
           text: "hsl(var(--amber-text))",
           border: "hsl(var(--amber-border))",
         },
+        score: {
+          green: "hsl(var(--score-green))",
+          amber: "hsl(var(--score-amber))",
+          red: "hsl(var(--score-red))",
+        },
         info: {
           bg: "hsl(var(--info-bg))",
           text: "hsl(var(--info-text))",
