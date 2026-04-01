@@ -3,15 +3,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const LoginPage: React.FC = () => {
-  const [mode, setMode] = useState<'login' | 'invite'>('login');
+  const [mode, setMode] = useState<'login' | 'activate'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
-  const [codeVerified, setCodeVerified] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,23 +21,26 @@ const LoginPage: React.FC = () => {
     if (error) setError(error.message);
   };
 
-  const handleVerifyCode = async () => {
-    setError('');
-    setLoading(true);
-    const { data } = await supabase.from('settings').select('value').eq('key', 'invite_code').single();
-    setLoading(false);
-    if (data && data.value === inviteCode) { setCodeVerified(true); }
-    else { setError('Invalid invite code'); }
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleActivate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
-    const { error } = await signUp(email, password, name);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('activate-moderator', {
+        body: { email, code: accessCode, password },
+      });
+      if (fnError) throw fnError;
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (result.error) throw new Error(result.error);
+      setSuccess('Account activated! You can now sign in.');
+      setMode('login');
+      setAccessCode('');
+      setPassword('');
+    } catch (err: any) {
+      setError(err.message || 'Activation failed');
+    }
     setLoading(false);
-    if (error) { setError(error.message); }
-    else { setMode('login'); setError('Account created! Please log in.'); }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -52,15 +54,17 @@ const LoginPage: React.FC = () => {
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold text-foreground mb-1">BatchTrack</h1>
         <p className="text-muted-foreground text-sm mb-6">
-          {mode === 'login' ? 'Sign in to your account' : 'Create a moderator account'}
+          {mode === 'login' ? 'Sign in to your account' : 'Activate your moderator account'}
         </p>
 
         {error && (
-          <div className="text-sm mb-4 p-3 rounded-md" style={{
-            background: error.includes('created') ? 'hsl(var(--success-bg))' : 'hsl(var(--danger-bg))',
-            color: error.includes('created') ? 'hsl(var(--success-text))' : 'hsl(var(--danger-text))',
-          }}>
+          <div className="text-sm mb-4 p-3 rounded-md" style={{ background: 'hsl(var(--danger-bg))', color: 'hsl(var(--danger-text))' }}>
             {error}
+          </div>
+        )}
+        {success && (
+          <div className="text-sm mb-4 p-3 rounded-md" style={{ background: 'hsl(var(--success-bg))', color: 'hsl(var(--success-text))' }}>
+            {success}
           </div>
         )}
 
@@ -75,33 +79,24 @@ const LoginPage: React.FC = () => {
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
-        ) : !codeVerified ? (
-          <div className="space-y-3">
-            <input type="text" placeholder="Enter invite code" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)}
-              className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} />
-            <button onClick={handleVerifyCode} disabled={loading || !inviteCode}
-              className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50">
-              {loading ? 'Verifying…' : 'Verify code'}
-            </button>
-          </div>
         ) : (
-          <form onSubmit={handleSignup} className="space-y-3">
-            <input type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required />
+          <form onSubmit={handleActivate} className="space-y-3">
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required />
-            <input type="password" placeholder="Password (min 6 characters)" value={password} onChange={(e) => setPassword(e.target.value)}
+            <input type="text" placeholder="Access code (e.g. BT-X7K2PQ)" value={accessCode} onChange={(e) => setAccessCode(e.target.value)}
+              className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required />
+            <input type="password" placeholder="Set your password (min 6 characters)" value={password} onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required minLength={6} />
             <button type="submit" disabled={loading}
               className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50">
-              {loading ? 'Creating account…' : 'Create account'}
+              {loading ? 'Activating…' : 'Activate account'}
             </button>
           </form>
         )}
 
-        <button onClick={() => { setMode(mode === 'login' ? 'invite' : 'login'); setError(''); setCodeVerified(false); }}
+        <button onClick={() => { setMode(mode === 'login' ? 'activate' : 'login'); setError(''); setSuccess(''); }}
           className="mt-4 text-sm text-muted-foreground hover:text-foreground">
-          {mode === 'login' ? 'Have an invite code? Sign up' : '← Back to login'}
+          {mode === 'login' ? 'First time? Activate account' : '← Back to login'}
         </button>
       </div>
     </div>
