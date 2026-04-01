@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA } from '@/lib/batchtrack';
 import { Plus, Trash2, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
 import StudentReport from '@/components/StudentReport';
+import ScoringRubric from '@/components/ScoringRubric';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -13,10 +14,11 @@ interface Student { id: string; batch_id: string; name: string; }
 interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
+interface RescheduledSession { id: string; batch_id: string; week_number: number; day_name: string; original_date: string | null; new_date: string; reason: string | null; created_by: string; }
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
 
-// Attendance cell with tooltip for ❌ states
+// Attendance cell with tooltip for ❌ states — BUG FIXES: yellow dot position, hover bridge, no ⋮
 const AttendanceCell: React.FC<{
   state: string;
   isDemo: boolean;
@@ -25,65 +27,79 @@ const AttendanceCell: React.FC<{
   onNoteClick: () => void;
 }> = ({ state, isDemo, absenceNote, onClick, onNoteClick }) => {
   const [showTooltip, setShowTooltip] = useState(false);
-  const cellRef = useRef<HTMLDivElement>(null);
+  const hideTimeout = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleMouseEnter = () => {
+    if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    if (state === 'x') setShowTooltip(true);
+  };
+  const handleMouseLeave = () => {
+    hideTimeout.current = setTimeout(() => setShowTooltip(false), 150);
+  };
 
   return (
     <div
-      ref={cellRef}
-      data-state={state}
-      className="flex items-center justify-center cursor-pointer w-full h-full py-2 relative"
-      onMouseEnter={() => state === 'x' && setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
+      style={{ position: 'relative' }}
+      className="flex items-center justify-center cursor-pointer w-full h-full py-2"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {state === 'c' ? (
         <span style={emojiStyle} className="text-[18px] leading-none" onClick={onClick}>✅</span>
       ) : state === 'x' ? (
         <>
-          <span style={emojiStyle} className="text-[18px] leading-none" onClick={onClick}>❌</span>
-          {/* Yellow dot for note */}
+          <span style={{ ...emojiStyle, paddingBottom: 8 }} className="text-[18px] leading-none" onClick={onClick}>❌</span>
+          {/* Yellow dot — BUG 1 fix: absolute top-right */}
           {absenceNote && (
             <div style={{
-              position: 'absolute', top: 4, right: 4,
-              width: 6, height: 6, borderRadius: '50%',
+              position: 'absolute', top: -3, right: -3,
+              width: 7, height: 7, borderRadius: '50%',
               background: '#FBBF24',
-              border: '1px solid hsl(var(--card))',
+              border: '2px solid hsl(var(--card))',
+              zIndex: 5,
             }} />
           )}
-          {/* Tooltip */}
+          {/* Tooltip — BUG 2 fix: margin bridge */}
           {showTooltip && (
             <div
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
               style={{
                 position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                marginBottom: 6, zIndex: 50,
-                background: '#242424', border: '1px solid #333333', borderRadius: 8,
-                padding: '10px 12px', minWidth: 180, maxWidth: 220,
-                pointerEvents: 'auto',
+                marginBottom: -8, paddingBottom: 14,
+                zIndex: 50, pointerEvents: 'auto',
               }}
-              onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>Absence note</div>
-              {absenceNote ? (
-                <>
-                  <div style={{ fontSize: 12, color: '#F0F0F0', lineHeight: 1.4, marginBottom: 6 }}>{absenceNote}</div>
-                  <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: '#FBBF24', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    <span style={emojiStyle}>✏️</span> Edit note
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: 12, color: '#555', fontStyle: 'italic', marginBottom: 6 }}>No reason added yet</div>
-                  <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: '#FBBF24', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    <span style={emojiStyle}>✏️</span> Add note
-                  </button>
-                </>
-              )}
-              {/* Arrow */}
               <div style={{
-                position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)',
-                width: 0, height: 0,
-                borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
-                borderTop: '5px solid #242424',
-              }} />
+                background: '#252525', border: '1px solid #333', borderRadius: 9,
+                padding: '10px 13px', minWidth: 185, maxWidth: 220,
+              }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>Absence note</div>
+                {absenceNote ? (
+                  <>
+                    <div style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.4, marginBottom: 6 }}>{absenceNote}</div>
+                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: '#FBBF24', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      <span style={emojiStyle}>✏️</span> Edit note
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, color: '#555', fontStyle: 'italic', marginBottom: 6 }}>No reason added yet</div>
+                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: '#FBBF24', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      <span style={emojiStyle}>✏️</span> Add note
+                    </button>
+                  </>
+                )}
+                {/* Arrow */}
+                <div style={{
+                  position: 'absolute', bottom: 9, left: '50%', transform: 'translateX(-50%)',
+                  width: 0, height: 0,
+                  borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
+                  borderTop: '5px solid #252525',
+                }} />
+              </div>
             </div>
           )}
         </>
@@ -96,6 +112,89 @@ const AttendanceCell: React.FC<{
             background: 'transparent',
           }}
         />
+      )}
+    </div>
+  );
+};
+
+// Column header dropdown menu
+const ColumnMenu: React.FC<{
+  sessionIndex: number;
+  isRescheduled: boolean;
+  onMarkAllPresent: () => void;
+  onMarkAllAbsent: () => void;
+  onReschedule: () => void;
+  onEditReschedule?: () => void;
+  onRemoveReschedule?: () => void;
+}> = ({ isRescheduled, onMarkAllPresent, onMarkAllAbsent, onReschedule, onEditReschedule, onRemoveReschedule }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', zIndex: 20 }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        style={{
+          width: 20, height: 20, borderRadius: 5, border: '1px solid #2e2e2e',
+          color: '#444', background: 'transparent', cursor: 'pointer', fontSize: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          lineHeight: 1,
+        }}
+        onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+        onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#444'; }}
+      >⋮</button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, marginTop: 4,
+          background: '#252525', border: '1px solid #333', borderRadius: 9,
+          padding: 5, minWidth: 195, zIndex: 50,
+        }}>
+          {isRescheduled ? (
+            <>
+              <button
+                onClick={() => { setOpen(false); onEditReschedule?.(); }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#d4920a', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#d4920a'; }}
+              >↻ Edit reschedule</button>
+              <button
+                onClick={() => { setOpen(false); onRemoveReschedule?.(); }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+              >✕ Remove reschedule</button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => { setOpen(false); onReschedule(); }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#d4920a', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#d4920a'; }}
+              >↻ Reschedule session</button>
+              <div style={{ height: 1, background: '#333', margin: '4px 0' }} />
+              <button
+                onClick={() => { setOpen(false); onMarkAllPresent(); }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+              >✓ Mark all present</button>
+              <button
+                onClick={() => { setOpen(false); onMarkAllAbsent(); }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+              >✗ Mark all absent</button>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
@@ -151,6 +250,7 @@ const ModDashboard: React.FC = () => {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [demoDays, setDemoDays] = useState<DemoDay[]>([]);
   const [demoScores, setDemoScores] = useState<DemoScore[]>([]);
+  const [rescheduledSessions, setRescheduledSessions] = useState<RescheduledSession[]>([]);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [allWeeksView, setAllWeeksView] = useState(false);
   const [showCreateBatch, setShowCreateBatch] = useState(false);
@@ -166,12 +266,20 @@ const ModDashboard: React.FC = () => {
   const [savedVisible, setSavedVisible] = useState(false);
   const savedTimeout = useRef<ReturnType<typeof setTimeout>>();
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const batchCreatedRef = useRef(false); // BUG 4: prevent duplicate
 
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
     studentId: string; sessionIndex: number; studentName: string; dayLabel: string; dateLabel: string;
   } | null>(null);
   const [noteText, setNoteText] = useState('');
+
+  // Reschedule modal state
+  const [rescheduleModal, setRescheduleModal] = useState<{
+    sessionIndex: number; dayName: string; weekNumber: number; existingId?: string;
+  } | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
 
   const activeBatch = batches.find(b => b.id === activeBatchId);
 
@@ -192,13 +300,15 @@ const ModDashboard: React.FC = () => {
 
   const loadBatchData = useCallback(async () => {
     if (!activeBatchId) return;
-    const [studentsRes, attendanceRes, demoDaysRes] = await Promise.all([
+    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
       supabase.from('students').select('*').eq('batch_id', activeBatchId).order('created_at'),
       supabase.from('attendance').select('*').eq('batch_id', activeBatchId),
       supabase.from('demo_days').select('*').eq('batch_id', activeBatchId).order('day_number'),
+      supabase.from('rescheduled_sessions').select('*').eq('batch_id', activeBatchId),
     ]);
     if (studentsRes.data) setStudents(studentsRes.data);
     if (attendanceRes.data) setAttendance(attendanceRes.data as AttendanceRecord[]);
+    if (rescheduledRes.data) setRescheduledSessions(rescheduledRes.data as RescheduledSession[]);
     if (demoDaysRes.data) {
       setDemoDays(demoDaysRes.data);
       const ddIds = demoDaysRes.data.map(d => d.id);
@@ -223,10 +333,31 @@ const ModDashboard: React.FC = () => {
     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   };
 
+  const getSessionDateObj = (sessionIndex: number): Date | null => {
+    if (!activeBatch?.start_date) return null;
+    const start = new Date(activeBatch.start_date);
+    const week = Math.floor(sessionIndex / 4);
+    const dayInWeek = sessionIndex % 4;
+    const dayOffsets = [0, 1, 3, 4];
+    const date = new Date(start);
+    date.setDate(start.getDate() + week * 7 + dayOffsets[dayInWeek]);
+    return date;
+  };
+
+  const isSessionRescheduled = (sessionIndex: number): RescheduledSession | undefined => {
+    const info = getSessionLabel(sessionIndex);
+    const week = Math.floor(sessionIndex / 4) + 1;
+    return rescheduledSessions.find(r => r.week_number === week && r.day_name === (info.isDemo ? 'Demo day' : info.day));
+  };
+
   const createBatch = async () => {
     if (!user || !newBatchLabel.trim()) return;
+    // BUG 4: check existing
     const monthName = MONTHS[newBatchMonth - 1];
     const batchName = `${monthName} ${newBatchYear} · ${newBatchLabel.trim()}`;
+    const existing = batches.find(b => b.name === batchName);
+    if (existing) { setActiveBatchId(existing.id); setShowCreateBatch(false); return; }
+
     const { data } = await supabase.from('batches').insert({
       mod_id: user.id, name: batchName, month: newBatchMonth, year: newBatchYear, label: newBatchLabel.trim(),
     }).select().single();
@@ -274,6 +405,7 @@ const ModDashboard: React.FC = () => {
     }
   };
 
+  // BUG 5: Optimistic attendance updates
   const cycleAttendance = async (studentId: string, sessionIndex: number) => {
     if (!activeBatchId) return;
     const existing = attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex);
@@ -282,22 +414,49 @@ const ModDashboard: React.FC = () => {
     else if (existing.state === 'c') newState = 'x';
     else newState = 'e';
 
+    // Optimistic update
     if (existing) {
-      const updateData: any = { state: newState };
-      if (newState !== 'x') updateData.absence_note = null; // clear note when not absent
-      await supabase.from('attendance').update(updateData).eq('id', existing.id);
-      setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, state: newState, ...(newState !== 'x' ? { absence_note: null } : {}) } : a));
+      const updateData: Partial<AttendanceRecord> = { state: newState };
+      if (newState !== 'x') updateData.absence_note = null;
+      setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, ...updateData } : a));
+      // Background sync
+      supabase.from('attendance').update({ state: newState, ...(newState !== 'x' ? { absence_note: null } : {}) }).eq('id', existing.id)
+        .then(({ error }) => { if (error) loadBatchData(); }); // revert on error
     } else {
-      const { data } = await supabase.from('attendance').insert({
-        student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState,
-      }).select().single();
-      if (data) setAttendance(prev => [...prev, data as AttendanceRecord]);
+      const tempId = `temp-${Date.now()}`;
+      const optimistic: AttendanceRecord = { id: tempId, student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState };
+      setAttendance(prev => [...prev, optimistic]);
+      supabase.from('attendance').insert({ student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState })
+        .select().single().then(({ data, error }) => {
+          if (error) { setAttendance(prev => prev.filter(a => a.id !== tempId)); }
+          else if (data) { setAttendance(prev => prev.map(a => a.id === tempId ? data as AttendanceRecord : a)); }
+        });
     }
     showSaved();
     if (user && activeBatch) {
       const week = Math.floor(sessionIndex / 4) + 1;
-      await logActivity(user.id, profile?.name || '', 'attendance_marked', `Marked Week ${week} attendance`, activeBatch.name);
+      logActivity(user.id, profile?.name || '', 'attendance_marked', `Marked Week ${week} attendance`, activeBatch.name);
     }
+  };
+
+  // Mark all present/absent for a session
+  const markAllForSession = async (sessionIndex: number, state: 'c' | 'x') => {
+    if (!activeBatchId) return;
+    for (const student of students) {
+      const existing = attendance.find(a => a.student_id === student.id && a.session_index === sessionIndex);
+      if (existing) {
+        setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, state } : a));
+        supabase.from('attendance').update({ state }).eq('id', existing.id);
+      } else {
+        const tempId = `temp-${Date.now()}-${student.id}`;
+        setAttendance(prev => [...prev, { id: tempId, student_id: student.id, batch_id: activeBatchId, session_index: sessionIndex, state }]);
+        supabase.from('attendance').insert({ student_id: student.id, batch_id: activeBatchId, session_index: sessionIndex, state })
+          .select().single().then(({ data }) => {
+            if (data) setAttendance(prev => prev.map(a => a.id === tempId ? data as AttendanceRecord : a));
+          });
+      }
+    }
+    showSaved();
   };
 
   const getAttendanceState = (studentId: string, sessionIndex: number): string => {
@@ -330,6 +489,50 @@ const ModDashboard: React.FC = () => {
       setAttendance(prev => prev.map(a => a.id === rec.id ? { ...a, absence_note: noteText || null } : a));
     }
     setNoteModal(null);
+    showSaved();
+  };
+
+  // Reschedule handlers
+  const openRescheduleModal = (sessionIndex: number, existingId?: string) => {
+    const info = getSessionLabel(sessionIndex);
+    const weekNum = Math.floor(sessionIndex / 4) + 1;
+    const dayName = info.isDemo ? 'Demo day' : info.day;
+    const existing = rescheduledSessions.find(r => r.id === existingId);
+    setRescheduleDate(existing?.new_date || '');
+    setRescheduleReason(existing?.reason || '');
+    setRescheduleModal({ sessionIndex, dayName, weekNumber: weekNum, existingId });
+  };
+
+  const saveReschedule = async () => {
+    if (!rescheduleModal || !activeBatchId || !user || !rescheduleDate) return;
+    const dateStr = getSessionDate(rescheduleModal.sessionIndex);
+    if (rescheduleModal.existingId) {
+      await supabase.from('rescheduled_sessions').update({
+        new_date: rescheduleDate, reason: rescheduleReason || null,
+      }).eq('id', rescheduleModal.existingId);
+      setRescheduledSessions(prev => prev.map(r => r.id === rescheduleModal.existingId ? { ...r, new_date: rescheduleDate, reason: rescheduleReason || null } : r));
+    } else {
+      const { data } = await supabase.from('rescheduled_sessions').insert({
+        batch_id: activeBatchId,
+        week_number: rescheduleModal.weekNumber,
+        day_name: rescheduleModal.dayName,
+        original_date: getSessionDateObj(rescheduleModal.sessionIndex)?.toISOString().split('T')[0] || null,
+        new_date: rescheduleDate,
+        reason: rescheduleReason || null,
+        created_by: user.id,
+      }).select().single();
+      if (data) setRescheduledSessions(prev => [...prev, data as RescheduledSession]);
+    }
+    const newDateFormatted = new Date(rescheduleDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const desc = `Rescheduled ${rescheduleModal.dayName} ${dateStr || ''} → ${newDateFormatted}${rescheduleReason ? ' · ' + rescheduleReason : ''}`;
+    await logActivity(user.id, profile?.name || '', 'session_rescheduled', desc, activeBatch?.name || '');
+    setRescheduleModal(null);
+    showSaved();
+  };
+
+  const removeReschedule = async (id: string) => {
+    await supabase.from('rescheduled_sessions').delete().eq('id', id);
+    setRescheduledSessions(prev => prev.filter(r => r.id !== id));
     showSaved();
   };
 
@@ -402,16 +605,65 @@ const ModDashboard: React.FC = () => {
   const weekSessions = getWeekSessions(selectedWeek);
   const attendanceColor = avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
 
-  // Render an attendance cell with note support
-  const renderCell = (studentId: string, sessionIndex: number, isDemo: boolean) => (
-    <AttendanceCell
-      state={getAttendanceState(studentId, sessionIndex)}
-      isDemo={isDemo}
-      absenceNote={getAbsenceNote(studentId, sessionIndex)}
-      onClick={() => cycleAttendance(studentId, sessionIndex)}
-      onNoteClick={() => openNoteModal(studentId, sessionIndex)}
-    />
-  );
+  // Render column header with ⋮ menu
+  const renderColumnHeader = (si: number, info: { day: string; week: number; isDemo: boolean }) => {
+    const dateStr = getSessionDate(si);
+    const rescheduled = isSessionRescheduled(si);
+    const newDateStr = rescheduled ? new Date(rescheduled.new_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null;
+
+    return (
+      <th key={si} className="text-center py-2 font-medium" style={{
+        fontSize: 12, position: 'relative',
+        background: rescheduled ? '#1e1800' : (info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))'),
+        color: rescheduled ? '#d4920a' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
+      }}>
+        <div>{info.isDemo ? 'Demo day' : info.day}</div>
+        {rescheduled ? (
+          <>
+            <div style={{ fontSize: 10, opacity: 0.8 }}>{newDateStr}</div>
+            <div style={{ fontSize: 9, opacity: 0.7 }}>↻ rescheduled</div>
+          </>
+        ) : (
+          dateStr && <div style={{ fontSize: 10, opacity: 0.7 }}>{dateStr}</div>
+        )}
+        <ColumnMenu
+          sessionIndex={si}
+          isRescheduled={!!rescheduled}
+          onMarkAllPresent={() => markAllForSession(si, 'c')}
+          onMarkAllAbsent={() => markAllForSession(si, 'x')}
+          onReschedule={() => openRescheduleModal(si)}
+          onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
+          onRemoveReschedule={() => rescheduled && removeReschedule(rescheduled.id)}
+        />
+      </th>
+    );
+  };
+
+  // Render attendance cell or rescheduled badge
+  const renderCell = (studentId: string, sessionIndex: number, isDemo: boolean) => {
+    const rescheduled = isSessionRescheduled(sessionIndex);
+    if (rescheduled) {
+      return (
+        <div className="flex items-center justify-center py-2" style={{ background: '#1e1800' }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 6,
+            background: '#2a1f00', border: '1.5px solid #5a4a00',
+            color: '#d4920a', fontSize: 15, fontWeight: 700,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          }}>↻</div>
+        </div>
+      );
+    }
+    return (
+      <AttendanceCell
+        state={getAttendanceState(studentId, sessionIndex)}
+        isDemo={isDemo}
+        absenceNote={getAbsenceNote(studentId, sessionIndex)}
+        onClick={() => cycleAttendance(studentId, sessionIndex)}
+        onNoteClick={() => openNoteModal(studentId, sessionIndex)}
+      />
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -532,6 +784,41 @@ const ModDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Reschedule modal */}
+      {rescheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={() => setRescheduleModal(null)}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 340, width: '100%' }}>
+            <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 4 }}>Reschedule session</div>
+            <div style={{ fontSize: 11, color: '#555', marginBottom: 12 }}>
+              {rescheduleModal.dayName} · Week {rescheduleModal.weekNumber}
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>New date</label>
+              <input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)}
+                style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#F0F0F0', outline: 'none' }} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Reason (optional)</label>
+              <input type="text" value={rescheduleReason} onChange={(e) => setRescheduleReason(e.target.value)}
+                placeholder="e.g. Room not available, public holiday..."
+                style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#F0F0F0', outline: 'none' }} />
+            </div>
+            <div className="flex justify-end gap-2 mt-3">
+              <button onClick={() => setRescheduleModal(null)}
+                style={{ padding: '6px 14px', fontSize: 12, background: '#242424', border: '1px solid #333', color: '#888', borderRadius: 6, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={saveReschedule} disabled={!rescheduleDate}
+                style={{ padding: '6px 14px', fontSize: 12, background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 6, cursor: 'pointer', opacity: rescheduleDate ? 1 : 0.5 }}>
+                ↻ Confirm reschedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeBatch ? (
         <div className="p-6 max-w-6xl mx-auto">
           {/* Stats row */}
@@ -611,34 +898,24 @@ const ModDashboard: React.FC = () => {
                 <table className="text-sm" style={{ tableLayout: 'fixed', width: 'max-content' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                      <th className="text-left py-2 font-medium text-muted-foreground sticky left-0 bg-card" style={{ width: 140, fontSize: 12 }}>Student</th>
+                      <th className="text-left py-2 font-medium text-muted-foreground sticky left-0 bg-card" style={{ width: 140, minWidth: 140, fontSize: 12 }}>Student</th>
                       {Array.from({ length: 24 }, (_, i) => {
                         const info = getSessionLabel(i);
-                        const dateStr = getSessionDate(i);
-                        return (
-                          <th key={i} className="text-center py-2 font-medium" style={{
-                            width: 48, fontSize: 11,
-                            background: info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))',
-                            color: info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))',
-                            ...(i % 4 === 0 && i > 0 ? { borderLeft: '2px solid hsl(var(--border))' } : {}),
-                          }}>
-                            <div>{info.day}</div>
-                            {dateStr && <div style={{ fontSize: 9, opacity: 0.7 }}>{dateStr}</div>}
-                          </th>
-                        );
+                        return renderColumnHeader(i, info);
                       })}
                     </tr>
                   </thead>
                   <tbody>
                     {students.map(student => (
                       <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                        <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 140, fontSize: 12 }}>{student.name || '(unnamed)'}</td>
+                        <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 140, minWidth: 140, fontSize: 12, whiteSpace: 'nowrap' }}>{student.name || '(unnamed)'}</td>
                         {Array.from({ length: 24 }, (_, i) => {
                           const info = getSessionLabel(i);
+                          const rescheduled = isSessionRescheduled(i);
                           return (
                             <td key={i} style={{
                               width: 48,
-                              ...(info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
+                              ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
                               ...(i % 4 === 0 && i > 0 ? { borderLeft: '2px solid hsl(var(--border))' } : {}),
                             }}>
                               {renderCell(student.id, i, info.isDemo)}
@@ -654,20 +931,10 @@ const ModDashboard: React.FC = () => {
               <table className="text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                    <th className="text-left py-2 font-medium text-muted-foreground" style={{ width: 140, fontSize: 12, background: 'hsl(var(--grid-header-bg))' }}>Student</th>
+                    <th className="text-left py-2 font-medium text-muted-foreground" style={{ width: 140, minWidth: 140, fontSize: 12, background: 'hsl(var(--grid-header-bg))' }}>Student</th>
                     {weekSessions.map(si => {
                       const info = getSessionLabel(si);
-                      const dateStr = getSessionDate(si);
-                      return (
-                        <th key={si} className="text-center py-2 font-medium" style={{
-                          fontSize: 12,
-                          background: info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))',
-                          color: info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))',
-                        }}>
-                          <div>{info.isDemo ? 'Demo day' : info.day}</div>
-                          {dateStr && <div style={{ fontSize: 10, opacity: 0.7 }}>{dateStr}</div>}
-                        </th>
-                      );
+                      return renderColumnHeader(si, info);
                     })}
                   </tr>
                 </thead>
@@ -677,7 +944,8 @@ const ModDashboard: React.FC = () => {
                       style={{ borderBottom: '1px solid hsl(var(--row-border))' }}
                       onMouseEnter={() => setHoveredStudentId(student.id)}
                       onMouseLeave={() => setHoveredStudentId(null)}>
-                      <td className="py-1 font-medium text-foreground relative" style={{ width: 140, fontSize: 13 }}>
+                      {/* BUG 3 fix: nowrap on name */}
+                      <td className="py-1 font-medium text-foreground relative" style={{ width: 140, minWidth: 140, fontSize: 13, whiteSpace: 'nowrap' }}>
                         <div className="flex items-center gap-2">
                           {editingStudentId === student.id ? (
                             <input ref={nameInputRef} defaultValue={student.name}
@@ -691,7 +959,7 @@ const ModDashboard: React.FC = () => {
                             </span>
                           )}
                           {hoveredStudentId === student.id && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
                               <button onClick={() => confirmRemoveStudent(student)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'hsl(var(--danger-text))' }}>
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -706,8 +974,9 @@ const ModDashboard: React.FC = () => {
                       </td>
                       {weekSessions.map(si => {
                         const info = getSessionLabel(si);
+                        const rescheduled = isSessionRescheduled(si);
                         return (
-                          <td key={si} style={{ ...(info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
+                          <td key={si} style={{ ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
                             {renderCell(student.id, si, info.isDemo)}
                           </td>
                         );
@@ -747,12 +1016,14 @@ const ModDashboard: React.FC = () => {
             {demoDaysExpanded && (
               <div style={{ padding: '0 16px 16px' }} className="space-y-4 mt-4">
                 {demoDays.map(dd => (
-                  <div key={dd.id} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-                    <div className="flex items-center justify-between mb-3">
+                  <div key={dd.id} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden' }}>
+                    <div className="flex items-center justify-between" style={{ padding: '14px 16px' }}>
                       <h3 style={{ fontWeight: 600, fontSize: 14 }} className="text-foreground">{dd.title}</h3>
                       <span className="text-muted-foreground" style={{ fontSize: 12 }}>{dd.date || '—'} · {students.length} students</span>
                     </div>
-                    <div className="overflow-x-auto">
+                    {/* Scoring rubric */}
+                    <ScoringRubric />
+                    <div className="overflow-x-auto" style={{ padding: '0 16px 14px' }}>
                       <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>

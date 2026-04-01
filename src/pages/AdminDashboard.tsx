@@ -28,17 +28,32 @@ interface LowAttendanceFlag {
   pct: number;
 }
 
+interface ModCode {
+  id: string;
+  mod_id: string | null;
+  email: string;
+  code: string;
+  used: boolean;
+  created_at: string;
+}
+
 const AdminDashboard: React.FC = () => {
-  const { signOut, profile: currentProfile } = useAuth();
+  const { signOut, profile: currentProfile, session } = useAuth();
   const [activePage, setActivePage] = useState('dashboard');
   const [moderators, setModerators] = useState<Profile[]>([]);
+  const [modCodes, setModCodes] = useState<ModCode[]>([]);
   const [batchCount, setBatchCount] = useState(0);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [lowFlags, setLowFlags] = useState<LowAttendanceFlag[]>([]);
   const [avgAttendance, setAvgAttendance] = useState(0);
   const [avgDemoScore, setAvgDemoScore] = useState(0);
-  const [inviteCode, setInviteCode] = useState('');
-  const [newCode, setNewCode] = useState('');
+
+  // Add mod modal
+  const [showAddMod, setShowAddMod] = useState(false);
+  const [newModEmail, setNewModEmail] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [addModLoading, setAddModLoading] = useState(false);
+  const [addModError, setAddModError] = useState('');
 
   useEffect(() => { loadData(); }, []);
 
@@ -46,14 +61,14 @@ const AdminDashboard: React.FC = () => {
     const { data: mods } = await supabase.from('profiles').select('*').eq('role', 'moderator');
     if (mods) setModerators(mods);
 
+    const { data: codes } = await supabase.from('moderator_codes').select('*').order('created_at', { ascending: false });
+    if (codes) setModCodes(codes as ModCode[]);
+
     const { count } = await supabase.from('batches').select('*', { count: 'exact', head: true });
     setBatchCount(count || 0);
 
     const { data: logs } = await supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(20);
     if (logs) setActivityLog(logs);
-
-    const { data: settings } = await supabase.from('settings').select('*').eq('key', 'invite_code').single();
-    if (settings) { setInviteCode(settings.value); setNewCode(settings.value); }
 
     const { data: allAttendance } = await supabase.from('attendance').select('*');
     const { data: allStudents } = await supabase.from('students').select('*');
@@ -86,9 +101,35 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const updateInviteCode = async () => {
-    await supabase.from('settings').update({ value: newCode }).eq('key', 'invite_code');
-    setInviteCode(newCode);
+  const handleAddModerator = async () => {
+    if (!newModEmail.trim()) return;
+    setAddModLoading(true);
+    setAddModError('');
+    setGeneratedCode('');
+    try {
+      const { data, error } = await supabase.functions.invoke('create-moderator', {
+        body: { email: newModEmail.trim() },
+      });
+      if (error) throw error;
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (result.error) throw new Error(result.error);
+      setGeneratedCode(result.code);
+      loadData();
+    } catch (err: any) {
+      setAddModError(err.message || 'Failed to create moderator');
+    }
+    setAddModLoading(false);
+  };
+
+  const handleDeactivateMod = async (modId: string, ban: boolean) => {
+    try {
+      await supabase.functions.invoke('deactivate-moderator', {
+        body: { userId: modId, ban },
+      });
+      loadData();
+    } catch (err) {
+      console.error('Deactivate error', err);
+    }
   };
 
   const timeAgo = (dateStr: string) => {
@@ -109,6 +150,7 @@ const AdminDashboard: React.FC = () => {
       student_removed: { bg: 'hsl(var(--danger-bg))', text: 'hsl(var(--danger-text))', label: 'removed' },
       batch_created: { bg: 'hsl(var(--info-bg))', text: 'hsl(var(--info-text))', label: 'new batch' },
       report_exported: { bg: 'hsl(var(--muted))', text: 'hsl(var(--muted-foreground))', label: 'export' },
+      session_rescheduled: { bg: 'hsl(var(--amber-bg))', text: 'hsl(var(--amber-text))', label: 'rescheduled' },
     };
     return map[type] || { bg: 'hsl(var(--muted))', text: 'hsl(var(--muted-foreground))', label: type };
   };
@@ -117,7 +159,6 @@ const AdminDashboard: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3, section: 'OVERVIEW' },
     { id: 'moderators', label: 'Moderators', icon: Users, section: 'OVERVIEW' },
     { id: 'batches', label: 'All batches', icon: BookOpen, section: 'OVERVIEW' },
-    { id: 'add-mod', label: 'Add moderator', icon: Plus, section: 'TOOLS' },
     { id: 'export', label: 'Export all', icon: Download, section: 'TOOLS' },
     { id: 'settings', label: 'Settings', icon: Settings, section: 'TOOLS' },
   ];
@@ -126,6 +167,12 @@ const AdminDashboard: React.FC = () => {
   const isRecentlyActive = (dateStr: string) => Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
 
   const attColor = avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
+
+  const getModStatus = (modId: string): 'active' | 'pending' => {
+    const code = modCodes.find(c => c.mod_id === modId);
+    if (code && !code.used) return 'pending';
+    return 'active';
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -150,9 +197,6 @@ const AdminDashboard: React.FC = () => {
           </div>
         ))}
         <div className="mt-auto">
-          <button onClick={() => setActivePage('settings')} className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground rounded-md">
-            <Settings className="w-4 h-4" /> Settings
-          </button>
           <button onClick={signOut} className="text-xs text-muted-foreground hover:text-foreground mt-2">Logout</button>
         </div>
       </div>
@@ -199,24 +243,33 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-sm text-muted-foreground">{moderators.length} active</span>
                 </div>
                 <div className="space-y-3">
-                  {moderators.map(mod => (
-                    <div key={mod.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-amber-bg text-amber-text">
-                            {getInitials(mod.name || mod.email)}
+                  {moderators.map(mod => {
+                    const status = getModStatus(mod.id);
+                    return (
+                      <div key={mod.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-amber-bg text-amber-text">
+                              {getInitials(mod.name || mod.email)}
+                            </div>
+                            <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${
+                              status === 'active' ? 'bg-success-text' : 'bg-muted-foreground'
+                            }`} />
                           </div>
-                          <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${
-                            isRecentlyActive(mod.created_at) ? 'bg-success-text' : 'bg-muted-foreground'
-                          }`} />
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{mod.name || mod.email}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {status === 'pending' ? 'Pending activation' : timeAgo(mod.created_at)}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{mod.name || mod.email}</p>
-                          <p className="text-xs text-muted-foreground">{timeAgo(mod.created_at)}</p>
-                        </div>
+                        <span className="text-xs px-2 py-0.5 rounded" style={{
+                          background: status === 'active' ? 'hsl(var(--success-bg))' : 'hsl(var(--amber-bg))',
+                          color: status === 'active' ? 'hsl(var(--success-text))' : 'hsl(var(--amber-text))',
+                        }}>{status}</span>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -275,52 +328,103 @@ const AdminDashboard: React.FC = () => {
           </>
         )}
 
+        {activePage === 'moderators' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">All Moderators</h2>
+              <button onClick={() => { setShowAddMod(true); setGeneratedCode(''); setNewModEmail(''); setAddModError(''); }}
+                className="flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground"
+                style={{ padding: '8px 16px', borderRadius: 7 }}>
+                <Plus className="w-4 h-4" /> Add moderator
+              </button>
+            </div>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
+              {moderators.map(mod => {
+                const status = getModStatus(mod.id);
+                const code = modCodes.find(c => c.mod_id === mod.id);
+                return (
+                  <div key={mod.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-info-bg text-info-text flex items-center justify-center text-xs font-medium">
+                        {getInitials(mod.name || mod.email)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{mod.name || mod.email}</p>
+                        <p className="text-xs text-muted-foreground">{mod.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs px-2 py-0.5 rounded" style={{
+                        background: status === 'active' ? 'hsl(var(--success-bg))' : 'hsl(var(--amber-bg))',
+                        color: status === 'active' ? 'hsl(var(--success-text))' : 'hsl(var(--amber-text))',
+                      }}>{status}</span>
+                      {code && !code.used && (
+                        <span className="text-xs font-mono text-muted-foreground">{code.code}</span>
+                      )}
+                      <span className="text-xs text-muted-foreground">Joined {new Date(mod.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Add moderator modal */}
+        {showAddMod && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+            onClick={() => setShowAddMod(false)}>
+            <div onClick={(e) => e.stopPropagation()}
+              style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 24, maxWidth: 380, width: '100%' }}>
+              {generatedCode ? (
+                <>
+                  <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 8 }}>Moderator created</div>
+                  <p style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Share this access code with {newModEmail}:</p>
+                  <div style={{ background: '#242424', border: '1px solid #333', borderRadius: 8, padding: '12px 16px', textAlign: 'center', marginBottom: 16 }}>
+                    <span style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 700, color: '#d4920a', letterSpacing: 2 }}>{generatedCode}</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#555', marginBottom: 16 }}>They will use this code along with their email to activate their account and set a password.</p>
+                  <button onClick={() => { navigator.clipboard.writeText(generatedCode); }}
+                    style={{ width: '100%', padding: '8px', fontSize: 12, background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 6, cursor: 'pointer', marginBottom: 8 }}>
+                    Copy code
+                  </button>
+                  <button onClick={() => setShowAddMod(false)}
+                    style={{ width: '100%', padding: '8px', fontSize: 12, background: '#242424', border: '1px solid #333', color: '#888', borderRadius: 6, cursor: 'pointer' }}>
+                    Done
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 4 }}>Add moderator</div>
+                  <p style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Enter their email address. An access code will be generated for them.</p>
+                  {addModError && (
+                    <div style={{ fontSize: 12, color: 'hsl(var(--danger-text))', background: 'hsl(var(--danger-bg))', padding: '8px 10px', borderRadius: 6, marginBottom: 8 }}>
+                      {addModError}
+                    </div>
+                  )}
+                  <input type="email" value={newModEmail} onChange={(e) => setNewModEmail(e.target.value)}
+                    placeholder="moderator@email.com"
+                    style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#F0F0F0', outline: 'none', marginBottom: 12 }} />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setShowAddMod(false)}
+                      style={{ padding: '6px 14px', fontSize: 12, background: '#242424', border: '1px solid #333', color: '#888', borderRadius: 6, cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                    <button onClick={handleAddModerator} disabled={addModLoading || !newModEmail.trim()}
+                      style={{ padding: '6px 14px', fontSize: 12, background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', borderRadius: 6, cursor: 'pointer', border: 'none', opacity: addModLoading || !newModEmail.trim() ? 0.5 : 1 }}>
+                      {addModLoading ? 'Creating…' : 'Create moderator'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {activePage === 'settings' && (
           <div className="max-w-md">
             <h2 className="text-lg font-semibold text-foreground mb-4">Settings</h2>
-            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-              <h3 className="text-sm font-medium text-foreground mb-2">Invite Code</h3>
-              <p className="text-xs text-muted-foreground mb-3">Moderators need this code to sign up.</p>
-              <div className="flex gap-2">
-                <input type="text" value={newCode} onChange={(e) => setNewCode(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm text-foreground rounded-md"
-                  style={{ background: 'hsl(var(--input-bg))', border: '1px solid hsl(var(--input-border))' }} />
-                <button onClick={updateInviteCode} disabled={newCode === inviteCode}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50">Update</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activePage === 'moderators' && (
-          <div>
-            <h2 className="text-lg font-semibold text-foreground mb-4">All Moderators</h2>
-            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
-              {moderators.map(mod => (
-                <div key={mod.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-info-bg text-info-text flex items-center justify-center text-xs font-medium">
-                      {getInitials(mod.name || mod.email)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{mod.name || mod.email}</p>
-                      <p className="text-xs text-muted-foreground">{mod.email}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs text-muted-foreground">Joined {new Date(mod.created_at).toLocaleDateString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activePage === 'add-mod' && (
-          <div className="max-w-md">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Add Moderator</h2>
-            <p className="text-sm text-muted-foreground mb-4">Share the invite code with new moderators.</p>
-            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-              <p className="text-lg font-mono font-semibold text-foreground">{inviteCode}</p>
-            </div>
+            <p className="text-sm text-muted-foreground">Moderators are now added via the Moderators page with access codes.</p>
           </div>
         )}
 
