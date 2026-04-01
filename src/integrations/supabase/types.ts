@@ -187,6 +187,33 @@ export type Database = {
           },
         ]
       }
+      moderator_codes: {
+        Row: {
+          code: string
+          created_at: string
+          email: string
+          id: string
+          mod_id: string | null
+          used: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email: string
+          id?: string
+          mod_id?: string | null
+          used?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string
+          id?: string
+          mod_id?: string | null
+          used?: boolean
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -210,6 +237,50 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
         }
         Relationships: []
+      }
+      rescheduled_sessions: {
+        Row: {
+          batch_id: string
+          created_at: string
+          created_by: string
+          day_name: string
+          id: string
+          new_date: string
+          original_date: string | null
+          reason: string | null
+          week_number: number
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          created_by: string
+          day_name: string
+          id?: string
+          new_date: string
+          original_date?: string | null
+          reason?: string | null
+          week_number: number
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          created_by?: string
+          day_name?: string
+          id?: string
+          new_date?: string
+          original_date?: string | null
+          reason?: string | null
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rescheduled_sessions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settings: {
         Row: {
