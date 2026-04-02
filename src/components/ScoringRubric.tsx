@@ -27,7 +27,10 @@ const ScoringRubric: React.FC = () => {
         style={{ background: '#161616', borderBottom: '1px solid #2a2a2a', padding: '8px 14px' }}
       >
         <span style={{ fontSize: 12, color: '#666' }}>📋 Scoring rubric</span>
-        <span style={{ fontSize: 12, color: '#555' }}>{expanded ? '▲ Hide' : '▼ Show'}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 11, color: '#555', fontStyle: 'italic' }}>← click to expand / collapse</span>
+          <span style={{ fontSize: 12, color: '#555' }}>{expanded ? '▲ Hide' : '▼ Show'}</span>
+        </span>
       </button>
       {expanded && (
         <div style={{ padding: '0 14px 14px', background: '#111' }}>
