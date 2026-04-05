@@ -959,13 +959,13 @@ const ModDashboard: React.FC = () => {
             />
             <div className="flex justify-end gap-2 mt-3">
               <button onClick={() => setNoteModal(null)}
-                style={{ padding: '6px 14px', fontSize: 12, background: '#242424', border: '1px solid #333', color: '#888', borderRadius: 6, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={saveAbsenceNote}
-                style={{ padding: '6px 14px', fontSize: 12, background: '#2A2A2A', border: '1px solid #555', color: '#F0F0F0', borderRadius: 6, cursor: 'pointer' }}>
-                Save
-              </button>
+                style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+              <button onClick={() => { setNoteModal(null); saveAbsenceNote(); }}
+                style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save</button>
             </div>
           </div>
         </div>
