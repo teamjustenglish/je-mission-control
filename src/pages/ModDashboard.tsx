@@ -477,7 +477,65 @@ const ModDashboard: React.FC = () => {
     }
   };
 
-  const addStudent = async () => {
+  // Double-click tab → open edit modal
+  const openEditBatch = (batch: Batch) => {
+    setEditBatchId(batch.id);
+    setEditBatchMonth(batch.month);
+    setEditBatchYear(batch.year);
+    setEditBatchLabel(batch.label);
+    setEditBatchStartDate((batch as any).start_date || '');
+  };
+
+  const saveEditBatch = async () => {
+    if (!editBatchId || !user || !editBatchLabel.trim()) return;
+    const monthName = MONTHS[editBatchMonth - 1];
+    const newName = `${monthName} ${editBatchYear} · ${editBatchLabel.trim()}`;
+    await supabase.from('batches').update({
+      name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim(),
+    }).eq('id', editBatchId);
+    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim() } : b));
+    setEditBatchId(null);
+    showSaved();
+  };
+
+  // Right-click tab → delete batch
+  const deleteBatch = async (batch: Batch) => {
+    // Cascade delete: demo_scores → demo_days, attendance, rescheduled_sessions, students, then batch
+    const dds = (await supabase.from('demo_days').select('id').eq('batch_id', batch.id)).data || [];
+    if (dds.length > 0) {
+      await supabase.from('demo_scores').delete().in('demo_day_id', dds.map(d => d.id));
+    }
+    await supabase.from('demo_days').delete().eq('batch_id', batch.id);
+    await supabase.from('attendance').delete().eq('batch_id', batch.id);
+    await supabase.from('rescheduled_sessions').delete().eq('batch_id', batch.id);
+    await supabase.from('students').delete().eq('batch_id', batch.id);
+    await supabase.from('batches').delete().eq('id', batch.id);
+    delete batchCacheRef.current[batch.id];
+    const remaining = batches.filter(b => b.id !== batch.id);
+    setBatches(remaining);
+    if (activeBatchId === batch.id) {
+      if (remaining.length > 0) {
+        switchBatch(remaining[0].id);
+      } else {
+        setActiveBatchId(null);
+        setStudents([]); setAttendance([]); setDemoDays([]); setDemoScores([]); setRescheduledSessions([]);
+      }
+    }
+    setDeleteBatchConfirm(null);
+    if (user) {
+      await logActivity(user.id, profile?.name || '', 'batch_deleted', `Deleted batch ${batch.name}`, batch.name);
+    }
+  };
+
+  // Dismiss context menu on outside click
+  useEffect(() => {
+    if (!batchContextMenu) return;
+    const handler = () => setBatchContextMenu(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [batchContextMenu]);
+
+
     if (!activeBatchId || !user) return;
     const { data } = await supabase.from('students').insert({ batch_id: activeBatchId, name: '' }).select().single();
     if (data) {
