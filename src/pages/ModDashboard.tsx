@@ -265,6 +265,17 @@ const ModDashboard: React.FC = () => {
   const [hoveredStudentId, setHoveredStudentId] = useState<string | null>(null);
   const [reportStudent, setReportStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
+
+  // Edit batch modal state
+  const [editBatchId, setEditBatchId] = useState<string | null>(null);
+  const [editBatchMonth, setEditBatchMonth] = useState(1);
+  const [editBatchYear, setEditBatchYear] = useState(2026);
+  const [editBatchLabel, setEditBatchLabel] = useState('');
+  const [editBatchStartDate, setEditBatchStartDate] = useState('');
+
+  // Delete batch state
+  const [deleteBatchConfirm, setDeleteBatchConfirm] = useState<Batch | null>(null);
+  const [batchContextMenu, setBatchContextMenu] = useState<{ batchId: string; x: number; y: number } | null>(null);
   const [savedVisible, setSavedVisible] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'saved'>('idle');
   const savedTimeout = useRef<ReturnType<typeof setTimeout>>();
