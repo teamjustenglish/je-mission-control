@@ -266,9 +266,22 @@ const ModDashboard: React.FC = () => {
   const [reportStudent, setReportStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
   const [savedVisible, setSavedVisible] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'saved'>('idle');
   const savedTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const syncTimeout = useRef<ReturnType<typeof setTimeout>>();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const batchCreatedRef = useRef(false); // BUG 4: prevent duplicate
+
+  // --- Batch data cache ---
+  interface BatchCacheEntry {
+    students: Student[];
+    attendance: AttendanceRecord[];
+    demoDays: DemoDay[];
+    demoScores: DemoScore[];
+    rescheduledSessions: RescheduledSession[];
+  }
+  const batchCacheRef = useRef<Record<string, BatchCacheEntry>>({});
+  const initialLoadDone = useRef(false);
 
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
@@ -291,38 +304,111 @@ const ModDashboard: React.FC = () => {
     savedTimeout.current = setTimeout(() => setSavedVisible(false), 2000);
   };
 
+  const showSyncStatus = (status: 'idle' | 'syncing' | 'saved') => {
+    setSyncStatus(status);
+    if (syncTimeout.current) clearTimeout(syncTimeout.current);
+    if (status === 'saved') {
+      syncTimeout.current = setTimeout(() => setSyncStatus('idle'), 2000);
+    }
+  };
+
+  // Save current state back to cache
+  const saveToCacheFromState = useCallback(() => {
+    if (!activeBatchId) return;
+    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, rescheduledSessions };
+  }, [activeBatchId, students, attendance, demoDays, demoScores, rescheduledSessions]);
+
+  // Keep cache in sync with state changes
+  useEffect(() => { saveToCacheFromState(); }, [saveToCacheFromState]);
+
+  // Fetch a single batch's data from Supabase
+  const fetchBatchData = useCallback(async (batchId: string): Promise<BatchCacheEntry> => {
+    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
+      supabase.from('students').select('*').eq('batch_id', batchId).order('created_at'),
+      supabase.from('attendance').select('*').eq('batch_id', batchId),
+      supabase.from('demo_days').select('*').eq('batch_id', batchId).order('day_number'),
+      supabase.from('rescheduled_sessions').select('*').eq('batch_id', batchId),
+    ]);
+    const fetchedStudents = studentsRes.data || [];
+    const fetchedAttendance = (attendanceRes.data || []) as AttendanceRecord[];
+    const fetchedDemoDays = demoDaysRes.data || [];
+    const fetchedRescheduled = (rescheduledRes.data || []) as RescheduledSession[];
+    let fetchedDemoScores: DemoScore[] = [];
+    const ddIds = fetchedDemoDays.map(d => d.id);
+    if (ddIds.length > 0) {
+      const { data: scores } = await supabase.from('demo_scores').select('*').in('demo_day_id', ddIds);
+      if (scores) fetchedDemoScores = scores;
+    }
+    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, rescheduledSessions: fetchedRescheduled };
+  }, []);
+
+  // Apply cached data to active state
+  const applyCacheToState = useCallback((entry: BatchCacheEntry) => {
+    setStudents(entry.students);
+    setAttendance(entry.attendance);
+    setDemoDays(entry.demoDays);
+    setDemoScores(entry.demoScores);
+    setRescheduledSessions(entry.rescheduledSessions);
+  }, []);
+
+  // Switch batch tab — instant from cache, no fetch
+  const switchBatch = useCallback((batchId: string) => {
+    if (batchId === activeBatchId) return;
+    setActiveBatchId(batchId);
+    const cached = batchCacheRef.current[batchId];
+    if (cached) {
+      applyCacheToState(cached);
+    }
+    // If not cached yet (shouldn't happen after initial load), fetch
+    if (!cached) {
+      fetchBatchData(batchId).then(entry => {
+        batchCacheRef.current[batchId] = entry;
+        // Only apply if still active
+        setActiveBatchId(prev => {
+          if (prev === batchId) applyCacheToState(entry);
+          return prev;
+        });
+      });
+    }
+  }, [activeBatchId, applyCacheToState, fetchBatchData]);
+
+  // Initial load: fetch batches, load first immediately, background-load rest
+  useEffect(() => {
+    if (!user || initialLoadDone.current) return;
+    initialLoadDone.current = true;
+    (async () => {
+      const { data } = await supabase.from('batches').select('*').eq('mod_id', user.id).order('created_at');
+      if (!data || data.length === 0) { setBatches(data || []); return; }
+      setBatches(data);
+      // Load first batch immediately
+      const firstId = data[0].id;
+      setActiveBatchId(firstId);
+      const firstData = await fetchBatchData(firstId);
+      batchCacheRef.current[firstId] = firstData;
+      applyCacheToState(firstData);
+      // Background-load remaining batches
+      for (let i = 1; i < data.length; i++) {
+        const bId = data[i].id;
+        const bData = await fetchBatchData(bId);
+        batchCacheRef.current[bId] = bData;
+      }
+    })();
+  }, [user, fetchBatchData, applyCacheToState]);
+
+  // Reload batches list (after creating a new batch)
   const loadBatches = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase.from('batches').select('*').eq('mod_id', user.id).order('created_at');
-    if (data) {
-      setBatches(data);
-      if (data.length > 0 && !activeBatchId) setActiveBatchId(data[0].id);
-    }
-  }, [user, activeBatchId]);
+    if (data) setBatches(data);
+  }, [user]);
 
+  // Reload current batch data from Supabase (for error recovery)
   const loadBatchData = useCallback(async () => {
     if (!activeBatchId) return;
-    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
-      supabase.from('students').select('*').eq('batch_id', activeBatchId).order('created_at'),
-      supabase.from('attendance').select('*').eq('batch_id', activeBatchId),
-      supabase.from('demo_days').select('*').eq('batch_id', activeBatchId).order('day_number'),
-      supabase.from('rescheduled_sessions').select('*').eq('batch_id', activeBatchId),
-    ]);
-    if (studentsRes.data) setStudents(studentsRes.data);
-    if (attendanceRes.data) setAttendance(attendanceRes.data as AttendanceRecord[]);
-    if (rescheduledRes.data) setRescheduledSessions(rescheduledRes.data as RescheduledSession[]);
-    if (demoDaysRes.data) {
-      setDemoDays(demoDaysRes.data);
-      const ddIds = demoDaysRes.data.map(d => d.id);
-      if (ddIds.length > 0) {
-        const { data: scores } = await supabase.from('demo_scores').select('*').in('demo_day_id', ddIds);
-        if (scores) setDemoScores(scores);
-      }
-    }
-  }, [activeBatchId]);
-
-  useEffect(() => { loadBatches(); }, [loadBatches]);
-  useEffect(() => { loadBatchData(); }, [loadBatchData]);
+    const entry = await fetchBatchData(activeBatchId);
+    batchCacheRef.current[activeBatchId] = entry;
+    applyCacheToState(entry);
+  }, [activeBatchId, fetchBatchData, applyCacheToState]);
 
   const getSessionDate = (sessionIndex: number): string | null => {
     if (!activeBatch?.start_date) return null;
@@ -371,7 +457,12 @@ const ModDashboard: React.FC = () => {
       ]);
       await logActivity(user.id, profile?.name || '', 'batch_created', `Created batch ${batchName}`, batchName);
       setShowCreateBatch(false); setNewBatchLabel(''); setNewBatchStartDate('');
-      setActiveBatchId(data.id); loadBatches();
+      // Fetch the new batch data into cache and switch to it
+      const newData = await fetchBatchData(data.id);
+      batchCacheRef.current[data.id] = newData;
+      applyCacheToState(newData);
+      setActiveBatchId(data.id);
+      await loadBatches();
     }
   };
 
@@ -417,21 +508,22 @@ const ModDashboard: React.FC = () => {
     else newState = 'e';
 
     // Optimistic update
+    showSyncStatus('syncing');
     if (existing) {
       const updateData: Partial<AttendanceRecord> = { state: newState };
       if (newState !== 'x') updateData.absence_note = null;
       setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, ...updateData } : a));
       // Background sync
       supabase.from('attendance').update({ state: newState, ...(newState !== 'x' ? { absence_note: null } : {}) }).eq('id', existing.id)
-        .then(({ error }) => { if (error) loadBatchData(); }); // revert on error
+        .then(({ error }) => { if (error) { loadBatchData(); showSyncStatus('idle'); } else { showSyncStatus('saved'); } });
     } else {
       const tempId = `temp-${Date.now()}`;
       const optimistic: AttendanceRecord = { id: tempId, student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState };
       setAttendance(prev => [...prev, optimistic]);
       supabase.from('attendance').insert({ student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState })
         .select().single().then(({ data, error }) => {
-          if (error) { setAttendance(prev => prev.filter(a => a.id !== tempId)); }
-          else if (data) { setAttendance(prev => prev.map(a => a.id === tempId ? data as AttendanceRecord : a)); }
+          if (error) { setAttendance(prev => prev.filter(a => a.id !== tempId)); showSyncStatus('idle'); }
+          else if (data) { setAttendance(prev => prev.map(a => a.id === tempId ? data as AttendanceRecord : a)); showSyncStatus('saved'); }
         });
     }
     showSaved();
@@ -560,18 +652,23 @@ const ModDashboard: React.FC = () => {
 
   const updateDemoScore = async (demoDayId: string, studentId: string, criterion: string, score: number) => {
     const existing = demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion);
+    showSyncStatus('syncing');
     if (existing) {
-      await supabase.from('demo_scores').update({ score }).eq('id', existing.id);
       setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
+      supabase.from('demo_scores').update({ score }).eq('id', existing.id)
+        .then(({ error }) => { if (error) { loadBatchData(); showSyncStatus('idle'); } else { showSyncStatus('saved'); } });
     } else {
-      const { data } = await supabase.from('demo_scores').insert({
-        demo_day_id: demoDayId, student_id: studentId, criterion, score,
-      }).select().single();
-      if (data) setDemoScores(prev => [...prev, data]);
+      const tempId = `temp-score-${Date.now()}`;
+      setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
+      supabase.from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
+        .select().single().then(({ data, error }) => {
+          if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); }
+          else if (data) { setDemoScores(prev => prev.map(s => s.id === tempId ? data : s)); showSyncStatus('saved'); }
+        });
     }
     showSaved();
     if (user && activeBatch) {
-      await logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
+      logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
     }
   };
 
@@ -676,7 +773,7 @@ const ModDashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
             {batches.map(batch => (
-              <button key={batch.id} onClick={() => setActiveBatchId(batch.id)}
+              <button key={batch.id} onClick={() => switchBatch(batch.id)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   batch.id === activeBatchId ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}>{batch.name}</button>
@@ -853,7 +950,9 @@ const ModDashboard: React.FC = () => {
                 <p className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>{activeBatch.name} · {students.length} students</p>
               </div>
               <div className="flex items-center gap-2">
-                {savedVisible && <span className="save-indicator" style={{ fontSize: 11, color: 'hsl(var(--score-green))' }}>✓ Saved</span>}
+                {syncStatus === 'syncing' && <span style={{ fontSize: 11, color: '#555' }}>Syncing...</span>}
+                {syncStatus === 'saved' && <span style={{ fontSize: 11, color: '#4ade80' }}>✓ Saved</span>}
+                {savedVisible && syncStatus === 'idle' && <span className="save-indicator" style={{ fontSize: 11, color: 'hsl(var(--score-green))' }}>✓ Saved</span>}
                 <button onClick={() => setAllWeeksView(!allWeeksView)} className="flex items-center gap-1.5 text-xs"
                   style={{
                     padding: '4px 12px', borderRadius: 7,
