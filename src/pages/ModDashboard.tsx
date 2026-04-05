@@ -619,7 +619,18 @@ const ModDashboard: React.FC = () => {
         background: rescheduled ? '#1e1800' : (info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))'),
         color: rescheduled ? '#d4920a' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
       }}>
-        <div>{info.isDemo ? 'Demo day' : info.day}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <span>{info.isDemo ? 'Demo day' : info.day}</span>
+          <ColumnMenu
+            sessionIndex={si}
+            isRescheduled={!!rescheduled}
+            onMarkAllPresent={() => markAllForSession(si, 'c')}
+            onMarkAllAbsent={() => markAllForSession(si, 'x')}
+            onReschedule={() => openRescheduleModal(si)}
+            onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
+            onRemoveReschedule={() => rescheduled && removeReschedule(rescheduled.id)}
+          />
+        </div>
         {rescheduled ? (
           <>
             <div style={{ fontSize: 10, opacity: 0.8 }}>{newDateStr}</div>
