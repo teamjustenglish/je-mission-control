@@ -994,13 +994,13 @@ const ModDashboard: React.FC = () => {
             </div>
             <div className="flex justify-end gap-2 mt-3">
               <button onClick={() => setRescheduleModal(null)}
-                style={{ padding: '6px 14px', fontSize: 12, background: '#242424', border: '1px solid #333', color: '#888', borderRadius: 6, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={saveReschedule} disabled={!rescheduleDate}
-                style={{ padding: '6px 14px', fontSize: 12, background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 6, cursor: 'pointer', opacity: rescheduleDate ? 1 : 0.5 }}>
-                ↻ Confirm reschedule
-              </button>
+                style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+              <button onClick={() => { setRescheduleModal(null); saveReschedule(); }} disabled={!rescheduleDate}
+                style={{ ...primaryBtnStyle, opacity: rescheduleDate ? 1 : 0.5 }} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>↻ Confirm reschedule</button>
             </div>
           </div>
         </div>
