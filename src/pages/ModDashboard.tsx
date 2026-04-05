@@ -842,7 +842,10 @@ const ModDashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
             {batches.map(batch => (
-              <button key={batch.id} onClick={() => switchBatch(batch.id)}
+              <button key={batch.id}
+                onClick={() => switchBatch(batch.id)}
+                onDoubleClick={() => openEditBatch(batch)}
+                onContextMenu={(e) => { e.preventDefault(); setBatchContextMenu({ batchId: batch.id, x: e.clientX, y: e.clientY }); }}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   batch.id === activeBatchId ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}>{batch.name}</button>
