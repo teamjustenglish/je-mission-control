@@ -517,8 +517,8 @@ const ModDashboard: React.FC = () => {
       setAttendance(prev => [...prev, optimistic]);
       supabase.from('attendance').insert({ student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState })
         .select().single().then(({ data, error }) => {
-          if (error) { setAttendance(prev => prev.filter(a => a.id !== tempId)); }
-          else if (data) { setAttendance(prev => prev.map(a => a.id === tempId ? data as AttendanceRecord : a)); }
+          if (error) { setAttendance(prev => prev.filter(a => a.id !== tempId)); showSyncStatus('idle'); }
+          else if (data) { setAttendance(prev => prev.map(a => a.id === tempId ? data as AttendanceRecord : a)); showSyncStatus('saved'); }
         });
     }
     showSaved();
