@@ -265,6 +265,17 @@ const ModDashboard: React.FC = () => {
   const [hoveredStudentId, setHoveredStudentId] = useState<string | null>(null);
   const [reportStudent, setReportStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
+
+  // Edit batch modal state
+  const [editBatchId, setEditBatchId] = useState<string | null>(null);
+  const [editBatchMonth, setEditBatchMonth] = useState(1);
+  const [editBatchYear, setEditBatchYear] = useState(2026);
+  const [editBatchLabel, setEditBatchLabel] = useState('');
+  const [editBatchStartDate, setEditBatchStartDate] = useState('');
+
+  // Delete batch state
+  const [deleteBatchConfirm, setDeleteBatchConfirm] = useState<Batch | null>(null);
+  const [batchContextMenu, setBatchContextMenu] = useState<{ batchId: string; x: number; y: number } | null>(null);
   const [savedVisible, setSavedVisible] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'saved'>('idle');
   const savedTimeout = useRef<ReturnType<typeof setTimeout>>();
@@ -466,8 +477,66 @@ const ModDashboard: React.FC = () => {
     }
   };
 
-  const addStudent = async () => {
-    if (!activeBatchId || !user) return;
+  // Double-click tab → open edit modal
+  const openEditBatch = (batch: Batch) => {
+    setEditBatchId(batch.id);
+    setEditBatchMonth(batch.month);
+    setEditBatchYear(batch.year);
+    setEditBatchLabel(batch.label);
+    setEditBatchStartDate((batch as any).start_date || '');
+  };
+
+  const saveEditBatch = async () => {
+    if (!editBatchId || !user || !editBatchLabel.trim()) return;
+    const monthName = MONTHS[editBatchMonth - 1];
+    const newName = `${monthName} ${editBatchYear} · ${editBatchLabel.trim()}`;
+    await supabase.from('batches').update({
+      name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim(),
+    }).eq('id', editBatchId);
+    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim() } : b));
+    setEditBatchId(null);
+    showSaved();
+  };
+
+  // Right-click tab → delete batch
+  const deleteBatch = async (batch: Batch) => {
+    // Cascade delete: demo_scores → demo_days, attendance, rescheduled_sessions, students, then batch
+    const dds = (await supabase.from('demo_days').select('id').eq('batch_id', batch.id)).data || [];
+    if (dds.length > 0) {
+      await supabase.from('demo_scores').delete().in('demo_day_id', dds.map(d => d.id));
+    }
+    await supabase.from('demo_days').delete().eq('batch_id', batch.id);
+    await supabase.from('attendance').delete().eq('batch_id', batch.id);
+    await supabase.from('rescheduled_sessions').delete().eq('batch_id', batch.id);
+    await supabase.from('students').delete().eq('batch_id', batch.id);
+    await supabase.from('batches').delete().eq('id', batch.id);
+    delete batchCacheRef.current[batch.id];
+    const remaining = batches.filter(b => b.id !== batch.id);
+    setBatches(remaining);
+    if (activeBatchId === batch.id) {
+      if (remaining.length > 0) {
+        switchBatch(remaining[0].id);
+      } else {
+        setActiveBatchId(null);
+        setStudents([]); setAttendance([]); setDemoDays([]); setDemoScores([]); setRescheduledSessions([]);
+      }
+    }
+    setDeleteBatchConfirm(null);
+    if (user) {
+      await logActivity(user.id, profile?.name || '', 'batch_deleted', `Deleted batch ${batch.name}`, batch.name);
+    }
+  };
+
+  // Dismiss context menu on outside click
+  useEffect(() => {
+    if (!batchContextMenu) return;
+    const handler = () => setBatchContextMenu(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [batchContextMenu]);
+
+
+    const addStudent = async () => {
     const { data } = await supabase.from('students').insert({ batch_id: activeBatchId, name: '' }).select().single();
     if (data) {
       setStudents(prev => [...prev, data]);
@@ -773,7 +842,10 @@ const ModDashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
             {batches.map(batch => (
-              <button key={batch.id} onClick={() => switchBatch(batch.id)}
+              <button key={batch.id}
+                onClick={() => switchBatch(batch.id)}
+                onDoubleClick={() => openEditBatch(batch)}
+                onContextMenu={(e) => { e.preventDefault(); setBatchContextMenu({ batchId: batch.id, x: e.clientX, y: e.clientY }); }}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   batch.id === activeBatchId ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}>{batch.name}</button>
@@ -919,6 +991,86 @@ const ModDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Batch context menu (right-click) */}
+      {batchContextMenu && (() => {
+        const batch = batches.find(b => b.id === batchContextMenu.batchId);
+        if (!batch) return null;
+        return (
+          <div style={{
+            position: 'fixed', left: batchContextMenu.x, top: batchContextMenu.y, zIndex: 60,
+            background: '#252525', border: '1px solid #333', borderRadius: 9, padding: 5, minWidth: 160,
+          }} onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => { setBatchContextMenu(null); setDeleteBatchConfirm(batch); }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#f87171', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; }}
+              onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
+            >🗑 Delete batch</button>
+          </div>
+        );
+      })()}
+
+      {/* Delete batch confirmation modal */}
+      {deleteBatchConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setDeleteBatchConfirm(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 24, maxWidth: 400, width: '100%' }}>
+            <div style={{ fontSize: 16, color: '#F0F0F0', fontWeight: 500, marginBottom: 8 }}>Delete batch?</div>
+            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>
+              This will permanently delete <span style={{ color: '#f87171' }}>{deleteBatchConfirm.name}</span> and all its attendance, demo day scores and student records. This cannot be undone.
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setDeleteBatchConfirm(null)}
+                style={{ padding: '8px 16px', fontSize: 13, background: '#252525', border: '1px solid #333', color: '#888', borderRadius: 7, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => deleteBatch(deleteBatchConfirm)}
+                style={{ padding: '8px 16px', fontSize: 13, background: '#7f1d1d', border: '1px solid #991b1b', color: '#fca5a5', borderRadius: 7, cursor: 'pointer' }}>Delete batch</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit batch modal */}
+      {editBatchId && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+          <div className="p-6 w-full max-w-sm bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
+            <h2 className="text-lg font-medium text-foreground mb-4">Edit batch details</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-muted-foreground">Month</label>
+                <select value={editBatchMonth} onChange={(e) => setEditBatchMonth(Number(e.target.value))}
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }}>
+                  {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Year</label>
+                <input type="number" value={editBatchYear} onChange={(e) => setEditBatchYear(Number(e.target.value))}
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Label</label>
+                <input type="text" placeholder="e.g. Beginners" value={editBatchLabel} onChange={(e) => setEditBatchLabel(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1)</label>
+                <input type="date" value={editBatchStartDate} onChange={(e) => setEditBatchStartDate(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
+              </div>
+              {editBatchLabel && (
+                <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[editBatchMonth - 1]} {editBatchYear} · {editBatchLabel}</strong></p>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setEditBatchId(null)} className="flex-1 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }}>Cancel</button>
+                <button onClick={saveEditBatch} disabled={!editBatchLabel.trim()}
+                  className="flex-1 py-2 bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50" style={{ borderRadius: 7 }}>Save changes</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {activeBatch ? (
         <div className="p-6 max-w-6xl mx-auto">
