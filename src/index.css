@@ -123,3 +123,7 @@ input[type="number"] {
 .save-indicator {
   animation: fadeInOut 2s ease-in-out forwards;
 }
+
+/* Column menu button: hidden by default, visible on header hover */
+.col-menu-btn { opacity: 0; }
+th:hover .col-menu-btn { opacity: 1; }
