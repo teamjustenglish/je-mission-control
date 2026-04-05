@@ -1035,9 +1035,13 @@ const ModDashboard: React.FC = () => {
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setDeleteBatchConfirm(null)}
-                style={{ padding: '8px 16px', fontSize: 13, background: '#252525', border: '1px solid #333', color: '#888', borderRadius: 7, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={() => deleteBatch(deleteBatchConfirm)}
-                style={{ padding: '8px 16px', fontSize: 13, background: '#7f1d1d', border: '1px solid #991b1b', color: '#fca5a5', borderRadius: 7, cursor: 'pointer' }}>Delete batch</button>
+                style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+              <button onClick={() => { const b = deleteBatchConfirm; setDeleteBatchConfirm(null); deleteBatch(b); }}
+                style={destructBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#7f1d1d'; }}>Delete batch</button>
             </div>
           </div>
         </div>
