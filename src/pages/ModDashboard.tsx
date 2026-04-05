@@ -18,6 +18,12 @@ interface RescheduledSession { id: string; batch_id: string; week_number: number
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
 
+const btnPress = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = 'scale(0.98)'; };
+const btnRelease = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = ''; };
+const cancelBtnStyle: React.CSSProperties = { background: '#2a2a2a', border: '1px solid #444', color: '#ccc', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const primaryBtnStyle: React.CSSProperties = { background: '#fff', border: '1px solid #fff', color: '#111', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const destructBtnStyle: React.CSSProperties = { background: '#7f1d1d', border: '1px solid #991b1b', color: '#fca5a5', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+
 // Attendance cell with tooltip for ❌ states — BUG FIXES: yellow dot position, hover bridge, no ⋮
 const AttendanceCell: React.FC<{
   state: string;
@@ -894,10 +900,14 @@ const ModDashboard: React.FC = () => {
                 <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[newBatchMonth - 1]} {newBatchYear} · {newBatchLabel}</strong></p>
               )}
               <div className="flex gap-2 pt-2">
-                <button onClick={() => setShowCreateBatch(false)} className="flex-1 py-2 text-sm text-muted-foreground hover:text-foreground"
-                  style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }}>Cancel</button>
-                <button onClick={createBatch} disabled={!newBatchLabel.trim()}
-                  className="flex-1 py-2 bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50" style={{ borderRadius: 7 }}>Create</button>
+                <button onClick={() => setShowCreateBatch(false)} className="flex-1"
+                  style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                <button onClick={createBatch} disabled={!newBatchLabel.trim()} className="flex-1 disabled:opacity-50"
+                  style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Create</button>
               </div>
             </div>
           </div>
@@ -914,10 +924,14 @@ const ModDashboard: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 mt-4">
-            <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-              style={{ background: 'hsl(var(--input-bg))', border: '1px solid hsl(var(--input-border))', borderRadius: 7 }}>Cancel</button>
-            <button onClick={() => deleteConfirm && removeStudent(deleteConfirm)} className="px-4 py-2 text-sm"
-              style={{ background: '#7F1D1D', border: '1px solid #991B1B', color: '#FCA5A5', borderRadius: 7 }}>Remove</button>
+            <button onClick={() => setDeleteConfirm(null)}
+              style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+            <button onClick={() => { if (deleteConfirm) { const s = deleteConfirm; setDeleteConfirm(null); removeStudent(s); } }}
+              style={destructBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#7f1d1d'; }}>Remove</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -945,13 +959,13 @@ const ModDashboard: React.FC = () => {
             />
             <div className="flex justify-end gap-2 mt-3">
               <button onClick={() => setNoteModal(null)}
-                style={{ padding: '6px 14px', fontSize: 12, background: '#242424', border: '1px solid #333', color: '#888', borderRadius: 6, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={saveAbsenceNote}
-                style={{ padding: '6px 14px', fontSize: 12, background: '#2A2A2A', border: '1px solid #555', color: '#F0F0F0', borderRadius: 6, cursor: 'pointer' }}>
-                Save
-              </button>
+                style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+              <button onClick={() => { setNoteModal(null); saveAbsenceNote(); }}
+                style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save</button>
             </div>
           </div>
         </div>
@@ -980,13 +994,13 @@ const ModDashboard: React.FC = () => {
             </div>
             <div className="flex justify-end gap-2 mt-3">
               <button onClick={() => setRescheduleModal(null)}
-                style={{ padding: '6px 14px', fontSize: 12, background: '#242424', border: '1px solid #333', color: '#888', borderRadius: 6, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={saveReschedule} disabled={!rescheduleDate}
-                style={{ padding: '6px 14px', fontSize: 12, background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 6, cursor: 'pointer', opacity: rescheduleDate ? 1 : 0.5 }}>
-                ↻ Confirm reschedule
-              </button>
+                style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+              <button onClick={() => { setRescheduleModal(null); saveReschedule(); }} disabled={!rescheduleDate}
+                style={{ ...primaryBtnStyle, opacity: rescheduleDate ? 1 : 0.5 }} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>↻ Confirm reschedule</button>
             </div>
           </div>
         </div>
@@ -1021,9 +1035,13 @@ const ModDashboard: React.FC = () => {
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setDeleteBatchConfirm(null)}
-                style={{ padding: '8px 16px', fontSize: 13, background: '#252525', border: '1px solid #333', color: '#888', borderRadius: 7, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={() => deleteBatch(deleteBatchConfirm)}
-                style={{ padding: '8px 16px', fontSize: 13, background: '#7f1d1d', border: '1px solid #991b1b', color: '#fca5a5', borderRadius: 7, cursor: 'pointer' }}>Delete batch</button>
+                style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+              <button onClick={() => { const b = deleteBatchConfirm; setDeleteBatchConfirm(null); deleteBatch(b); }}
+                style={destructBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#7f1d1d'; }}>Delete batch</button>
             </div>
           </div>
         </div>
@@ -1061,10 +1079,14 @@ const ModDashboard: React.FC = () => {
                 <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[editBatchMonth - 1]} {editBatchYear} · {editBatchLabel}</strong></p>
               )}
               <div className="flex gap-2 pt-2">
-                <button onClick={() => setEditBatchId(null)} className="flex-1 py-2 text-sm text-muted-foreground hover:text-foreground"
-                  style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }}>Cancel</button>
-                <button onClick={saveEditBatch} disabled={!editBatchLabel.trim()}
-                  className="flex-1 py-2 bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50" style={{ borderRadius: 7 }}>Save changes</button>
+                <button onClick={() => setEditBatchId(null)} className="flex-1"
+                  style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                <button onClick={() => { setEditBatchId(null); saveEditBatch(); }} disabled={!editBatchLabel.trim()} className="flex-1 disabled:opacity-50"
+                  style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save changes</button>
               </div>
             </div>
           </div>
