@@ -939,7 +939,9 @@ const ModDashboard: React.FC = () => {
                 <p className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>{activeBatch.name} · {students.length} students</p>
               </div>
               <div className="flex items-center gap-2">
-                {savedVisible && <span className="save-indicator" style={{ fontSize: 11, color: 'hsl(var(--score-green))' }}>✓ Saved</span>}
+                {syncStatus === 'syncing' && <span style={{ fontSize: 11, color: '#555' }}>Syncing...</span>}
+                {syncStatus === 'saved' && <span style={{ fontSize: 11, color: '#4ade80' }}>✓ Saved</span>}
+                {savedVisible && syncStatus === 'idle' && <span className="save-indicator" style={{ fontSize: 11, color: 'hsl(var(--score-green))' }}>✓ Saved</span>}
                 <button onClick={() => setAllWeeksView(!allWeeksView)} className="flex items-center gap-1.5 text-xs"
                   style={{
                     padding: '4px 12px', borderRadius: 7,
