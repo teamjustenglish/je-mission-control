@@ -266,9 +266,22 @@ const ModDashboard: React.FC = () => {
   const [reportStudent, setReportStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
   const [savedVisible, setSavedVisible] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'saved'>('idle');
   const savedTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const syncTimeout = useRef<ReturnType<typeof setTimeout>>();
   const nameInputRef = useRef<HTMLInputElement>(null);
   const batchCreatedRef = useRef(false); // BUG 4: prevent duplicate
+
+  // --- Batch data cache ---
+  interface BatchCacheEntry {
+    students: Student[];
+    attendance: AttendanceRecord[];
+    demoDays: DemoDay[];
+    demoScores: DemoScore[];
+    rescheduledSessions: RescheduledSession[];
+  }
+  const batchCacheRef = useRef<Record<string, BatchCacheEntry>>({});
+  const initialLoadDone = useRef(false);
 
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
@@ -291,38 +304,111 @@ const ModDashboard: React.FC = () => {
     savedTimeout.current = setTimeout(() => setSavedVisible(false), 2000);
   };
 
+  const showSyncStatus = (status: 'syncing' | 'saved') => {
+    setSyncStatus(status);
+    if (syncTimeout.current) clearTimeout(syncTimeout.current);
+    if (status === 'saved') {
+      syncTimeout.current = setTimeout(() => setSyncStatus('idle'), 2000);
+    }
+  };
+
+  // Save current state back to cache
+  const saveToCacheFromState = useCallback(() => {
+    if (!activeBatchId) return;
+    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, rescheduledSessions };
+  }, [activeBatchId, students, attendance, demoDays, demoScores, rescheduledSessions]);
+
+  // Keep cache in sync with state changes
+  useEffect(() => { saveToCacheFromState(); }, [saveToCacheFromState]);
+
+  // Fetch a single batch's data from Supabase
+  const fetchBatchData = useCallback(async (batchId: string): Promise<BatchCacheEntry> => {
+    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
+      supabase.from('students').select('*').eq('batch_id', batchId).order('created_at'),
+      supabase.from('attendance').select('*').eq('batch_id', batchId),
+      supabase.from('demo_days').select('*').eq('batch_id', batchId).order('day_number'),
+      supabase.from('rescheduled_sessions').select('*').eq('batch_id', batchId),
+    ]);
+    const fetchedStudents = studentsRes.data || [];
+    const fetchedAttendance = (attendanceRes.data || []) as AttendanceRecord[];
+    const fetchedDemoDays = demoDaysRes.data || [];
+    const fetchedRescheduled = (rescheduledRes.data || []) as RescheduledSession[];
+    let fetchedDemoScores: DemoScore[] = [];
+    const ddIds = fetchedDemoDays.map(d => d.id);
+    if (ddIds.length > 0) {
+      const { data: scores } = await supabase.from('demo_scores').select('*').in('demo_day_id', ddIds);
+      if (scores) fetchedDemoScores = scores;
+    }
+    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, rescheduledSessions: fetchedRescheduled };
+  }, []);
+
+  // Apply cached data to active state
+  const applyCacheToState = useCallback((entry: BatchCacheEntry) => {
+    setStudents(entry.students);
+    setAttendance(entry.attendance);
+    setDemoDays(entry.demoDays);
+    setDemoScores(entry.demoScores);
+    setRescheduledSessions(entry.rescheduledSessions);
+  }, []);
+
+  // Switch batch tab — instant from cache, no fetch
+  const switchBatch = useCallback((batchId: string) => {
+    if (batchId === activeBatchId) return;
+    setActiveBatchId(batchId);
+    const cached = batchCacheRef.current[batchId];
+    if (cached) {
+      applyCacheToState(cached);
+    }
+    // If not cached yet (shouldn't happen after initial load), fetch
+    if (!cached) {
+      fetchBatchData(batchId).then(entry => {
+        batchCacheRef.current[batchId] = entry;
+        // Only apply if still active
+        setActiveBatchId(prev => {
+          if (prev === batchId) applyCacheToState(entry);
+          return prev;
+        });
+      });
+    }
+  }, [activeBatchId, applyCacheToState, fetchBatchData]);
+
+  // Initial load: fetch batches, load first immediately, background-load rest
+  useEffect(() => {
+    if (!user || initialLoadDone.current) return;
+    initialLoadDone.current = true;
+    (async () => {
+      const { data } = await supabase.from('batches').select('*').eq('mod_id', user.id).order('created_at');
+      if (!data || data.length === 0) { setBatches(data || []); return; }
+      setBatches(data);
+      // Load first batch immediately
+      const firstId = data[0].id;
+      setActiveBatchId(firstId);
+      const firstData = await fetchBatchData(firstId);
+      batchCacheRef.current[firstId] = firstData;
+      applyCacheToState(firstData);
+      // Background-load remaining batches
+      for (let i = 1; i < data.length; i++) {
+        const bId = data[i].id;
+        const bData = await fetchBatchData(bId);
+        batchCacheRef.current[bId] = bData;
+      }
+    })();
+  }, [user, fetchBatchData, applyCacheToState]);
+
+  // Reload batches list (after creating a new batch)
   const loadBatches = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase.from('batches').select('*').eq('mod_id', user.id).order('created_at');
-    if (data) {
-      setBatches(data);
-      if (data.length > 0 && !activeBatchId) setActiveBatchId(data[0].id);
-    }
-  }, [user, activeBatchId]);
+    if (data) setBatches(data);
+  }, [user]);
 
+  // Reload current batch data from Supabase (for error recovery)
   const loadBatchData = useCallback(async () => {
     if (!activeBatchId) return;
-    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
-      supabase.from('students').select('*').eq('batch_id', activeBatchId).order('created_at'),
-      supabase.from('attendance').select('*').eq('batch_id', activeBatchId),
-      supabase.from('demo_days').select('*').eq('batch_id', activeBatchId).order('day_number'),
-      supabase.from('rescheduled_sessions').select('*').eq('batch_id', activeBatchId),
-    ]);
-    if (studentsRes.data) setStudents(studentsRes.data);
-    if (attendanceRes.data) setAttendance(attendanceRes.data as AttendanceRecord[]);
-    if (rescheduledRes.data) setRescheduledSessions(rescheduledRes.data as RescheduledSession[]);
-    if (demoDaysRes.data) {
-      setDemoDays(demoDaysRes.data);
-      const ddIds = demoDaysRes.data.map(d => d.id);
-      if (ddIds.length > 0) {
-        const { data: scores } = await supabase.from('demo_scores').select('*').in('demo_day_id', ddIds);
-        if (scores) setDemoScores(scores);
-      }
-    }
-  }, [activeBatchId]);
-
-  useEffect(() => { loadBatches(); }, [loadBatches]);
-  useEffect(() => { loadBatchData(); }, [loadBatchData]);
+    const entry = await fetchBatchData(activeBatchId);
+    batchCacheRef.current[activeBatchId] = entry;
+    applyCacheToState(entry);
+  }, [activeBatchId, fetchBatchData, applyCacheToState]);
 
   const getSessionDate = (sessionIndex: number): string | null => {
     if (!activeBatch?.start_date) return null;
