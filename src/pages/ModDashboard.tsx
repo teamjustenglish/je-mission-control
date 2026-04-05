@@ -1079,10 +1079,14 @@ const ModDashboard: React.FC = () => {
                 <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[editBatchMonth - 1]} {editBatchYear} · {editBatchLabel}</strong></p>
               )}
               <div className="flex gap-2 pt-2">
-                <button onClick={() => setEditBatchId(null)} className="flex-1 py-2 text-sm text-muted-foreground hover:text-foreground"
-                  style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }}>Cancel</button>
-                <button onClick={saveEditBatch} disabled={!editBatchLabel.trim()}
-                  className="flex-1 py-2 bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50" style={{ borderRadius: 7 }}>Save changes</button>
+                <button onClick={() => setEditBatchId(null)} className="flex-1"
+                  style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                <button onClick={() => { setEditBatchId(null); saveEditBatch(); }} disabled={!editBatchLabel.trim()} className="flex-1 disabled:opacity-50"
+                  style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save changes</button>
               </div>
             </div>
           </div>
