@@ -139,20 +139,18 @@ const ColumnMenu: React.FC<{
   }, [open]);
 
   return (
-    <div ref={ref} className="col-menu-wrapper" style={{ position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', zIndex: 20 }}>
+    <div ref={ref} style={{ display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        className="col-menu-btn"
         style={{
-          width: 20, height: 20, borderRadius: 5, border: '1px solid #2e2e2e',
-          color: '#444', background: 'transparent', cursor: 'pointer', fontSize: 12,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 20, height: 20, borderRadius: 4, border: '1px solid #333',
+          color: '#555', background: '#222', cursor: 'pointer', fontSize: 12,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           lineHeight: 1,
-          opacity: open ? 1 : undefined,
-          transition: 'opacity 0.15s, background 0.15s, color 0.15s',
+          transition: 'all 0.15s',
         }}
-        onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-        onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#444'; }}
+        onMouseEnter={(e) => { const t = e.currentTarget; t.style.background = '#2e2e2e'; t.style.color = '#fff'; t.style.borderColor = '#555'; }}
+        onMouseLeave={(e) => { const t = e.currentTarget; t.style.background = '#222'; t.style.color = '#555'; t.style.borderColor = '#333'; }}
       >⋮</button>
       {open && (
         <div style={{
@@ -621,7 +619,18 @@ const ModDashboard: React.FC = () => {
         background: rescheduled ? '#1e1800' : (info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))'),
         color: rescheduled ? '#d4920a' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
       }}>
-        <div>{info.isDemo ? 'Demo day' : info.day}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <span>{info.isDemo ? 'Demo day' : info.day}</span>
+          <ColumnMenu
+            sessionIndex={si}
+            isRescheduled={!!rescheduled}
+            onMarkAllPresent={() => markAllForSession(si, 'c')}
+            onMarkAllAbsent={() => markAllForSession(si, 'x')}
+            onReschedule={() => openRescheduleModal(si)}
+            onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
+            onRemoveReschedule={() => rescheduled && removeReschedule(rescheduled.id)}
+          />
+        </div>
         {rescheduled ? (
           <>
             <div style={{ fontSize: 10, opacity: 0.8 }}>{newDateStr}</div>
@@ -630,15 +639,6 @@ const ModDashboard: React.FC = () => {
         ) : (
           dateStr && <div style={{ fontSize: 10, opacity: 0.7 }}>{dateStr}</div>
         )}
-        <ColumnMenu
-          sessionIndex={si}
-          isRescheduled={!!rescheduled}
-          onMarkAllPresent={() => markAllForSession(si, 'c')}
-          onMarkAllAbsent={() => markAllForSession(si, 'x')}
-          onReschedule={() => openRescheduleModal(si)}
-          onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
-          onRemoveReschedule={() => rescheduled && removeReschedule(rescheduled.id)}
-        />
       </th>
     );
   };
