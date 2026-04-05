@@ -139,14 +139,17 @@ const ColumnMenu: React.FC<{
   }, [open]);
 
   return (
-    <div ref={ref} style={{ position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', zIndex: 20 }}>
+    <div ref={ref} className="col-menu-wrapper" style={{ position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', zIndex: 20 }}>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="col-menu-btn"
         style={{
           width: 20, height: 20, borderRadius: 5, border: '1px solid #2e2e2e',
           color: '#444', background: 'transparent', cursor: 'pointer', fontSize: 12,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           lineHeight: 1,
+          opacity: open ? 1 : undefined,
+          transition: 'opacity 0.15s, background 0.15s, color 0.15s',
         }}
         onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
         onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#444'; }}
