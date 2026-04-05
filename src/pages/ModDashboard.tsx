@@ -647,18 +647,23 @@ const ModDashboard: React.FC = () => {
 
   const updateDemoScore = async (demoDayId: string, studentId: string, criterion: string, score: number) => {
     const existing = demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion);
+    showSyncStatus('syncing');
     if (existing) {
-      await supabase.from('demo_scores').update({ score }).eq('id', existing.id);
       setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
+      supabase.from('demo_scores').update({ score }).eq('id', existing.id)
+        .then(({ error }) => { if (error) { loadBatchData(); showSyncStatus('idle'); } else { showSyncStatus('saved'); } });
     } else {
-      const { data } = await supabase.from('demo_scores').insert({
-        demo_day_id: demoDayId, student_id: studentId, criterion, score,
-      }).select().single();
-      if (data) setDemoScores(prev => [...prev, data]);
+      const tempId = `temp-score-${Date.now()}`;
+      setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
+      supabase.from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
+        .select().single().then(({ data, error }) => {
+          if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); }
+          else if (data) { setDemoScores(prev => prev.map(s => s.id === tempId ? data : s)); showSyncStatus('saved'); }
+        });
     }
     showSaved();
     if (user && activeBatch) {
-      await logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
+      logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
     }
   };
 
