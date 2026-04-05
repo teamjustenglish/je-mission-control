@@ -536,7 +536,7 @@ const ModDashboard: React.FC = () => {
   }, [batchContextMenu]);
 
 
-    if (!activeBatchId || !user) return;
+    const addStudent = async () => {
     const { data } = await supabase.from('students').insert({ batch_id: activeBatchId, name: '' }).select().single();
     if (data) {
       setStudents(prev => [...prev, data]);
