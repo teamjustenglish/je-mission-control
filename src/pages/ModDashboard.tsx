@@ -639,15 +639,6 @@ const ModDashboard: React.FC = () => {
         ) : (
           dateStr && <div style={{ fontSize: 10, opacity: 0.7 }}>{dateStr}</div>
         )}
-        <ColumnMenu
-          sessionIndex={si}
-          isRescheduled={!!rescheduled}
-          onMarkAllPresent={() => markAllForSession(si, 'c')}
-          onMarkAllAbsent={() => markAllForSession(si, 'x')}
-          onReschedule={() => openRescheduleModal(si)}
-          onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
-          onRemoveReschedule={() => rescheduled && removeReschedule(rescheduled.id)}
-        />
       </th>
     );
   };
