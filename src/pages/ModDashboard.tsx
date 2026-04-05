@@ -304,7 +304,7 @@ const ModDashboard: React.FC = () => {
     savedTimeout.current = setTimeout(() => setSavedVisible(false), 2000);
   };
 
-  const showSyncStatus = (status: 'syncing' | 'saved') => {
+  const showSyncStatus = (status: 'idle' | 'syncing' | 'saved') => {
     setSyncStatus(status);
     if (syncTimeout.current) clearTimeout(syncTimeout.current);
     if (status === 'saved') {
