@@ -457,7 +457,12 @@ const ModDashboard: React.FC = () => {
       ]);
       await logActivity(user.id, profile?.name || '', 'batch_created', `Created batch ${batchName}`, batchName);
       setShowCreateBatch(false); setNewBatchLabel(''); setNewBatchStartDate('');
-      setActiveBatchId(data.id); loadBatches();
+      // Fetch the new batch data into cache and switch to it
+      const newData = await fetchBatchData(data.id);
+      batchCacheRef.current[data.id] = newData;
+      applyCacheToState(newData);
+      setActiveBatchId(data.id);
+      await loadBatches();
     }
   };
 
