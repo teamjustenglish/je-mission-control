@@ -1072,7 +1072,8 @@ const ModDashboard: React.FC = () => {
       )}
 
 
-        {activeBatch ? (
+      {activeBatch ? (
+        <div className="p-6 max-w-6xl mx-auto">
           {/* Stats row */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
