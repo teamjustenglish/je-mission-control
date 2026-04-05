@@ -924,10 +924,14 @@ const ModDashboard: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 mt-4">
-            <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-              style={{ background: 'hsl(var(--input-bg))', border: '1px solid hsl(var(--input-border))', borderRadius: 7 }}>Cancel</button>
-            <button onClick={() => deleteConfirm && removeStudent(deleteConfirm)} className="px-4 py-2 text-sm"
-              style={{ background: '#7F1D1D', border: '1px solid #991B1B', color: '#FCA5A5', borderRadius: 7 }}>Remove</button>
+            <button onClick={() => setDeleteConfirm(null)}
+              style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+            <button onClick={() => { if (deleteConfirm) { const s = deleteConfirm; setDeleteConfirm(null); removeStudent(s); } }}
+              style={destructBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#7f1d1d'; }}>Remove</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
