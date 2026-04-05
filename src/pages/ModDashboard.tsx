@@ -503,13 +503,14 @@ const ModDashboard: React.FC = () => {
     else newState = 'e';
 
     // Optimistic update
+    showSyncStatus('syncing');
     if (existing) {
       const updateData: Partial<AttendanceRecord> = { state: newState };
       if (newState !== 'x') updateData.absence_note = null;
       setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, ...updateData } : a));
       // Background sync
       supabase.from('attendance').update({ state: newState, ...(newState !== 'x' ? { absence_note: null } : {}) }).eq('id', existing.id)
-        .then(({ error }) => { if (error) loadBatchData(); }); // revert on error
+        .then(({ error }) => { if (error) { loadBatchData(); showSyncStatus('idle'); } else { showSyncStatus('saved'); } });
     } else {
       const tempId = `temp-${Date.now()}`;
       const optimistic: AttendanceRecord = { id: tempId, student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState };
