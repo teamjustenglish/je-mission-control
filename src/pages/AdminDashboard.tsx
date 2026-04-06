@@ -504,9 +504,15 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   );
                 })}
-                {activityLog.length === 0 && <p className="text-sm text-muted-foreground">No recent activity</p>}
+                {activityLog.length === 0 && (
+                  <div className="text-center py-8">
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+                    <p style={{ fontSize: 14, color: '#888' }}>No activity yet</p>
+                    <p style={{ fontSize: 12, color: '#555' }}>Activity will appear here as moderators use the app</p>
+                  </div>
+                )}
               </div>
-              {/* Inactive mod warnings */}
+              {/* Inactive mod warnings — only for mods who have previous activity */}
               {inactiveMods.length > 0 && (
                 <div className="mt-4 space-y-1" style={{ borderTop: '1px solid hsl(var(--row-border))', paddingTop: 12 }}>
                   {inactiveMods.map(mod => (
