@@ -27,16 +27,35 @@ const LoginPage: React.FC = () => {
     setSuccess('');
     setLoading(true);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('activate-moderator', {
-        body: { email, code: accessCode, password },
-      });
-      if (fnError) throw fnError;
-      const result = typeof data === 'string' ? JSON.parse(data) : data;
-      if (result.error) throw new Error(result.error);
-      setSuccess('Account activated! You can now sign in.');
-      setMode('login');
-      setAccessCode('');
-      setPassword('');
+      // Step 1: Validate code
+      const { data: codeRow, error: codeErr } = await supabase
+        .from('moderator_codes')
+        .select('*')
+        .eq('email', email)
+        .eq('code', accessCode)
+        .eq('used', false)
+        .maybeSingle();
+      if (codeErr) throw new Error('Something went wrong, please try again');
+      if (!codeRow) throw new Error('Invalid or already used access code');
+
+      // Step 2: Sign in with temp password to gain auth, then update password
+      const tempPw = (codeRow as any).temp_password;
+      if (!tempPw) throw new Error('Something went wrong, please try again');
+      const { error: tempSignInErr } = await supabase.auth.signInWithPassword({ email, password: tempPw });
+      if (tempSignInErr) throw new Error('Something went wrong, please try again');
+
+      // Step 3: Update to new password (as signed-in user)
+      const { error: updateErr } = await supabase.auth.updateUser({ password });
+      if (updateErr) throw new Error('Something went wrong, please try again');
+
+      // Step 4: Mark code as used
+      await supabase.from('moderator_codes').update({ used: true } as any).eq('id', codeRow.id);
+
+      // Step 5: Sign out and re-sign in with new password for clean session
+      await supabase.auth.signOut();
+      const { error: finalSignInErr } = await signIn(email, password);
+      if (finalSignInErr) throw finalSignInErr;
+      // Auth context will handle redirect
     } catch (err: any) {
       setError(err.message || 'Activation failed');
     }

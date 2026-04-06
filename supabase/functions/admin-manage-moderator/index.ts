@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
         mod_id: newUser.user.id,
         email,
         code,
+        temp_password: tempPassword,
       })
 
       return new Response(JSON.stringify({ code, userId: newUser.user.id, name }), {

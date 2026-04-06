@@ -1,0 +1,1 @@
+ALTER TABLE public.moderator_codes ADD COLUMN IF NOT EXISTS temp_password text;
