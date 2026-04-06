@@ -71,7 +71,7 @@ const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-foreground mb-1">BatchTrack</h1>
+        <h1 className="text-2xl font-semibold text-foreground mb-1">Mission Control</h1>
         <p className="text-muted-foreground text-sm mb-6">
           {mode === 'login' ? 'Sign in to your account' : 'Activate your moderator account'}
         </p>
