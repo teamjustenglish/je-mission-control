@@ -359,7 +359,7 @@ const AdminDashboard: React.FC = () => {
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
       <div className="w-52 flex flex-col p-4" style={{ background: 'hsl(var(--sidebar-background))', borderRight: '1px solid hsl(var(--border))' }}>
-        <h1 className="text-base font-semibold text-foreground mb-6">BatchTrack</h1>
+        <h1 className="text-base font-semibold text-foreground mb-6">Mission Control</h1>
         {['OVERVIEW', 'TOOLS'].map(section => (
           <div key={section} className="mb-4">
             <p className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase mb-2">{section}</p>
