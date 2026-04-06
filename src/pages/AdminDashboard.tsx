@@ -243,14 +243,23 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteMod = async (mod: Profile) => {
+    // Optimistically remove from UI
+    setModerators(prev => prev.filter(m => m.id !== mod.id));
+    setDeleteModConfirm(null);
     try {
-      await supabase.functions.invoke('admin-manage-moderator', {
-        body: { action: 'ban', userId: mod.id, ban: true },
+      const { data, error } = await supabase.functions.invoke('admin-manage-moderator', {
+        body: { action: 'delete', userId: mod.id },
       });
-      setDeleteModConfirm(null);
+      if (error) throw error;
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (result.error) throw new Error(result.error);
+      // Refresh all data
       loadData();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Delete mod error', err);
+      // Revert on failure
+      loadData();
+      alert(`Failed to remove moderator: ${err.message || 'Unknown error'}`);
     }
   };
 
