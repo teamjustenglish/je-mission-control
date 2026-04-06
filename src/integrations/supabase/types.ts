@@ -200,6 +200,7 @@ export type Database = {
           email: string
           id: string
           mod_id: string | null
+          temp_password: string | null
           used: boolean
         }
         Insert: {
@@ -208,6 +209,7 @@ export type Database = {
           email: string
           id?: string
           mod_id?: string | null
+          temp_password?: string | null
           used?: boolean
         }
         Update: {
@@ -216,6 +218,7 @@ export type Database = {
           email?: string
           id?: string
           mod_id?: string | null
+          temp_password?: string | null
           used?: boolean
         }
         Relationships: []
