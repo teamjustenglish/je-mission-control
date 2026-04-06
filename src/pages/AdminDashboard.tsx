@@ -667,7 +667,7 @@ const AdminDashboard: React.FC = () => {
             <div onClick={(e) => e.stopPropagation()} style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 24, maxWidth: 400, width: '100%' }}>
               <div style={{ fontSize: 16, color: '#F0F0F0', fontWeight: 500, marginBottom: 8 }}>Remove moderator?</div>
               <div style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>
-                This will remove <span style={{ color: '#f87171' }}>{deleteModConfirm.name || deleteModConfirm.email}</span> ({deleteModConfirm.email}) from BatchTrack. They will immediately lose access. Their batch data will not be deleted.
+                This will remove <span style={{ color: '#f87171' }}>{deleteModConfirm.name || deleteModConfirm.email}</span> ({deleteModConfirm.email}) from Mission Control. They will immediately lose access. Their batch data will not be deleted.
               </div>
               <div className="flex justify-end gap-2 mt-5">
                 <button onClick={() => setDeleteModConfirm(null)}
