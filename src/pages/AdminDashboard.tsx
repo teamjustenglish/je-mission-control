@@ -202,7 +202,7 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   // Load activity with filter
-  useEffect(() => { loadActivity(); }, [activityFilter, customDateFrom, customDateTo]);
+  useEffect(() => { loadActivity(); }, [activityFilter, customDateFrom, customDateTo, moderators]);
 
   const loadActivity = async () => {
     let query = supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(50);
