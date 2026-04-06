@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle } from 'lucide-react';
+import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -9,6 +9,7 @@ interface Profile {
   name: string;
   role: string;
   created_at: string;
+  last_sign_in?: string | null;
 }
 
 interface ActivityLogEntry {
@@ -37,6 +38,22 @@ interface ModCode {
   created_at: string;
 }
 
+interface BatchInfo {
+  id: string;
+  name: string;
+  mod_id: string;
+  modName: string;
+  studentCount: number;
+  attendancePct: number;
+  weekNumber: number;
+}
+
+const btnPress = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = 'scale(0.98)'; };
+const btnRelease = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = ''; };
+const cancelBtnStyle: React.CSSProperties = { background: '#2a2a2a', border: '1px solid #444', color: '#ccc', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const primaryBtnStyle: React.CSSProperties = { background: '#fff', border: '1px solid #fff', color: '#111', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const destructBtnStyle: React.CSSProperties = { background: '#7f1d1d', border: '1px solid #991b1b', color: '#fca5a5', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+
 const AdminDashboard: React.FC = () => {
   const { signOut, profile: currentProfile, session } = useAuth();
   const [activePage, setActivePage] = useState('dashboard');
@@ -47,48 +64,90 @@ const AdminDashboard: React.FC = () => {
   const [lowFlags, setLowFlags] = useState<LowAttendanceFlag[]>([]);
   const [avgAttendance, setAvgAttendance] = useState(0);
   const [avgDemoScore, setAvgDemoScore] = useState(0);
+  const [runningBatches, setRunningBatches] = useState<BatchInfo[]>([]);
+  const [hoveredModId, setHoveredModId] = useState<string | null>(null);
 
   // Add mod modal
   const [showAddMod, setShowAddMod] = useState(false);
+  const [newModName, setNewModName] = useState('');
   const [newModEmail, setNewModEmail] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
+  const [generatedModName, setGeneratedModName] = useState('');
   const [addModLoading, setAddModLoading] = useState(false);
   const [addModError, setAddModError] = useState('');
 
+  // Delete mod modal
+  const [deleteModConfirm, setDeleteModConfirm] = useState<Profile | null>(null);
+
+  // Activity filter
+  const [activityFilter, setActivityFilter] = useState<'today' | '7days' | 'custom'>('7days');
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
+
+  // Inactive mods warning
+  const [inactiveMods, setInactiveMods] = useState<Profile[]>([]);
+
   useEffect(() => { loadData(); }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const { data: mods } = await supabase.from('profiles').select('*').eq('role', 'moderator');
-    if (mods) setModerators(mods);
+    if (mods) {
+      setModerators(mods as Profile[]);
+      // Find mods inactive for 3+ days
+      const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+      const inactive = (mods as Profile[]).filter(m => {
+        if (!m.last_sign_in) return true;
+        return new Date(m.last_sign_in).getTime() < threeDaysAgo;
+      });
+      setInactiveMods(inactive);
+    }
 
     const { data: codes } = await supabase.from('moderator_codes').select('*').order('created_at', { ascending: false });
     if (codes) setModCodes(codes as ModCode[]);
 
-    const { count } = await supabase.from('batches').select('*', { count: 'exact', head: true });
-    setBatchCount(count || 0);
+    const { data: allBatches } = await supabase.from('batches').select('*');
+    setBatchCount(allBatches?.length || 0);
 
-    const { data: logs } = await supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(20);
-    if (logs) setActivityLog(logs);
-
-    const { data: allAttendance } = await supabase.from('attendance').select('*');
     const { data: allStudents } = await supabase.from('students').select('*');
-    if (allAttendance && allStudents) {
+    const { data: allAttendance } = await supabase.from('attendance').select('*');
+
+    if (allBatches && allStudents && allAttendance) {
+      // Running batches info
+      const batchInfos: BatchInfo[] = allBatches.map(batch => {
+        const bStudents = allStudents.filter(s => s.batch_id === batch.id);
+        const bAttendance = allAttendance.filter(a => a.batch_id === batch.id);
+        const sessionsLogged = new Set(bAttendance.map(a => a.session_index)).size;
+        const weekNum = Math.min(Math.ceil(sessionsLogged / 4), 6) || 1;
+        const totalPossible = bStudents.length * sessionsLogged;
+        const present = bAttendance.filter(a => a.state === 'c').length;
+        const pct = totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0;
+        const mod = mods?.find(m => m.id === batch.mod_id);
+        return {
+          id: batch.id, name: batch.name, mod_id: batch.mod_id,
+          modName: (mod as any)?.name || 'Unknown',
+          studentCount: bStudents.length, attendancePct: pct, weekNumber: weekNum,
+        };
+      });
+      setRunningBatches(batchInfos);
+
+      // Avg attendance
       const totalPossible = allStudents.length * 24;
       const present = allAttendance.filter(a => a.state === 'c').length;
       setAvgAttendance(totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0);
 
-      const { data: batches } = await supabase.from('batches').select('*');
+      // Low attendance flags
       const flags: LowAttendanceFlag[] = [];
-      if (batches) {
-        for (const student of allStudents) {
-          const studentAtt = allAttendance.filter(a => a.student_id === student.id);
-          const p = studentAtt.filter(a => a.state === 'c').length;
-          const pct = Math.round((p / 24) * 100);
-          if (pct < 70 && studentAtt.length > 0) {
-            const batch = batches.find(b => b.id === student.batch_id);
-            const mod = mods?.find(m => m.id === batch?.mod_id);
-            flags.push({ studentName: student.name, batchName: batch?.name || '', modName: mod?.name || '', pct });
-          }
+      for (const student of allStudents) {
+        const studentAtt = allAttendance.filter(a => a.student_id === student.id);
+        if (studentAtt.length === 0) continue;
+        const sessionsOccurred = new Set(allAttendance.filter(a => a.batch_id === student.batch_id).map(a => a.session_index)).size;
+        if (sessionsOccurred === 0) continue;
+        const p = studentAtt.filter(a => a.state === 'c').length;
+        const pct = Math.round((p / sessionsOccurred) * 100);
+        if (pct < 70) {
+          const batch = allBatches.find(b => b.id === student.batch_id);
+          const mod = mods?.find(m => m.id === batch?.mod_id);
+          flags.push({ studentName: student.name, batchName: batch?.name || '', modName: (mod as any)?.name || '', pct });
         }
       }
       setLowFlags(flags);
@@ -99,21 +158,42 @@ const AdminDashboard: React.FC = () => {
       const avg = allScores.reduce((sum, s) => sum + Number(s.score), 0) / allScores.length;
       setAvgDemoScore(Math.round(avg * 10) / 10);
     }
+  }, []);
+
+  // Load activity with filter
+  useEffect(() => { loadActivity(); }, [activityFilter, customDateFrom, customDateTo]);
+
+  const loadActivity = async () => {
+    let query = supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(50);
+    const now = new Date();
+    if (activityFilter === 'today') {
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      query = query.gte('created_at', todayStart);
+    } else if (activityFilter === '7days') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      query = query.gte('created_at', weekAgo);
+    } else if (activityFilter === 'custom' && customDateFrom) {
+      query = query.gte('created_at', customDateFrom + 'T00:00:00Z');
+      if (customDateTo) query = query.lte('created_at', customDateTo + 'T23:59:59Z');
+    }
+    const { data: logs } = await query;
+    if (logs) setActivityLog(logs);
   };
 
   const handleAddModerator = async () => {
-    if (!newModEmail.trim()) return;
+    if (!newModEmail.trim() || !newModName.trim()) return;
     setAddModLoading(true);
     setAddModError('');
     setGeneratedCode('');
     try {
-      const { data, error } = await supabase.functions.invoke('create-moderator', {
-        body: { email: newModEmail.trim() },
+      const { data, error } = await supabase.functions.invoke('admin-manage-moderator', {
+        body: { action: 'create', email: newModEmail.trim(), name: newModName.trim() },
       });
       if (error) throw error;
       const result = typeof data === 'string' ? JSON.parse(data) : data;
       if (result.error) throw new Error(result.error);
       setGeneratedCode(result.code);
+      setGeneratedModName(result.name || newModName.trim());
       loadData();
     } catch (err: any) {
       setAddModError(err.message || 'Failed to create moderator');
@@ -121,14 +201,15 @@ const AdminDashboard: React.FC = () => {
     setAddModLoading(false);
   };
 
-  const handleDeactivateMod = async (modId: string, ban: boolean) => {
+  const handleDeleteMod = async (mod: Profile) => {
     try {
-      await supabase.functions.invoke('deactivate-moderator', {
-        body: { userId: modId, ban },
+      await supabase.functions.invoke('admin-manage-moderator', {
+        body: { action: 'ban', userId: mod.id, ban: true },
       });
+      setDeleteModConfirm(null);
       loadData();
     } catch (err) {
-      console.error('Deactivate error', err);
+      console.error('Delete mod error', err);
     }
   };
 
@@ -139,20 +220,28 @@ const AdminDashboard: React.FC = () => {
     if (mins < 60) return `${mins} mins ago`;
     const hours = Math.floor(mins / 60);
     if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)} days ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  };
+
+  const formatTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   };
 
   const getActionBadge = (type: string) => {
     const map: Record<string, { bg: string; text: string; label: string }> = {
-      attendance_marked: { bg: 'hsl(var(--success-bg))', text: 'hsl(var(--success-text))', label: 'attendance' },
-      demo_score_added: { bg: 'hsl(var(--amber-bg))', text: 'hsl(var(--amber-text))', label: 'demo day' },
-      student_added: { bg: 'hsl(var(--info-bg))', text: 'hsl(var(--info-text))', label: 'new student' },
-      student_removed: { bg: 'hsl(var(--danger-bg))', text: 'hsl(var(--danger-text))', label: 'removed' },
-      batch_created: { bg: 'hsl(var(--info-bg))', text: 'hsl(var(--info-text))', label: 'new batch' },
-      report_exported: { bg: 'hsl(var(--muted))', text: 'hsl(var(--muted-foreground))', label: 'export' },
-      session_rescheduled: { bg: 'hsl(var(--amber-bg))', text: 'hsl(var(--amber-text))', label: 'rescheduled' },
+      attendance_marked: { bg: '#1a3a1a', text: '#4ade80', label: 'attendance' },
+      demo_score_added: { bg: '#2a2000', text: '#fbbf24', label: 'demo scores' },
+      absence_note_added: { bg: '#2a1a3a', text: '#c084fc', label: 'absence note' },
+      student_added: { bg: '#1a2a3a', text: '#60a5fa', label: 'new student' },
+      student_removed: { bg: '#2a2a2a', text: '#888', label: 'removed' },
+      batch_created: { bg: '#1a2a3a', text: '#60a5fa', label: 'new batch' },
+      session_rescheduled: { bg: '#2a1f00', text: '#f97316', label: 'rescheduled' },
+      report_exported: { bg: '#1a2a2a', text: '#22d3ee', label: 'report' },
+      batch_edited: { bg: '#2a2a2a', text: '#888', label: 'edited' },
+      batch_deleted: { bg: '#2a2a2a', text: '#888', label: 'deleted' },
     };
-    return map[type] || { bg: 'hsl(var(--muted))', text: 'hsl(var(--muted-foreground))', label: type };
+    return map[type] || { bg: '#2a2a2a', text: '#888', label: type };
   };
 
   const sidebarItems = [
@@ -163,15 +252,39 @@ const AdminDashboard: React.FC = () => {
     { id: 'settings', label: 'Settings', icon: Settings, section: 'TOOLS' },
   ];
 
-  const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  const isRecentlyActive = (dateStr: string) => Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
+  const getInitials = (name: string) => name ? name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : '?';
 
-  const attColor = avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
+  const getModAvatarColor = (modId: string) => {
+    const colors = [
+      { bg: '#2a1f00', text: '#fbbf24' },
+      { bg: '#1a2a3a', text: '#60a5fa' },
+      { bg: '#2a1a3a', text: '#c084fc' },
+      { bg: '#1a3a1a', text: '#4ade80' },
+      { bg: '#3a1a1a', text: '#f87171' },
+      { bg: '#1a2a2a', text: '#22d3ee' },
+    ];
+    let hash = 0;
+    for (let i = 0; i < modId.length; i++) hash = ((hash << 5) - hash) + modId.charCodeAt(i);
+    return colors[Math.abs(hash) % colors.length];
+  };
 
-  const getModStatus = (modId: string): 'active' | 'pending' => {
-    const code = modCodes.find(c => c.mod_id === modId);
-    if (code && !code.used) return 'pending';
-    return 'active';
+  const attColor = avgAttendance >= 70 ? '#4ade80' : avgAttendance >= 50 ? '#fbbf24' : '#f87171';
+
+  const getModStatus = (mod: Profile): { status: 'pending' | 'active' | 'inactive'; label: string; bg: string; text: string } => {
+    const code = modCodes.find(c => c.mod_id === mod.id);
+    if (code && !code.used) return { status: 'pending', label: 'pending', bg: '#2a2000', text: '#fbbf24' };
+    if (mod.last_sign_in) {
+      const diff = Date.now() - new Date(mod.last_sign_in).getTime();
+      if (diff < 7 * 24 * 60 * 60 * 1000) return { status: 'active', label: 'active', bg: '#1a3a1a', text: '#4ade80' };
+    }
+    return { status: 'inactive', label: 'inactive', bg: '#2a2a2a', text: '#888' };
+  };
+
+  const getModLastActive = (mod: Profile): string => {
+    const code = modCodes.find(c => c.mod_id === mod.id);
+    if (code && !code.used) return 'Never logged in';
+    if (mod.last_sign_in) return `Last active: ${timeAgo(mod.last_sign_in)}`;
+    return 'Never logged in';
   };
 
   return (
@@ -202,13 +315,13 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Main */}
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-6 overflow-y-auto">
         {activePage === 'dashboard' && (
           <>
             <div className="flex items-center justify-end mb-6">
               <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-1 rounded" style={{ background: 'hsl(var(--success-bg))', color: 'hsl(var(--success-text))' }}>Admin</span>
-                <div className="w-8 h-8 rounded-full bg-amber-bg text-amber-text flex items-center justify-center text-xs font-medium">
+                <span className="text-xs px-2 py-1 rounded" style={{ background: '#1a3a1a', color: '#4ade80' }}>Admin</span>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style={{ background: '#2a1f00', color: '#fbbf24' }}>
                   {getInitials(currentProfile?.name || 'A')}
                 </div>
               </div>
@@ -222,54 +335,45 @@ const AdminDashboard: React.FC = () => {
               </div>
               <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{batchCount}</div>
-                <div className="text-muted-foreground" style={{ fontSize: 12 }}>Active batches</div>
+                <div className="text-muted-foreground" style={{ fontSize: 12 }}>Running batches</div>
               </div>
               <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 22, fontWeight: 500, color: attColor }}>{avgAttendance}%</div>
                 <div className="text-muted-foreground" style={{ fontSize: 12 }}>Avg attendance</div>
               </div>
               <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 22, fontWeight: 500, color: 'hsl(var(--score-amber))' }}>{avgDemoScore || '—'}</div>
+                <div style={{ fontSize: 22, fontWeight: 500, color: '#fbbf24' }}>{avgDemoScore || '—'}</div>
                 <div className="text-muted-foreground" style={{ fontSize: 12 }}>Avg demo score</div>
               </div>
             </div>
 
-            {/* Two columns */}
+            {/* Running batches + Low attendance */}
             <div className="grid grid-cols-2 gap-4 mb-6">
-              {/* Moderators */}
+              {/* Running batches */}
               <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-foreground">Moderators</h2>
-                  <span className="text-sm text-muted-foreground">{moderators.length} active</span>
+                  <h2 className="font-semibold text-foreground">Running batches</h2>
+                  <span className="text-sm text-muted-foreground">{runningBatches.length} batches</span>
                 </div>
                 <div className="space-y-3">
-                  {moderators.map(mod => {
-                    const status = getModStatus(mod.id);
+                  {runningBatches.map(batch => {
+                    const barColor = batch.attendancePct >= 70 ? '#4ade80' : batch.attendancePct >= 50 ? '#fbbf24' : '#f87171';
                     return (
-                      <div key={mod.id} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-amber-bg text-amber-text">
-                              {getInitials(mod.name || mod.email)}
-                            </div>
-                            <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${
-                              status === 'active' ? 'bg-success-text' : 'bg-muted-foreground'
-                            }`} />
-                          </div>
+                      <div key={batch.id}>
+                        <div className="flex items-center justify-between mb-1">
                           <div>
-                            <p className="text-sm font-medium text-foreground">{mod.name || mod.email}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {status === 'pending' ? 'Pending activation' : timeAgo(mod.created_at)}
-                            </p>
+                            <p className="text-sm font-medium text-foreground">{batch.name}</p>
+                            <p className="text-xs text-muted-foreground">{batch.modName} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
                           </div>
+                          <span className="text-sm font-medium" style={{ color: barColor }}>{batch.attendancePct}%</span>
                         </div>
-                        <span className="text-xs px-2 py-0.5 rounded" style={{
-                          background: status === 'active' ? 'hsl(var(--success-bg))' : 'hsl(var(--amber-bg))',
-                          color: status === 'active' ? 'hsl(var(--success-text))' : 'hsl(var(--amber-text))',
-                        }}>{status}</span>
+                        <div style={{ height: 4, borderRadius: 2, background: '#2a2a2a' }}>
+                          <div style={{ height: '100%', width: `${batch.attendancePct}%`, borderRadius: 2, background: barColor, transition: 'width 0.3s' }} />
+                        </div>
                       </div>
                     );
                   })}
+                  {runningBatches.length === 0 && <p className="text-sm text-muted-foreground">No running batches</p>}
                 </div>
               </div>
 
@@ -277,23 +381,26 @@ const AdminDashboard: React.FC = () => {
               <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-semibold text-foreground">Low attendance flags</h2>
-                  <span style={{ color: 'hsl(var(--danger-text))' }} className="text-sm">{lowFlags.length} students</span>
+                  <span style={{ color: '#f87171' }} className="text-sm">{lowFlags.length} students</span>
                 </div>
                 <div className="space-y-3">
                   {lowFlags.map((flag, i) => (
                     <div key={i} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <AlertTriangle className="w-4 h-4" style={{ color: 'hsl(var(--score-amber))' }} />
+                        <AlertTriangle className="w-4 h-4" style={{ color: flag.pct >= 50 ? '#fbbf24' : '#f87171' }} />
                         <div>
                           <p className="text-sm font-medium text-foreground">{flag.studentName}</p>
                           <p className="text-xs text-muted-foreground">{flag.batchName} · {flag.modName}</p>
                         </div>
                       </div>
-                      <span className="text-sm font-medium" style={{ color: 'hsl(var(--danger-text))' }}>{flag.pct}%</span>
+                      <span className="text-sm font-medium" style={{ color: flag.pct >= 50 ? '#fbbf24' : '#f87171' }}>{flag.pct}%</span>
                     </div>
                   ))}
                   {lowFlags.length === 0 && <p className="text-sm text-muted-foreground">No low attendance flags</p>}
                 </div>
+                {lowFlags.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-4" style={{ fontStyle: 'italic' }}>Flagged when below 70% of sessions attended so far</p>
+                )}
               </div>
             </div>
 
@@ -301,14 +408,38 @@ const AdminDashboard: React.FC = () => {
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-foreground">Recent activity</h2>
-                <span className="text-sm text-muted-foreground">across all mods</span>
+                <div className="flex items-center gap-2">
+                  {(['today', '7days', 'custom'] as const).map(f => (
+                    <button key={f} onClick={() => setActivityFilter(f)}
+                      style={{
+                        padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                        background: activityFilter === f ? '#fff' : '#2a2a2a',
+                        color: activityFilter === f ? '#111' : '#888',
+                        border: `1px solid ${activityFilter === f ? '#fff' : '#333'}`,
+                        fontWeight: activityFilter === f ? 600 : 400,
+                      }}>
+                      {f === 'today' ? 'Today' : f === '7days' ? 'Last 7 days' : 'Custom'}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {activityFilter === 'custom' && (
+                <div className="flex items-center gap-2 mb-4">
+                  <input type="date" value={customDateFrom} onChange={(e) => setCustomDateFrom(e.target.value)}
+                    style={{ background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#F0F0F0' }} />
+                  <span className="text-xs text-muted-foreground">to</span>
+                  <input type="date" value={customDateTo} onChange={(e) => setCustomDateTo(e.target.value)}
+                    style={{ background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#F0F0F0' }} />
+                </div>
+              )}
               <div>
                 {activityLog.map(entry => {
                   const badge = getActionBadge(entry.action_type);
+                  const avatarColor = getModAvatarColor(entry.mod_id);
                   return (
                     <div key={entry.id} className="flex items-start gap-3 py-3" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                      <div className="w-7 h-7 rounded-full bg-info-bg text-info-text flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5"
+                        style={{ background: avatarColor.bg, color: avatarColor.text }}>
                         {getInitials(entry.mod_name || '?')}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -319,11 +450,22 @@ const AdminDashboard: React.FC = () => {
                         </p>
                         <p className="text-xs text-muted-foreground">{entry.batch_name} · {timeAgo(entry.created_at)}</p>
                       </div>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{formatTime(entry.created_at)}</span>
                     </div>
                   );
                 })}
                 {activityLog.length === 0 && <p className="text-sm text-muted-foreground">No recent activity</p>}
               </div>
+              {/* Inactive mod warnings */}
+              {inactiveMods.length > 0 && (
+                <div className="mt-4 space-y-1" style={{ borderTop: '1px solid hsl(var(--row-border))', paddingTop: 12 }}>
+                  {inactiveMods.map(mod => (
+                    <p key={mod.id} style={{ fontSize: 12, color: '#fbbf24' }}>
+                      ⚠️ {mod.name || mod.email} has not logged any activity in the last 3 days
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -332,36 +474,47 @@ const AdminDashboard: React.FC = () => {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">All Moderators</h2>
-              <button onClick={() => { setShowAddMod(true); setGeneratedCode(''); setNewModEmail(''); setAddModError(''); }}
-                className="flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground"
-                style={{ padding: '8px 16px', borderRadius: 7 }}>
+              <button onClick={() => { setShowAddMod(true); setGeneratedCode(''); setNewModEmail(''); setNewModName(''); setAddModError(''); }}
+                className="flex items-center gap-1.5 text-sm font-medium"
+                style={{ padding: '8px 16px', borderRadius: 7, background: '#fff', color: '#111' }}>
                 <Plus className="w-4 h-4" /> Add moderator
               </button>
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
               {moderators.map(mod => {
-                const status = getModStatus(mod.id);
+                const statusInfo = getModStatus(mod);
                 const code = modCodes.find(c => c.mod_id === mod.id);
+                const avatarColor = getModAvatarColor(mod.id);
                 return (
-                  <div key={mod.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                  <div key={mod.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}
+                    onMouseEnter={() => setHoveredModId(mod.id)} onMouseLeave={() => setHoveredModId(null)}>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-info-bg text-info-text flex items-center justify-center text-xs font-medium">
-                        {getInitials(mod.name || mod.email)}
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
+                          style={{ background: avatarColor.bg, color: avatarColor.text }}>
+                          {getInitials(mod.name || mod.email)}
+                        </div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card"
+                          style={{ background: statusInfo.text }} />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">{mod.name || mod.email}</p>
                         <p className="text-xs text-muted-foreground">{mod.email}</p>
+                        <p className="text-xs text-muted-foreground" style={{ fontSize: 11 }}>{getModLastActive(mod)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs px-2 py-0.5 rounded" style={{
-                        background: status === 'active' ? 'hsl(var(--success-bg))' : 'hsl(var(--amber-bg))',
-                        color: status === 'active' ? 'hsl(var(--success-text))' : 'hsl(var(--amber-text))',
-                      }}>{status}</span>
+                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: statusInfo.bg, color: statusInfo.text }}>{statusInfo.label}</span>
                       {code && !code.used && (
                         <span className="text-xs font-mono text-muted-foreground">{code.code}</span>
                       )}
                       <span className="text-xs text-muted-foreground">Joined {new Date(mod.created_at).toLocaleDateString()}</span>
+                      {hoveredModId === mod.id && (
+                        <button onClick={() => setDeleteModConfirm(mod)}
+                          style={{ color: '#f87171', background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}>
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -378,45 +531,80 @@ const AdminDashboard: React.FC = () => {
               style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 24, maxWidth: 380, width: '100%' }}>
               {generatedCode ? (
                 <>
-                  <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 8 }}>Moderator created</div>
-                  <p style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Share this access code with {newModEmail}:</p>
-                  <div style={{ background: '#242424', border: '1px solid #333', borderRadius: 8, padding: '12px 16px', textAlign: 'center', marginBottom: 16 }}>
-                    <span style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 700, color: '#d4920a', letterSpacing: 2 }}>{generatedCode}</span>
+                  <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 8 }}>Moderator added</div>
+                  <p style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
+                    Moderator <strong style={{ color: '#F0F0F0' }}>{generatedModName}</strong> has been added. Share this code with them to activate their account:
+                  </p>
+                  <div style={{ background: '#242424', border: '1px solid #333', borderRadius: 8, padding: '12px 16px', textAlign: 'center', marginBottom: 12, cursor: 'pointer' }}
+                    onClick={() => navigator.clipboard.writeText(generatedCode)}>
+                    <span style={{ fontSize: 22, fontFamily: 'monospace', fontWeight: 700, color: '#d4920a', letterSpacing: 3 }}>{generatedCode}</span>
+                    <p style={{ fontSize: 10, color: '#555', marginTop: 4 }}>Click to copy</p>
                   </div>
-                  <p style={{ fontSize: 11, color: '#555', marginBottom: 16 }}>They will use this code along with their email to activate their account and set a password.</p>
-                  <button onClick={() => { navigator.clipboard.writeText(generatedCode); }}
-                    style={{ width: '100%', padding: '8px', fontSize: 12, background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 6, cursor: 'pointer', marginBottom: 8 }}>
-                    Copy code
-                  </button>
+                  <p style={{ fontSize: 11, color: '#555', marginBottom: 16 }}>
+                    This code is unique to {newModEmail} and can only be used once.
+                  </p>
                   <button onClick={() => setShowAddMod(false)}
-                    style={{ width: '100%', padding: '8px', fontSize: 12, background: '#242424', border: '1px solid #333', color: '#888', borderRadius: 6, cursor: 'pointer' }}>
+                    style={{ ...cancelBtnStyle, width: '100%' }}
+                    onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>
                     Done
                   </button>
                 </>
               ) : (
                 <>
                   <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 4 }}>Add moderator</div>
-                  <p style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Enter their email address. An access code will be generated for them.</p>
+                  <p style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Enter their details. An access code will be generated for them.</p>
                   {addModError && (
-                    <div style={{ fontSize: 12, color: 'hsl(var(--danger-text))', background: 'hsl(var(--danger-bg))', padding: '8px 10px', borderRadius: 6, marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: '#f87171', background: '#2a0a0a', padding: '8px 10px', borderRadius: 6, marginBottom: 8 }}>
                       {addModError}
                     </div>
                   )}
+                  <input type="text" value={newModName} onChange={(e) => setNewModName(e.target.value)}
+                    placeholder="e.g. Amelia"
+                    style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#F0F0F0', outline: 'none', marginBottom: 8 }} />
                   <input type="email" value={newModEmail} onChange={(e) => setNewModEmail(e.target.value)}
-                    placeholder="moderator@email.com"
+                    placeholder="e.g. amelia@school.com"
                     style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#F0F0F0', outline: 'none', marginBottom: 12 }} />
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setShowAddMod(false)}
-                      style={{ padding: '6px 14px', fontSize: 12, background: '#242424', border: '1px solid #333', color: '#888', borderRadius: 6, cursor: 'pointer' }}>
+                      style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>
                       Cancel
                     </button>
-                    <button onClick={handleAddModerator} disabled={addModLoading || !newModEmail.trim()}
-                      style={{ padding: '6px 14px', fontSize: 12, background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', borderRadius: 6, cursor: 'pointer', border: 'none', opacity: addModLoading || !newModEmail.trim() ? 0.5 : 1 }}>
+                    <button onClick={handleAddModerator} disabled={addModLoading || !newModEmail.trim() || !newModName.trim()}
+                      style={{ ...primaryBtnStyle, opacity: addModLoading || !newModEmail.trim() || !newModName.trim() ? 0.5 : 1 }}
+                      onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>
                       {addModLoading ? 'Creating…' : 'Create moderator'}
                     </button>
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Delete moderator confirmation */}
+        {deleteModConfirm && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setDeleteModConfirm(null)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 24, maxWidth: 400, width: '100%' }}>
+              <div style={{ fontSize: 16, color: '#F0F0F0', fontWeight: 500, marginBottom: 8 }}>Remove moderator?</div>
+              <div style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>
+                This will remove <span style={{ color: '#f87171' }}>{deleteModConfirm.name || deleteModConfirm.email}</span> ({deleteModConfirm.email}) from BatchTrack. They will immediately lose access. Their batch data will not be deleted.
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                <button onClick={() => setDeleteModConfirm(null)}
+                  style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                <button onClick={() => { const m = deleteModConfirm; setDeleteModConfirm(null); handleDeleteMod(m); }}
+                  style={destructBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#7f1d1d'; }}>Remove moderator</button>
+              </div>
             </div>
           </div>
         )}
@@ -431,7 +619,26 @@ const AdminDashboard: React.FC = () => {
         {activePage === 'batches' && (
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-4">All Batches</h2>
-            <p className="text-sm text-muted-foreground">Total: {batchCount} batches across all moderators.</p>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
+              {runningBatches.map(batch => {
+                const barColor = batch.attendancePct >= 70 ? '#4ade80' : batch.attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                return (
+                  <div key={batch.id} className="p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{batch.name}</p>
+                        <p className="text-xs text-muted-foreground">{batch.modName} · {batch.studentCount} students · Week {batch.weekNumber} of 6</p>
+                      </div>
+                      <span className="text-sm font-medium" style={{ color: barColor }}>{batch.attendancePct}%</span>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 2, background: '#2a2a2a' }}>
+                      <div style={{ height: '100%', width: `${batch.attendancePct}%`, borderRadius: 2, background: barColor }} />
+                    </div>
+                  </div>
+                );
+              })}
+              {runningBatches.length === 0 && <p className="text-sm text-muted-foreground p-4">No batches yet.</p>}
+            </div>
           </div>
         )}
 

@@ -17,6 +17,7 @@ export type Database = {
       activity_log: {
         Row: {
           action_type: string
+          batch_id: string | null
           batch_name: string
           created_at: string
           description: string
@@ -26,6 +27,7 @@ export type Database = {
         }
         Insert: {
           action_type: string
+          batch_id?: string | null
           batch_name?: string
           created_at?: string
           description: string
@@ -35,6 +37,7 @@ export type Database = {
         }
         Update: {
           action_type?: string
+          batch_id?: string | null
           batch_name?: string
           created_at?: string
           description?: string
@@ -94,6 +97,7 @@ export type Database = {
           mod_id: string
           month: number
           name: string
+          start_date: string | null
           year: number
         }
         Insert: {
@@ -103,6 +107,7 @@ export type Database = {
           mod_id: string
           month: number
           name: string
+          start_date?: string | null
           year: number
         }
         Update: {
@@ -112,6 +117,7 @@ export type Database = {
           mod_id?: string
           month?: number
           name?: string
+          start_date?: string | null
           year?: number
         }
         Relationships: []
@@ -219,6 +225,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          last_sign_in: string | null
           name: string
           role: Database["public"]["Enums"]["app_role"]
         }
@@ -226,6 +233,7 @@ export type Database = {
           created_at?: string
           email: string
           id: string
+          last_sign_in?: string | null
           name?: string
           role?: Database["public"]["Enums"]["app_role"]
         }
@@ -233,6 +241,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          last_sign_in?: string | null
           name?: string
           role?: Database["public"]["Enums"]["app_role"]
         }
