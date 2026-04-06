@@ -93,59 +93,87 @@ const AdminDashboard: React.FC = () => {
     const { data: mods } = await supabase.from('profiles').select('*').eq('role', 'moderator');
     if (mods) {
       setModerators(mods as Profile[]);
-      // Find mods inactive for 3+ days
-      const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
-      const inactive = (mods as Profile[]).filter(m => {
-        if (!m.last_sign_in) return true;
-        return new Date(m.last_sign_in).getTime() < threeDaysAgo;
-      });
-      setInactiveMods(inactive);
     }
 
     const { data: codes } = await supabase.from('moderator_codes').select('*').order('created_at', { ascending: false });
     if (codes) setModCodes(codes as ModCode[]);
 
-    const { data: allBatches } = await supabase.from('batches').select('*');
+    // Active batches: created in last 3 months
+    const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: allBatches } = await supabase.from('batches').select('*').gte('created_at', threeMonthsAgo);
     setBatchCount(allBatches?.length || 0);
 
-    const { data: allStudents } = await supabase.from('students').select('*');
-    const { data: allAttendance } = await supabase.from('attendance').select('*');
+    const activeBatchIds = (allBatches || []).map(b => b.id);
 
-    if (allBatches && allStudents && allAttendance) {
-      // Running batches info
-      const batchInfos: BatchInfo[] = allBatches.map(batch => {
+    // Fetch students and attendance only for active batches
+    let allStudents: any[] = [];
+    let allAttendance: any[] = [];
+    if (activeBatchIds.length > 0) {
+      const { data: s } = await supabase.from('students').select('*').in('batch_id', activeBatchIds);
+      allStudents = s || [];
+      const { data: a } = await supabase.from('attendance').select('*').in('batch_id', activeBatchIds);
+      allAttendance = a || [];
+    }
+
+    if (allBatches) {
+      // Running batches info — filter out batches with 0 students
+      const batchInfos: BatchInfo[] = [];
+      for (const batch of allBatches) {
         const bStudents = allStudents.filter(s => s.batch_id === batch.id);
+        if (bStudents.length === 0) continue;
         const bAttendance = allAttendance.filter(a => a.batch_id === batch.id);
-        const sessionsLogged = new Set(bAttendance.map(a => a.session_index)).size;
-        const weekNum = Math.min(Math.ceil(sessionsLogged / 4), 6) || 1;
-        const totalPossible = bStudents.length * sessionsLogged;
+
+        // Calculate week number from start_date
+        let weekNum = 1;
+        if (batch.start_date) {
+          const startDate = new Date(batch.start_date);
+          const now = new Date();
+          const daysDiff = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+          weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
+        } else {
+          const sessionsLogged = new Set(bAttendance.map(a => a.session_index)).size;
+          weekNum = Math.min(Math.ceil(sessionsLogged / 4), 6) || 1;
+        }
+
+        // Sessions that have passed based on week number (4 sessions per week)
+        const sessionsPassed = Math.min(weekNum * 4, 24);
+        const totalPossible = bStudents.length * sessionsPassed;
         const present = bAttendance.filter(a => a.state === 'c').length;
         const pct = totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0;
         const mod = mods?.find(m => m.id === batch.mod_id);
-        return {
+        batchInfos.push({
           id: batch.id, name: batch.name, mod_id: batch.mod_id,
           modName: (mod as any)?.name || 'Unknown',
           studentCount: bStudents.length, attendancePct: pct, weekNumber: weekNum,
-        };
-      });
+        });
+      }
       setRunningBatches(batchInfos);
 
-      // Avg attendance
-      const totalPossible = allStudents.length * 24;
-      const present = allAttendance.filter(a => a.state === 'c').length;
-      setAvgAttendance(totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0);
+      // Avg attendance across all active batches
+      if (allAttendance.length > 0) {
+        const present = allAttendance.filter(a => a.state === 'c').length;
+        const total = allAttendance.length;
+        setAvgAttendance(total > 0 ? Math.round((present / total) * 100) : 0);
+      } else {
+        setAvgAttendance(0);
+      }
 
       // Low attendance flags
       const flags: LowAttendanceFlag[] = [];
       for (const student of allStudents) {
         const studentAtt = allAttendance.filter(a => a.student_id === student.id);
         if (studentAtt.length === 0) continue;
-        const sessionsOccurred = new Set(allAttendance.filter(a => a.batch_id === student.batch_id).map(a => a.session_index)).size;
-        if (sessionsOccurred === 0) continue;
+        const batch = allBatches.find(b => b.id === student.batch_id);
+        if (!batch?.start_date) continue;
+        const startDate = new Date(batch.start_date);
+        const daysDiff = Math.floor((Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff < 1) continue;
+        const weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
+        const sessionsPassed = Math.min(weekNum * 4, 24);
+        if (sessionsPassed === 0) continue;
         const p = studentAtt.filter(a => a.state === 'c').length;
-        const pct = Math.round((p / sessionsOccurred) * 100);
+        const pct = Math.round((p / sessionsPassed) * 100);
         if (pct < 70) {
-          const batch = allBatches.find(b => b.id === student.batch_id);
           const mod = mods?.find(m => m.id === batch?.mod_id);
           flags.push({ studentName: student.name, batchName: batch?.name || '', modName: (mod as any)?.name || '', pct });
         }
@@ -153,10 +181,23 @@ const AdminDashboard: React.FC = () => {
       setLowFlags(flags);
     }
 
-    const { data: allScores } = await supabase.from('demo_scores').select('*');
-    if (allScores && allScores.length > 0) {
-      const avg = allScores.reduce((sum, s) => sum + Number(s.score), 0) / allScores.length;
-      setAvgDemoScore(Math.round(avg * 10) / 10);
+    // Avg demo score for active batches
+    if (activeBatchIds.length > 0) {
+      const { data: demoDays } = await supabase.from('demo_days').select('id').in('batch_id', activeBatchIds);
+      const demoDayIds = (demoDays || []).map(d => d.id);
+      if (demoDayIds.length > 0) {
+        const { data: allScores } = await supabase.from('demo_scores').select('score').in('demo_day_id', demoDayIds);
+        if (allScores && allScores.length > 0) {
+          const avg = allScores.reduce((sum, s) => sum + Number(s.score), 0) / allScores.length;
+          setAvgDemoScore(Math.round(avg * 10) / 10);
+        } else {
+          setAvgDemoScore(0);
+        }
+      } else {
+        setAvgDemoScore(0);
+      }
+    } else {
+      setAvgDemoScore(0);
     }
   }, []);
 
