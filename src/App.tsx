@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import LoginPage from "./pages/LoginPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
 import ModDashboard from "./pages/ModDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
@@ -22,26 +23,24 @@ const AppRoutes = () => {
     );
   }
 
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="*" element={<LoginPage />} />
-      </Routes>
-    );
-  }
-
-  if (role === 'admin') {
-    return (
-      <Routes>
-        <Route path="/" element={<AdminDashboard />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    );
-  }
-
   return (
     <Routes>
-      <Route path="/" element={<ModDashboard />} />
+      {/* Admin routes */}
+      <Route path="/admin/login" element={
+        user && role === 'admin' ? <Navigate to="/admin" /> : <AdminLoginPage />
+      } />
+      <Route path="/admin/*" element={
+        !user ? <Navigate to="/admin/login" /> :
+        role !== 'admin' ? <Navigate to="/" /> :
+        <AdminDashboard />
+      } />
+
+      {/* Mod routes */}
+      <Route path="/" element={
+        !user ? <LoginPage /> :
+        role === 'admin' ? <Navigate to="/admin" /> :
+        <ModDashboard />
+      } />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

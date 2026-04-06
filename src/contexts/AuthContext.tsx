@@ -34,6 +34,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (profileData) {
       setProfile(profileData);
       setRole(profileData.role as UserRole);
+      // Update last_sign_in
+      await supabase.from('profiles').update({ last_sign_in: new Date().toISOString() } as any).eq('id', userId);
     }
   };
 
