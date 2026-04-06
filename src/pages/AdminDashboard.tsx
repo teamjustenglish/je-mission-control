@@ -219,6 +219,24 @@ const AdminDashboard: React.FC = () => {
     }
     const { data: logs } = await query;
     if (logs) setActivityLog(logs);
+
+    // Compute inactive mod warnings: mods with at least 1 activity log entry ever, but none in last 3 days
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: allLogs } = await supabase.from('activity_log').select('mod_id, created_at').order('created_at', { ascending: false });
+    if (allLogs && moderators.length > 0) {
+      const modActivity = new Map<string, string>(); // mod_id -> latest activity timestamp
+      for (const log of allLogs) {
+        if (!modActivity.has(log.mod_id)) modActivity.set(log.mod_id, log.created_at);
+      }
+      const inactive = moderators.filter(m => {
+        const latest = modActivity.get(m.id);
+        if (!latest) return false; // no activity ever — brand new mod, don't warn
+        return latest < threeDaysAgo;
+      });
+      setInactiveMods(inactive);
+    } else {
+      setInactiveMods([]);
+    }
   };
 
   const handleAddModerator = async () => {
