@@ -32,12 +32,10 @@ Deno.serve(async (req) => {
       const { email, name } = body
       if (!email || !name) throw new Error('Email and name are required')
 
-      // Generate unique code
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
       let code = 'BT-'
       for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
 
-      // Create user with temp password
       const tempPassword = crypto.randomUUID() + '!Aa1'
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
@@ -47,10 +45,8 @@ Deno.serve(async (req) => {
       })
       if (createError) throw createError
 
-      // Update profile name (trigger creates profile with empty name)
       await supabaseAdmin.from('profiles').update({ name }).eq('id', newUser.user.id)
 
-      // Store code
       await supabaseAdmin.from('moderator_codes').insert({
         mod_id: newUser.user.id,
         email,
@@ -70,6 +66,73 @@ Deno.serve(async (req) => {
         ban_duration: ban ? '876600h' : 'none',
       })
       if (error) throw error
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (action === 'delete') {
+      const { userId } = body
+      if (!userId) throw new Error('userId is required')
+
+      // Get all batch IDs for this mod
+      const { data: modBatches } = await supabaseAdmin.from('batches').select('id').eq('mod_id', userId)
+      const batchIds = (modBatches || []).map(b => b.id)
+
+      if (batchIds.length > 0) {
+        // Get all student IDs in those batches
+        const { data: batchStudents } = await supabaseAdmin.from('students').select('id').in('batch_id', batchIds)
+        const studentIds = (batchStudents || []).map(s => s.id)
+
+        // Get all demo_day IDs in those batches
+        const { data: batchDemoDays } = await supabaseAdmin.from('demo_days').select('id').in('batch_id', batchIds)
+        const demoDayIds = (batchDemoDays || []).map(d => d.id)
+
+        // a. Delete demo_scores
+        if (demoDayIds.length > 0) {
+          const { error } = await supabaseAdmin.from('demo_scores').delete().in('demo_day_id', demoDayIds)
+          if (error) throw new Error(`Failed to delete demo_scores: ${error.message}`)
+        }
+
+        // b. Delete demo_days
+        const { error: ddErr } = await supabaseAdmin.from('demo_days').delete().in('batch_id', batchIds)
+        if (ddErr) throw new Error(`Failed to delete demo_days: ${ddErr.message}`)
+
+        // c. Delete rescheduled_sessions
+        const { error: rsErr } = await supabaseAdmin.from('rescheduled_sessions').delete().in('batch_id', batchIds)
+        if (rsErr) throw new Error(`Failed to delete rescheduled_sessions: ${rsErr.message}`)
+
+        // d. Delete attendance
+        if (studentIds.length > 0) {
+          const { error: attErr } = await supabaseAdmin.from('attendance').delete().in('student_id', studentIds)
+          if (attErr) throw new Error(`Failed to delete attendance: ${attErr.message}`)
+        }
+
+        // e. Delete students
+        const { error: stErr } = await supabaseAdmin.from('students').delete().in('batch_id', batchIds)
+        if (stErr) throw new Error(`Failed to delete students: ${stErr.message}`)
+
+        // f. Delete batches
+        const { error: bErr } = await supabaseAdmin.from('batches').delete().eq('mod_id', userId)
+        if (bErr) throw new Error(`Failed to delete batches: ${bErr.message}`)
+      }
+
+      // g. Delete activity_log
+      const { error: alErr } = await supabaseAdmin.from('activity_log').delete().eq('mod_id', userId)
+      if (alErr) throw new Error(`Failed to delete activity_log: ${alErr.message}`)
+
+      // h. Delete moderator_codes
+      const { error: mcErr } = await supabaseAdmin.from('moderator_codes').delete().eq('mod_id', userId)
+      if (mcErr) throw new Error(`Failed to delete moderator_codes: ${mcErr.message}`)
+
+      // i. Delete profile
+      const { error: pErr } = await supabaseAdmin.from('profiles').delete().eq('id', userId)
+      if (pErr) throw new Error(`Failed to delete profile: ${pErr.message}`)
+
+      // j. Delete auth user
+      const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      if (authErr) throw new Error(`Failed to delete auth user: ${authErr.message}`)
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
