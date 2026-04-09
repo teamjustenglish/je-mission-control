@@ -72,10 +72,10 @@ const StudentReport: React.FC<Props> = ({
     demoScores.some(s => s.demo_day_id === dd.id && s.student_id === student.id)
   );
 
-  const getDemoAvg = (ddId: string) => {
+  const getDemoTotal = (ddId: string) => {
     const scores = demoScores.filter(s => s.demo_day_id === ddId && s.student_id === student.id);
     if (scores.length === 0) return 0;
-    return Math.round((scores.reduce((sum, s) => sum + Number(s.score), 0) / 6) * 10) / 10;
+    return Math.round(scores.reduce((sum, s) => sum + Number(s.score), 0) * 10) / 10;
   };
 
   const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
