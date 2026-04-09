@@ -14,6 +14,7 @@ interface Student { id: string; batch_id: string; name: string; }
 interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
+interface DemoFeedback { id: string; demo_day_id: string; student_id: string; feedback: string; }
 interface RescheduledSession { id: string; batch_id: string; week_number: number; day_name: string; original_date: string | null; new_date: string; reason: string | null; created_by: string; }
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
@@ -208,7 +209,7 @@ const ColumnMenu: React.FC<{
   );
 };
 
-// Score input with validation: 0-4, decimals allowed
+// Score input with validation: 0-5, decimals allowed
 const ScoreInput: React.FC<{
   value: number;
   onChange: (val: number) => void;
@@ -224,19 +225,19 @@ const ScoreInput: React.FC<{
     if (raw === '' || raw === '.') { setLocalVal(raw); return; }
     const num = parseFloat(raw);
     if (isNaN(num)) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
-    if (num < 0 || num > 4) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
+    if (num < 0 || num > 5) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
     setLocalVal(raw);
   };
 
   const handleBlur = () => {
     const num = parseFloat(localVal);
-    if (!isNaN(num) && num >= 0 && num <= 4) onChange(num);
+    if (!isNaN(num) && num >= 0 && num <= 5) onChange(num);
     else if (localVal === '') onChange(0);
   };
 
   return (
     <input
-      ref={inputRef} type="number" min={0} max={4} step={0.1}
+      ref={inputRef} type="number" min={0} max={5} step={0.1}
       value={localVal} onChange={handleChange} onBlur={handleBlur}
       onKeyDown={(e) => { if (e.key === 'Enter') inputRef.current?.blur(); }}
       className="score-input"
@@ -258,6 +259,7 @@ const ModDashboard: React.FC = () => {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [demoDays, setDemoDays] = useState<DemoDay[]>([]);
   const [demoScores, setDemoScores] = useState<DemoScore[]>([]);
+  const [demoFeedback, setDemoFeedback] = useState<DemoFeedback[]>([]);
   const [rescheduledSessions, setRescheduledSessions] = useState<RescheduledSession[]>([]);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [allWeeksView, setAllWeeksView] = useState(false);
@@ -295,10 +297,18 @@ const ModDashboard: React.FC = () => {
     attendance: AttendanceRecord[];
     demoDays: DemoDay[];
     demoScores: DemoScore[];
+    demoFeedback: DemoFeedback[];
     rescheduledSessions: RescheduledSession[];
   }
   const batchCacheRef = useRef<Record<string, BatchCacheEntry>>({});
   const initialLoadDone = useRef(false);
+
+  // Feedback modal state
+  const [feedbackModal, setFeedbackModal] = useState<{
+    demoDayId: string; studentId: string; studentName: string; demoDayTitle: string; demoDayDate: string | null; totalScore: string;
+  } | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const feedbackTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
@@ -332,8 +342,8 @@ const ModDashboard: React.FC = () => {
   // Save current state back to cache
   const saveToCacheFromState = useCallback(() => {
     if (!activeBatchId) return;
-    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, rescheduledSessions };
-  }, [activeBatchId, students, attendance, demoDays, demoScores, rescheduledSessions]);
+    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions };
+  }, [activeBatchId, students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions]);
 
   // Keep cache in sync with state changes
   useEffect(() => { saveToCacheFromState(); }, [saveToCacheFromState]);
@@ -351,12 +361,17 @@ const ModDashboard: React.FC = () => {
     const fetchedDemoDays = demoDaysRes.data || [];
     const fetchedRescheduled = (rescheduledRes.data || []) as RescheduledSession[];
     let fetchedDemoScores: DemoScore[] = [];
+    let fetchedDemoFeedback: DemoFeedback[] = [];
     const ddIds = fetchedDemoDays.map(d => d.id);
     if (ddIds.length > 0) {
-      const { data: scores } = await supabase.from('demo_scores').select('*').in('demo_day_id', ddIds);
-      if (scores) fetchedDemoScores = scores;
+      const [scoresRes, feedbackRes] = await Promise.all([
+        supabase.from('demo_scores').select('*').in('demo_day_id', ddIds),
+        supabase.from('demo_feedback').select('*').in('demo_day_id', ddIds),
+      ]);
+      if (scoresRes.data) fetchedDemoScores = scoresRes.data;
+      if (feedbackRes.data) fetchedDemoFeedback = feedbackRes.data as DemoFeedback[];
     }
-    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, rescheduledSessions: fetchedRescheduled };
+    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, demoFeedback: fetchedDemoFeedback, rescheduledSessions: fetchedRescheduled };
   }, []);
 
   // Apply cached data to active state
@@ -365,6 +380,7 @@ const ModDashboard: React.FC = () => {
     setAttendance(entry.attendance);
     setDemoDays(entry.demoDays);
     setDemoScores(entry.demoScores);
+    setDemoFeedback(entry.demoFeedback);
     setRescheduledSessions(entry.rescheduledSessions);
   }, []);
 
@@ -524,7 +540,7 @@ const ModDashboard: React.FC = () => {
         switchBatch(remaining[0].id);
       } else {
         setActiveBatchId(null);
-        setStudents([]); setAttendance([]); setDemoDays([]); setDemoScores([]); setRescheduledSessions([]);
+        setStudents([]); setAttendance([]); setDemoDays([]); setDemoScores([]); setDemoFeedback([]); setRescheduledSessions([]);
       }
     }
     setDeleteBatchConfirm(null);
@@ -564,6 +580,7 @@ const ModDashboard: React.FC = () => {
 
   const removeStudent = async (student: Student) => {
     await supabase.from('attendance').delete().eq('student_id', student.id);
+    await supabase.from('demo_feedback').delete().eq('student_id', student.id);
     await supabase.from('demo_scores').delete().eq('student_id', student.id);
     await supabase.from('students').delete().eq('id', student.id);
     setStudents(prev => prev.filter(s => s.id !== student.id));
@@ -751,19 +768,61 @@ const ModDashboard: React.FC = () => {
     return demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion)?.score || 0;
   };
 
-  const getStudentDemoAvg = (demoDayId: string, studentId: string): string => {
+  const getStudentDemoTotal = (demoDayId: string, studentId: string): string => {
     const scores = demoScores.filter(s => s.demo_day_id === demoDayId && s.student_id === studentId && Number(s.score) > 0);
     if (scores.length === 0) return '—';
     const total = scores.reduce((sum, s) => sum + Number(s.score), 0);
-    return (Math.round((total / 6) * 10) / 10).toString();
+    return (Math.round(total * 10) / 10).toString();
   };
 
-  const getAvgColor = (avgStr: string): string => {
-    if (avgStr === '—') return 'hsl(var(--muted-foreground))';
-    const val = parseFloat(avgStr);
-    if (val >= 3.0) return 'hsl(var(--score-green))';
-    if (val >= 2.0) return 'hsl(var(--score-amber))';
-    return 'hsl(var(--score-red))';
+  const getTotalColor = (totalStr: string): string => {
+    if (totalStr === '—') return 'hsl(var(--muted-foreground))';
+    const val = parseFloat(totalStr);
+    if (val >= 16) return '#4ade80';
+    if (val >= 12) return '#fbbf24';
+    return '#f87171';
+  };
+
+  const getFeedback = (demoDayId: string, studentId: string): DemoFeedback | undefined => {
+    return demoFeedback.find(f => f.demo_day_id === demoDayId && f.student_id === studentId);
+  };
+
+  const openFeedbackModal = (demoDayId: string, studentId: string, dd: DemoDay) => {
+    const student = students.find(s => s.id === studentId);
+    const existing = getFeedback(demoDayId, studentId);
+    const totalScore = getStudentDemoTotal(demoDayId, studentId);
+    setFeedbackText(existing?.feedback || '');
+    setFeedbackModal({
+      demoDayId, studentId,
+      studentName: student?.name || 'Student',
+      demoDayTitle: dd.title,
+      demoDayDate: dd.date,
+      totalScore,
+    });
+    setTimeout(() => {
+      if (feedbackTextareaRef.current) {
+        feedbackTextareaRef.current.style.height = 'auto';
+        feedbackTextareaRef.current.style.height = feedbackTextareaRef.current.scrollHeight + 'px';
+      }
+    }, 50);
+  };
+
+  const saveFeedback = async () => {
+    if (!feedbackModal) return;
+    const existing = getFeedback(feedbackModal.demoDayId, feedbackModal.studentId);
+    if (existing) {
+      await supabase.from('demo_feedback').update({ feedback: feedbackText, updated_at: new Date().toISOString() } as any).eq('id', existing.id);
+      setDemoFeedback(prev => prev.map(f => f.id === existing.id ? { ...f, feedback: feedbackText } : f));
+    } else {
+      const { data } = await supabase.from('demo_feedback').insert({
+        demo_day_id: feedbackModal.demoDayId,
+        student_id: feedbackModal.studentId,
+        feedback: feedbackText,
+      } as any).select().single();
+      if (data) setDemoFeedback(prev => [...prev, data as DemoFeedback]);
+    }
+    setFeedbackModal(null);
+    showSaved();
   };
 
   if (reportStudent && activeBatch) {
@@ -1006,7 +1065,48 @@ const ModDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Batch context menu (right-click) */}
+      {/* Feedback modal */}
+      {feedbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)' }}
+          onClick={() => setFeedbackModal(null)}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 14, padding: 28, maxWidth: 480, width: '90%' }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Individual feedback</div>
+            <div style={{ fontSize: 13, color: '#555', marginBottom: 20 }}>
+              {feedbackModal.studentName} · {feedbackModal.demoDayTitle} · {feedbackModal.demoDayDate || '—'} · Total: {feedbackModal.totalScore} / 20
+            </div>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>Feedback notes</div>
+            <textarea
+              ref={feedbackTextareaRef}
+              value={feedbackText}
+              onChange={(e) => {
+                setFeedbackText(e.target.value);
+                e.currentTarget.style.height = 'auto';
+                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+              }}
+              placeholder="Write detailed feedback for this student — what went well, areas to improve, specific examples..."
+              style={{
+                width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 10,
+                padding: 16, fontSize: 14, color: '#e8e8e8', lineHeight: 1.8,
+                outline: 'none', minHeight: 120, resize: 'none', overflow: 'hidden',
+                fontFamily: 'Inter, sans-serif',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button onClick={() => setFeedbackModal(null)}
+                style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+              <button onClick={() => { setFeedbackModal(null); saveFeedback(); }}
+                style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save feedback</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {batchContextMenu && (() => {
         const batch = batches.find(b => b.id === batchContextMenu.batchId);
         if (!batch) return null;
@@ -1321,11 +1421,25 @@ const ModDashboard: React.FC = () => {
                               ))}
                             </tr>
                           ))}
-                          <tr className="font-medium">
-                            <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Avg (/ 4)</td>
+                          <tr className="font-medium" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                            <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Total (/ 20)</td>
                             {students.map(s => {
-                              const avg = getStudentDemoAvg(dd.id, s.id);
-                              return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, color: getAvgColor(avg) }}>{avg}</td>;
+                              const total = getStudentDemoTotal(dd.id, s.id);
+                              return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 700, color: getTotalColor(total) }}>{total}</td>;
+                            })}
+                          </tr>
+                          <tr>
+                            <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Individual feedback</td>
+                            {students.map(s => {
+                              const fb = getFeedback(dd.id, s.id);
+                              return (
+                                <td key={s.id} className="text-center px-2 py-2" style={{ cursor: 'pointer' }} onClick={() => openFeedbackModal(dd.id, s.id, dd)}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                    <span style={{ fontSize: 20, fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' }}>{fb?.feedback ? '📝' : '📄'}</span>
+                                    <span style={{ fontSize: 10, color: '#555', fontStyle: 'italic' }}>{fb?.feedback ? 'click to edit' : 'click to add'}</span>
+                                  </div>
+                                </td>
+                              );
                             })}
                           </tr>
                         </tbody>

@@ -72,10 +72,10 @@ const StudentReport: React.FC<Props> = ({
     demoScores.some(s => s.demo_day_id === dd.id && s.student_id === student.id)
   );
 
-  const getDemoAvg = (ddId: string) => {
+  const getDemoTotal = (ddId: string) => {
     const scores = demoScores.filter(s => s.demo_day_id === ddId && s.student_id === student.id);
     if (scores.length === 0) return 0;
-    return Math.round((scores.reduce((sum, s) => sum + Number(s.score), 0) / 6) * 10) / 10;
+    return Math.round(scores.reduce((sum, s) => sum + Number(s.score), 0) * 10) / 10;
   };
 
   const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
@@ -152,9 +152,9 @@ const StudentReport: React.FC<Props> = ({
               <h2 className="text-xs font-semibold text-muted-foreground tracking-widest uppercase mb-3">Demo Day Performance</h2>
               <div className="space-y-4 mb-6">
                 {studentDemoDays.map((dd, idx) => {
-                  const avg = getDemoAvg(dd.id);
-                  const prevAvg = idx > 0 ? getDemoAvg(studentDemoDays[idx - 1].id) : null;
-                  const avgColor = avg >= 3.0 ? 'hsl(var(--score-green))' : avg >= 2.0 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
+                  const total = getDemoTotal(dd.id);
+                  const prevTotal = idx > 0 ? getDemoTotal(studentDemoDays[idx - 1].id) : null;
+                  const totalColor = total >= 16 ? '#4ade80' : total >= 12 ? '#fbbf24' : '#f87171';
                   return (
                     <div key={dd.id} className="p-4" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
                       <div className="flex items-center justify-between mb-3">
@@ -163,11 +163,11 @@ const StudentReport: React.FC<Props> = ({
                       </div>
                       {CRITERIA.map(criterion => {
                         const score = demoScores.find(s => s.demo_day_id === dd.id && s.student_id === student.id && s.criterion === criterion)?.score || 0;
-                        const pct = (Number(score) / 4) * 100;
-                        const barColor = score >= 2.5 ? 'hsl(var(--score-green))' : score >= 2 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
+                        const pct = (Number(score) / 5) * 100;
+                        const barColor = score >= 3.5 ? '#4ade80' : score >= 2.5 ? '#fbbf24' : '#f87171';
                         return (
                           <div key={criterion} className="flex items-center gap-3 mb-1.5 text-sm">
-                            <span className="text-foreground w-28 text-xs">{criterion}</span>
+                            <span className="text-foreground w-40 text-xs">{criterion}</span>
                             <div className="flex-1 bg-muted rounded-full h-3">
                               <div className="h-3 rounded-full" style={{ width: `${pct}%`, background: barColor }} />
                             </div>
@@ -176,11 +176,11 @@ const StudentReport: React.FC<Props> = ({
                         );
                       })}
                       <div className="mt-2 flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">Avg band</span>
-                        <span className="font-semibold px-2 py-0.5 rounded" style={{ background: 'hsl(var(--success-bg))', color: avgColor }}>{avg} / 4</span>
-                        {prevAvg !== null && (
-                          <span className="text-xs" style={{ color: avg > prevAvg ? 'hsl(var(--score-green))' : avg < prevAvg ? 'hsl(var(--score-red))' : 'hsl(var(--muted-foreground))' }}>
-                            {avg > prevAvg ? `↑ improved from DD0${idx}` : avg < prevAvg ? `↓ declined from DD0${idx}` : ''}
+                        <span className="text-muted-foreground">Total</span>
+                        <span className="font-semibold px-2 py-0.5 rounded" style={{ background: 'hsl(var(--success-bg))', color: totalColor }}>{total} / 20</span>
+                        {prevTotal !== null && (
+                          <span className="text-xs" style={{ color: total > prevTotal ? '#4ade80' : total < prevTotal ? '#f87171' : 'hsl(var(--muted-foreground))' }}>
+                            {total > prevTotal ? `↑ improved from DD0${idx}` : total < prevTotal ? `↓ declined from DD0${idx}` : ''}
                           </span>
                         )}
                       </div>
