@@ -1064,7 +1064,48 @@ const ModDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Batch context menu (right-click) */}
+      {/* Feedback modal */}
+      {feedbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)' }}
+          onClick={() => setFeedbackModal(null)}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 14, padding: 28, maxWidth: 480, width: '90%' }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Individual feedback</div>
+            <div style={{ fontSize: 13, color: '#555', marginBottom: 20 }}>
+              {feedbackModal.studentName} · {feedbackModal.demoDayTitle} · {feedbackModal.demoDayDate || '—'} · Total: {feedbackModal.totalScore} / 20
+            </div>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>Feedback notes</div>
+            <textarea
+              ref={feedbackTextareaRef}
+              value={feedbackText}
+              onChange={(e) => {
+                setFeedbackText(e.target.value);
+                e.currentTarget.style.height = 'auto';
+                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+              }}
+              placeholder="Write detailed feedback for this student — what went well, areas to improve, specific examples..."
+              style={{
+                width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 10,
+                padding: 16, fontSize: 14, color: '#e8e8e8', lineHeight: 1.8,
+                outline: 'none', minHeight: 120, resize: 'none', overflow: 'hidden',
+                fontFamily: 'Inter, sans-serif',
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button onClick={() => setFeedbackModal(null)}
+                style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+              <button onClick={() => { setFeedbackModal(null); saveFeedback(); }}
+                style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save feedback</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {batchContextMenu && (() => {
         const batch = batches.find(b => b.id === batchContextMenu.batchId);
         if (!batch) return null;
