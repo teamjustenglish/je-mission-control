@@ -65,10 +65,8 @@ export const MONTHS = [
 ];
 
 export const CRITERIA = [
-  'Organization',
-  'Clarity',
-  'Delivery',
-  'Content',
-  'Language use',
-  'Vocab & grammar',
+  'Task achievement & content',
+  'Fluency & coherence',
+  'Lexical resources',
+  'Grammatical accuracy',
 ];
