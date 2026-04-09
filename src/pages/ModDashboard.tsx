@@ -361,12 +361,17 @@ const ModDashboard: React.FC = () => {
     const fetchedDemoDays = demoDaysRes.data || [];
     const fetchedRescheduled = (rescheduledRes.data || []) as RescheduledSession[];
     let fetchedDemoScores: DemoScore[] = [];
+    let fetchedDemoFeedback: DemoFeedback[] = [];
     const ddIds = fetchedDemoDays.map(d => d.id);
     if (ddIds.length > 0) {
-      const { data: scores } = await supabase.from('demo_scores').select('*').in('demo_day_id', ddIds);
-      if (scores) fetchedDemoScores = scores;
+      const [scoresRes, feedbackRes] = await Promise.all([
+        supabase.from('demo_scores').select('*').in('demo_day_id', ddIds),
+        supabase.from('demo_feedback').select('*').in('demo_day_id', ddIds),
+      ]);
+      if (scoresRes.data) fetchedDemoScores = scoresRes.data;
+      if (feedbackRes.data) fetchedDemoFeedback = feedbackRes.data as DemoFeedback[];
     }
-    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, rescheduledSessions: fetchedRescheduled };
+    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, demoFeedback: fetchedDemoFeedback, rescheduledSessions: fetchedRescheduled };
   }, []);
 
   // Apply cached data to active state
@@ -375,6 +380,7 @@ const ModDashboard: React.FC = () => {
     setAttendance(entry.attendance);
     setDemoDays(entry.demoDays);
     setDemoScores(entry.demoScores);
+    setDemoFeedback(entry.demoFeedback);
     setRescheduledSessions(entry.rescheduledSessions);
   }, []);
 
