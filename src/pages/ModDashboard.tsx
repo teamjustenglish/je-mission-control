@@ -297,10 +297,18 @@ const ModDashboard: React.FC = () => {
     attendance: AttendanceRecord[];
     demoDays: DemoDay[];
     demoScores: DemoScore[];
+    demoFeedback: DemoFeedback[];
     rescheduledSessions: RescheduledSession[];
   }
   const batchCacheRef = useRef<Record<string, BatchCacheEntry>>({});
   const initialLoadDone = useRef(false);
+
+  // Feedback modal state
+  const [feedbackModal, setFeedbackModal] = useState<{
+    demoDayId: string; studentId: string; studentName: string; demoDayTitle: string; demoDayDate: string | null; totalScore: string;
+  } | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const feedbackTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
