@@ -259,6 +259,7 @@ const ModDashboard: React.FC = () => {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [demoDays, setDemoDays] = useState<DemoDay[]>([]);
   const [demoScores, setDemoScores] = useState<DemoScore[]>([]);
+  const [demoFeedback, setDemoFeedback] = useState<DemoFeedback[]>([]);
   const [rescheduledSessions, setRescheduledSessions] = useState<RescheduledSession[]>([]);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [allWeeksView, setAllWeeksView] = useState(false);
