@@ -154,6 +154,48 @@ export type Database = {
           },
         ]
       }
+      demo_feedback: {
+        Row: {
+          created_at: string
+          demo_day_id: string
+          feedback: string
+          id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          demo_day_id: string
+          feedback?: string
+          id?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          demo_day_id?: string
+          feedback?: string
+          id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_feedback_demo_day_id_fkey"
+            columns: ["demo_day_id"]
+            isOneToOne: false
+            referencedRelation: "demo_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demo_feedback_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demo_scores: {
         Row: {
           criterion: string
