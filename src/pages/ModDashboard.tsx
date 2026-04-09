@@ -767,19 +767,61 @@ const ModDashboard: React.FC = () => {
     return demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion)?.score || 0;
   };
 
-  const getStudentDemoAvg = (demoDayId: string, studentId: string): string => {
+  const getStudentDemoTotal = (demoDayId: string, studentId: string): string => {
     const scores = demoScores.filter(s => s.demo_day_id === demoDayId && s.student_id === studentId && Number(s.score) > 0);
     if (scores.length === 0) return '—';
     const total = scores.reduce((sum, s) => sum + Number(s.score), 0);
-    return (Math.round((total / 6) * 10) / 10).toString();
+    return (Math.round(total * 10) / 10).toString();
   };
 
-  const getAvgColor = (avgStr: string): string => {
-    if (avgStr === '—') return 'hsl(var(--muted-foreground))';
-    const val = parseFloat(avgStr);
-    if (val >= 3.0) return 'hsl(var(--score-green))';
-    if (val >= 2.0) return 'hsl(var(--score-amber))';
-    return 'hsl(var(--score-red))';
+  const getTotalColor = (totalStr: string): string => {
+    if (totalStr === '—') return 'hsl(var(--muted-foreground))';
+    const val = parseFloat(totalStr);
+    if (val >= 16) return '#4ade80';
+    if (val >= 12) return '#fbbf24';
+    return '#f87171';
+  };
+
+  const getFeedback = (demoDayId: string, studentId: string): DemoFeedback | undefined => {
+    return demoFeedback.find(f => f.demo_day_id === demoDayId && f.student_id === studentId);
+  };
+
+  const openFeedbackModal = (demoDayId: string, studentId: string, dd: DemoDay) => {
+    const student = students.find(s => s.id === studentId);
+    const existing = getFeedback(demoDayId, studentId);
+    const totalScore = getStudentDemoTotal(demoDayId, studentId);
+    setFeedbackText(existing?.feedback || '');
+    setFeedbackModal({
+      demoDayId, studentId,
+      studentName: student?.name || 'Student',
+      demoDayTitle: dd.title,
+      demoDayDate: dd.date,
+      totalScore,
+    });
+    setTimeout(() => {
+      if (feedbackTextareaRef.current) {
+        feedbackTextareaRef.current.style.height = 'auto';
+        feedbackTextareaRef.current.style.height = feedbackTextareaRef.current.scrollHeight + 'px';
+      }
+    }, 50);
+  };
+
+  const saveFeedback = async () => {
+    if (!feedbackModal) return;
+    const existing = getFeedback(feedbackModal.demoDayId, feedbackModal.studentId);
+    if (existing) {
+      await supabase.from('demo_feedback').update({ feedback: feedbackText, updated_at: new Date().toISOString() } as any).eq('id', existing.id);
+      setDemoFeedback(prev => prev.map(f => f.id === existing.id ? { ...f, feedback: feedbackText } : f));
+    } else {
+      const { data } = await supabase.from('demo_feedback').insert({
+        demo_day_id: feedbackModal.demoDayId,
+        student_id: feedbackModal.studentId,
+        feedback: feedbackText,
+      } as any).select().single();
+      if (data) setDemoFeedback(prev => [...prev, data as DemoFeedback]);
+    }
+    setFeedbackModal(null);
+    showSaved();
   };
 
   if (reportStudent && activeBatch) {
