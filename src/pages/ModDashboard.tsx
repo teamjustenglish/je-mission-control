@@ -1379,11 +1379,25 @@ const ModDashboard: React.FC = () => {
                               ))}
                             </tr>
                           ))}
-                          <tr className="font-medium">
-                            <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Avg (/ 4)</td>
+                          <tr className="font-medium" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                            <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Total (/ 20)</td>
                             {students.map(s => {
-                              const avg = getStudentDemoAvg(dd.id, s.id);
-                              return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, color: getAvgColor(avg) }}>{avg}</td>;
+                              const total = getStudentDemoTotal(dd.id, s.id);
+                              return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 700, color: getTotalColor(total) }}>{total}</td>;
+                            })}
+                          </tr>
+                          <tr>
+                            <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Individual feedback</td>
+                            {students.map(s => {
+                              const fb = getFeedback(dd.id, s.id);
+                              return (
+                                <td key={s.id} className="text-center px-2 py-2" style={{ cursor: 'pointer' }} onClick={() => openFeedbackModal(dd.id, s.id, dd)}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                    <span style={{ fontSize: 20, fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' }}>{fb?.feedback ? '📝' : '📄'}</span>
+                                    <span style={{ fontSize: 10, color: '#555', fontStyle: 'italic' }}>{fb?.feedback ? 'click to edit' : 'click to add'}</span>
+                                  </div>
+                                </td>
+                              );
                             })}
                           </tr>
                         </tbody>
