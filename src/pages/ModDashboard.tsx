@@ -540,7 +540,7 @@ const ModDashboard: React.FC = () => {
         switchBatch(remaining[0].id);
       } else {
         setActiveBatchId(null);
-        setStudents([]); setAttendance([]); setDemoDays([]); setDemoScores([]); setRescheduledSessions([]);
+        setStudents([]); setAttendance([]); setDemoDays([]); setDemoScores([]); setDemoFeedback([]); setRescheduledSessions([]);
       }
     }
     setDeleteBatchConfirm(null);
@@ -580,6 +580,7 @@ const ModDashboard: React.FC = () => {
 
   const removeStudent = async (student: Student) => {
     await supabase.from('attendance').delete().eq('student_id', student.id);
+    await supabase.from('demo_feedback').delete().eq('student_id', student.id);
     await supabase.from('demo_scores').delete().eq('student_id', student.id);
     await supabase.from('students').delete().eq('id', student.id);
     setStudents(prev => prev.filter(s => s.id !== student.id));
