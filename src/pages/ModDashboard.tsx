@@ -342,8 +342,8 @@ const ModDashboard: React.FC = () => {
   // Save current state back to cache
   const saveToCacheFromState = useCallback(() => {
     if (!activeBatchId) return;
-    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, rescheduledSessions };
-  }, [activeBatchId, students, attendance, demoDays, demoScores, rescheduledSessions]);
+    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions };
+  }, [activeBatchId, students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions]);
 
   // Keep cache in sync with state changes
   useEffect(() => { saveToCacheFromState(); }, [saveToCacheFromState]);
