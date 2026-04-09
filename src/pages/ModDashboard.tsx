@@ -209,7 +209,7 @@ const ColumnMenu: React.FC<{
   );
 };
 
-// Score input with validation: 0-4, decimals allowed
+// Score input with validation: 0-5, decimals allowed
 const ScoreInput: React.FC<{
   value: number;
   onChange: (val: number) => void;
@@ -225,19 +225,19 @@ const ScoreInput: React.FC<{
     if (raw === '' || raw === '.') { setLocalVal(raw); return; }
     const num = parseFloat(raw);
     if (isNaN(num)) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
-    if (num < 0 || num > 4) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
+    if (num < 0 || num > 5) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
     setLocalVal(raw);
   };
 
   const handleBlur = () => {
     const num = parseFloat(localVal);
-    if (!isNaN(num) && num >= 0 && num <= 4) onChange(num);
+    if (!isNaN(num) && num >= 0 && num <= 5) onChange(num);
     else if (localVal === '') onChange(0);
   };
 
   return (
     <input
-      ref={inputRef} type="number" min={0} max={4} step={0.1}
+      ref={inputRef} type="number" min={0} max={5} step={0.1}
       value={localVal} onChange={handleChange} onBlur={handleBlur}
       onKeyDown={(e) => { if (e.key === 'Enter') inputRef.current?.blur(); }}
       className="score-input"
