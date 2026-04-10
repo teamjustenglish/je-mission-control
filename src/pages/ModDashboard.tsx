@@ -341,6 +341,9 @@ const ModDashboard: React.FC = () => {
   } | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
+  
+  // Absence note reminder banner
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const activeBatch = batches.find(b => b.id === activeBatchId);
 
