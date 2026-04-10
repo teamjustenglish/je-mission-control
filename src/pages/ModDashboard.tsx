@@ -751,36 +751,69 @@ const ModDashboard: React.FC = () => {
     return loggedSessions.size;
   })();
 
-  const updateDemoScore = async (demoDayId: string, studentId: string, criterion: string, score: number) => {
-    const existing = demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion);
-    showSyncStatus('syncing');
-    if (existing) {
-      setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
-      supabase.from('demo_scores').update({ score }).eq('id', existing.id)
-        .then(({ error }) => { if (error) { loadBatchData(); showSyncStatus('idle'); } else { showSyncStatus('saved'); } });
-    } else {
-      const tempId = `temp-score-${Date.now()}`;
-      setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
-      supabase.from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
-        .select().single().then(({ data, error }) => {
-          if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); }
-          else if (data) { setDemoScores(prev => prev.map(s => s.id === tempId ? data : s)); showSyncStatus('saved'); }
-        });
+  // Initialize scoreValues from demoScores whenever demoScores changes (e.g. on batch load)
+  useEffect(() => {
+    const vals: Record<string, string> = {};
+    for (const s of demoScores) {
+      const key = `${s.demo_day_id}|${s.student_id}|${s.criterion}`;
+      if (Number(s.score) !== 0) vals[key] = String(s.score);
     }
-    showSaved();
-    if (user && activeBatch) {
-      logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
-    }
+    setScoreValues(vals);
+  }, [demoScores]);
+
+  const updateScoreValue = (demoDayId: string, studentId: string, criterion: string, rawVal: string) => {
+    const key = `${demoDayId}|${studentId}|${criterion}`;
+    setScoreValues(prev => ({ ...prev, [key]: rawVal }));
+
+    // Debounce supabase sync
+    if (scoreDebounceTimers.current[key]) clearTimeout(scoreDebounceTimers.current[key]);
+    scoreDebounceTimers.current[key] = setTimeout(() => {
+      const num = parseFloat(rawVal);
+      const score = (!rawVal || rawVal === '.' || isNaN(num)) ? 0 : num;
+      const existing = demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion);
+      showSyncStatus('syncing');
+      if (existing) {
+        supabase.from('demo_scores').update({ score }).eq('id', existing.id)
+          .then(({ error }) => {
+            if (error) { loadBatchData(); showSyncStatus('idle'); }
+            else {
+              setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
+              showSyncStatus('saved');
+            }
+          });
+      } else {
+        const tempId = `temp-score-${Date.now()}-${key}`;
+        setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
+        supabase.from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
+          .select().single().then(({ data, error }) => {
+            if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); }
+            else if (data) { setDemoScores(prev => prev.map(s => s.id === tempId ? data : s)); showSyncStatus('saved'); }
+          });
+      }
+      showSaved();
+      if (user && activeBatch) {
+        logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
+      }
+    }, 1000);
   };
 
-  const getScore = (demoDayId: string, studentId: string, criterion: string): number => {
-    return demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion)?.score || 0;
+  const getScoreValue = (demoDayId: string, studentId: string, criterion: string): string => {
+    const key = `${demoDayId}|${studentId}|${criterion}`;
+    return scoreValues[key] ?? '';
   };
 
   const getStudentDemoTotal = (demoDayId: string, studentId: string): string => {
-    const scores = demoScores.filter(s => s.demo_day_id === demoDayId && s.student_id === studentId && Number(s.score) > 0);
-    if (scores.length === 0) return '—';
-    const total = scores.reduce((sum, s) => sum + Number(s.score), 0);
+    let hasAny = false;
+    let total = 0;
+    for (const c of CRITERIA) {
+      const key = `${demoDayId}|${studentId}|${c}`;
+      const val = scoreValues[key];
+      if (val && val !== '.' && val !== '') {
+        const num = parseFloat(val);
+        if (!isNaN(num) && num > 0) { hasAny = true; total += num; }
+      }
+    }
+    if (!hasAny) return '—';
     return (Math.round(total * 10) / 10).toString();
   };
 
