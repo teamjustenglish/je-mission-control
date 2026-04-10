@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye } from 'lucide-react';
+import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search } from 'lucide-react';
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA } from '@/lib/batchtrack';
 import ScoringRubric from '@/components/ScoringRubric';
+import StudentProgressModal from '@/components/StudentProgressModal';
 
 interface Profile {
   id: string;
@@ -131,11 +132,25 @@ const AdminDashboard: React.FC = () => {
   const [gridAllWeeks, setGridAllWeeks] = useState(false);
   const [gridDemoDaysExpanded, setGridDemoDaysExpanded] = useState(false);
 
+  // Batch data cache for quick grid view loading
+  const adminBatchCacheRef = useRef<Record<string, {
+    students: Student[]; attendance: AttendanceRecord[]; demoDays: DemoDay[];
+    demoScores: DemoScore[]; demoFeedback: DemoFeedback[]; rescheduledSessions: RescheduledSession[];
+    startDate: string | null;
+  }>>({});
+
   // FEATURE 2: Reset access modal
   const [resetAccessModal, setResetAccessModal] = useState<{ mod: Profile; code?: string; loading?: boolean; error?: string } | null>(null);
 
   // FEATURE 3: Credentials modal
   const [credentialsMod, setCredentialsMod] = useState<Profile | null>(null);
+
+  // Students page state
+  const [studentSearch, setStudentSearch] = useState('');
+  const [allStudentsData, setAllStudentsData] = useState<{ student: Student; batch: any; mod: Profile; weekNumber: number; attendancePct: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] }[]>([]);
+
+  // Student progress modal
+  const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
 
   useEffect(() => { loadData(); }, []);
 
