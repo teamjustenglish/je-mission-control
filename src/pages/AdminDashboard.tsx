@@ -147,6 +147,8 @@ const AdminDashboard: React.FC = () => {
 
   // Students page state
   const [studentSearch, setStudentSearch] = useState('');
+  const [studentPage, setStudentPage] = useState(1);
+  const STUDENTS_PER_PAGE = 15;
   const [allStudentsData, setAllStudentsData] = useState<{ student: Student; batch: any; mod: Profile; weekNumber: number; attendancePct: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] }[]>([]);
 
   // Student progress modal
@@ -724,18 +726,31 @@ const AdminDashboard: React.FC = () => {
                 <tbody>
                   {students.map(student => (
                     <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                      <td className="py-1 font-medium text-foreground" style={{ fontSize: 12, cursor: 'pointer' }}
-                        onClick={() => setProgressModalData({
-                          student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
-                          weekNumber: (() => {
-                            if (!gridViewBatch.startDate) return 1;
-                            const d = Math.floor((Date.now() - new Date(gridViewBatch.startDate).getTime()) / (1000*60*60*24));
-                            return Math.min(Math.max(Math.ceil(d/7),1),6);
-                          })(),
-                          attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
-                          demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
-                        })}>
-                        {student.name || '(unnamed)'} <span style={emojiStyle}>📄</span>
+                       <td className="py-1 font-medium text-foreground" style={{ fontSize: 12 }}>
+                        <span style={{ cursor: 'pointer' }} className="hover:underline"
+                          onClick={() => setProgressModalData({
+                            student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
+                            weekNumber: (() => {
+                              if (!gridViewBatch.startDate) return 1;
+                              const d = Math.floor((Date.now() - new Date(gridViewBatch.startDate).getTime()) / (1000*60*60*24));
+                              return Math.min(Math.max(Math.ceil(d/7),1),6);
+                            })(),
+                            attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
+                            demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
+                          })}>
+                          {student.name || '(unnamed)'}
+                        </span>
+                        <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }}
+                          onClick={() => setProgressModalData({
+                            student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
+                            weekNumber: (() => {
+                              if (!gridViewBatch.startDate) return 1;
+                              const d = Math.floor((Date.now() - new Date(gridViewBatch.startDate).getTime()) / (1000*60*60*24));
+                              return Math.min(Math.max(Math.ceil(d/7),1),6);
+                            })(),
+                            attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
+                            demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
+                          })}>📄</span>
                       </td>
                       {(gridAllWeeks ? Array.from({ length: 24 }, (_, i) => i) : weekSessions).map(si => {
                         const info = getSessionLabel(si);
@@ -1392,47 +1407,70 @@ const AdminDashboard: React.FC = () => {
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
-                type="text" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)}
+                type="text" value={studentSearch} onChange={(e) => { setStudentSearch(e.target.value); setStudentPage(1); }}
                 placeholder="Search by student name..."
                 style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 8, padding: '10px 12px 10px 36px', fontSize: 13, color: '#e8e8e8', outline: 'none' }}
               />
             </div>
-            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
-              {(() => {
+            {(() => {
                 const filtered = studentSearch.trim()
                   ? allStudentsData.filter(s => s.student.name.toLowerCase().includes(studentSearch.toLowerCase()))
                   : [...allStudentsData].sort((a, b) => a.student.name.localeCompare(b.student.name));
-                if (filtered.length === 0) {
-                  return (
-                    <div className="text-center py-12">
-                      <p style={{ fontSize: 14, color: '#888' }}>No students found matching '{studentSearch}'</p>
+                const totalPages = Math.max(1, Math.ceil(filtered.length / STUDENTS_PER_PAGE));
+                const currentPage = Math.min(studentPage, totalPages);
+                const paginated = filtered.slice((currentPage - 1) * STUDENTS_PER_PAGE, currentPage * STUDENTS_PER_PAGE);
+                return (
+                  <>
+                    <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
+                      {filtered.length === 0 ? (
+                        <div className="text-center py-12">
+                          <p style={{ fontSize: 14, color: '#888' }}>No students found matching '{studentSearch}'</p>
+                        </div>
+                      ) : paginated.map(({ student, batch, mod, weekNumber, attendancePct, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb }) => {
+                        const attColor = attendancePct >= 70 ? '#4ade80' : attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                        return (
+                          <div key={student.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                            <div className="flex items-center gap-3">
+                              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#2a1f00', color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600 }}>
+                                {getInitials(student.name)}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-foreground">
+                                  <span style={{ cursor: 'pointer' }} className="hover:underline"
+                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>
+                                    {student.name}
+                                  </span>
+                                  <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }}
+                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>📄</span>
+                                </p>
+                                <p className="text-xs text-muted-foreground">{batch.name} · {mod.name} · Currently in week {weekNumber} of 6</p>
+                              </div>
+                            </div>
+                            <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : '#2a0a0a', color: attColor }}>
+                              Attendance · {attendancePct}%
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                }
-                return filtered.map(({ student, batch, mod, weekNumber, attendancePct, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb }) => {
-                  const attColor = attendancePct >= 70 ? '#4ade80' : attendancePct >= 50 ? '#fbbf24' : '#f87171';
-                  return (
-                    <div key={student.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                      <div className="flex items-center gap-3">
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#2a1f00', color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600 }}>
-                          {getInitials(student.name)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground" style={{ cursor: 'pointer' }}
-                            onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>
-                            {student.name} <span style={emojiStyle}>📄</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground">{batch.name} · {mod.name} · Currently in week {weekNumber} of 6</p>
-                        </div>
+                    {filtered.length > STUDENTS_PER_PAGE && (
+                      <div className="flex items-center justify-center gap-4 mt-4">
+                        <button
+                          disabled={currentPage <= 1}
+                          onClick={() => setStudentPage(p => Math.max(1, p - 1))}
+                          style={{ background: '#1e1e1e', border: '1px solid #333', color: currentPage <= 1 ? '#888' : '#e8e8e8', borderRadius: 8, padding: '6px 14px', fontSize: 13, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer', opacity: currentPage <= 1 ? 0.4 : 1 }}
+                        >← Previous</button>
+                        <span style={{ fontSize: 13, color: '#888' }}>Page {currentPage} of {totalPages}</span>
+                        <button
+                          disabled={currentPage >= totalPages}
+                          onClick={() => setStudentPage(p => Math.min(totalPages, p + 1))}
+                          style={{ background: '#1e1e1e', border: '1px solid #333', color: currentPage >= totalPages ? '#888' : '#e8e8e8', borderRadius: 8, padding: '6px 14px', fontSize: 13, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer', opacity: currentPage >= totalPages ? 0.4 : 1 }}
+                        >Next →</button>
                       </div>
-                      <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : '#2a0a0a', color: attColor }}>
-                        Attendance · {attendancePct}%
-                      </span>
-                    </div>
-                  );
-                });
+                    )}
+                  </>
+                );
               })()}
-            </div>
           </div>
         )}
 
