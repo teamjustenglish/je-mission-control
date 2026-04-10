@@ -568,8 +568,9 @@ const AdminDashboard: React.FC = () => {
   };
 
   const sidebarItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, section: 'OVERVIEW' },
+    { id: 'dashboard', label: "Bird's eye", icon: BarChart3, section: 'OVERVIEW' },
     { id: 'moderators', label: 'Moderators', icon: Users, section: 'OVERVIEW' },
+    { id: 'students', label: 'Students', icon: GraduationCap, section: 'OVERVIEW' },
     { id: 'batches', label: 'All batches', icon: BookOpen, section: 'OVERVIEW' },
     { id: 'export', label: 'Export all', icon: Download, section: 'TOOLS' },
     { id: 'settings', label: 'Settings', icon: Settings, section: 'TOOLS' },
