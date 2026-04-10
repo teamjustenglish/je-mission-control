@@ -131,6 +131,7 @@ const AdminDashboard: React.FC = () => {
   const [gridSelectedWeek, setGridSelectedWeek] = useState(1);
   const [gridAllWeeks, setGridAllWeeks] = useState(false);
   const [gridDemoDaysExpanded, setGridDemoDaysExpanded] = useState(false);
+  const [gridTooltipCell, setGridTooltipCell] = useState<{ studentId: string; sessionIndex: number } | null>(null);
 
   // Batch data cache for quick grid view loading
   const adminBatchCacheRef = useRef<Record<string, {
