@@ -1116,7 +1116,7 @@ const AdminDashboard: React.FC = () => {
                                 <div key={card.id} style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: 16 }}>
                                   <div className="mb-3">
                                     <p className="text-sm font-medium text-foreground">{card.name}</p>
-                                    <p className="text-xs text-muted-foreground">Week {card.weekNumber} of 6</p>
+                                    <p className="text-xs text-muted-foreground">Currently in week {card.weekNumber} of 6</p>
                                   </div>
                                   <div className="grid grid-cols-2 gap-2 mb-3">
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
@@ -1124,8 +1124,8 @@ const AdminDashboard: React.FC = () => {
                                       <div style={{ fontSize: 10, color: '#888' }}>Students</div>
                                     </div>
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
-                                      <div style={{ fontSize: 16, fontWeight: 600, color: attColor }}>{card.attendancePct}%</div>
-                                      <div style={{ fontSize: 10, color: '#888' }}>Attendance</div>
+                                      <div style={{ fontSize: 16, fontWeight: 600, color: attColor }}>Attendance · {card.attendancePct}%</div>
+                                      <div style={{ fontSize: 10, color: '#888' }}></div>
                                     </div>
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
                                       <div style={{ fontSize: 16, fontWeight: 600, color: scoreColor }}>{card.avgDemoScore || '—'}</div>
