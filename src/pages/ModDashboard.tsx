@@ -315,6 +315,10 @@ const ModDashboard: React.FC = () => {
   const [feedbackText, setFeedbackText] = useState('');
   const feedbackTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Score values state: keyed by "demoDayId|studentId|criterion" → string value
+  const [scoreValues, setScoreValues] = useState<Record<string, string>>({});
+  const scoreDebounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
     studentId: string; sessionIndex: number; studentName: string; dayLabel: string; dateLabel: string;
