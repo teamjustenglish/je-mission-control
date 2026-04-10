@@ -861,6 +861,21 @@ const AdminDashboard: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Student progress modal inside grid view */}
+        {progressModalData && (
+          <StudentProgressModal
+            student={progressModalData.student}
+            batchName={progressModalData.batchName}
+            modName={progressModalData.modName}
+            weekNumber={progressModalData.weekNumber}
+            attendance={progressModalData.attendance}
+            demoDays={progressModalData.demoDays}
+            demoScores={progressModalData.demoScores}
+            demoFeedback={progressModalData.demoFeedback}
+            onClose={() => setProgressModalData(null)}
+          />
+        )}
       </div>
     );
   }
