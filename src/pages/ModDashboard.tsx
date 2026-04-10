@@ -1330,9 +1330,10 @@ const ModDashboard: React.FC = () => {
                     {students.map(student => (
                       <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                         <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12, whiteSpace: 'nowrap' }}>
-                          <span style={{ cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>
-                            {student.name || '(unnamed)'} <span style={emojiStyle}>📄</span>
+                          <span style={{ cursor: 'pointer' }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
+                            {student.name || '(unnamed)'}
                           </span>
+                          <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
                         </td>
                         {Array.from({ length: 24 }, (_, i) => {
                           const info = getSessionLabel(i);
@@ -1384,7 +1385,7 @@ const ModDashboard: React.FC = () => {
                               <span className="cursor-pointer hover:underline" onClick={() => setEditingStudentId(student.id)}>
                                 {student.name || '(click to name)'}
                               </span>
-                              <span style={{ ...emojiStyle, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
+                              <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
                             </>
                           )}
                           {hoveredStudentId === student.id && (

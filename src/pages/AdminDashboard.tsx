@@ -1407,7 +1407,7 @@ const AdminDashboard: React.FC = () => {
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
-                type="text" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)}
+                type="text" value={studentSearch} onChange={(e) => { setStudentSearch(e.target.value); setStudentPage(1); }}
                 placeholder="Search by student name..."
                 style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 8, padding: '10px 12px 10px 36px', fontSize: 13, color: '#e8e8e8', outline: 'none' }}
               />
