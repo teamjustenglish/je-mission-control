@@ -131,6 +131,7 @@ const AdminDashboard: React.FC = () => {
   const [gridSelectedWeek, setGridSelectedWeek] = useState(1);
   const [gridAllWeeks, setGridAllWeeks] = useState(false);
   const [gridDemoDaysExpanded, setGridDemoDaysExpanded] = useState(false);
+  const [gridTooltipCell, setGridTooltipCell] = useState<{ studentId: string; sessionIndex: number } | null>(null);
 
   // Batch data cache for quick grid view loading
   const adminBatchCacheRef = useRef<Record<string, {
@@ -666,6 +667,10 @@ const AdminDashboard: React.FC = () => {
     return gridViewBatch?.attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex)?.state || 'e';
   };
 
+  const getGridAbsenceNote = (studentId: string, sessionIndex: number): string | null => {
+    return gridViewBatch?.attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex)?.absence_note || null;
+  };
+
   const getGridScore = (demoDayId: string, studentId: string, criterion: string): number => {
     return gridViewBatch?.demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion)?.score || 0;
   };
@@ -758,10 +763,17 @@ const AdminDashboard: React.FC = () => {
                         </th>
                       );
                     })}
+                    <th className="text-center py-2" style={{ fontSize: 11, fontWeight: 500, color: '#555', width: 50, minWidth: 50 }}>Rate</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map(student => (
+                  {students.map(student => {
+                    const sessions = gridAllWeeks ? Array.from({ length: 24 }, (_, i) => i) : weekSessions;
+                    const totalSessions = sessions.filter(si => !getGridRescheduled(si)).length;
+                    const presentCount = sessions.filter(si => !getGridRescheduled(si) && getGridAttState(student.id, si) === 'c').length;
+                    const ratePct = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 0;
+                    const rateColor = ratePct >= 75 ? '#4ade80' : ratePct >= 50 ? '#fbbf24' : '#f87171';
+                    return (
                     <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                        <td className="py-1 font-medium text-foreground" style={{ fontSize: 12 }}>
                         <span style={{ cursor: 'pointer' }} className="hover:underline"
@@ -789,10 +801,12 @@ const AdminDashboard: React.FC = () => {
                             demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
                           })}>📄</span>
                       </td>
-                      {(gridAllWeeks ? Array.from({ length: 24 }, (_, i) => i) : weekSessions).map(si => {
+                      {sessions.map(si => {
                         const info = getSessionLabel(si);
                         const state = getGridAttState(student.id, si);
                         const rescheduled = getGridRescheduled(si);
+                        const absenceNote = state === 'x' ? getGridAbsenceNote(student.id, si) : null;
+                        const isTooltipOpen = gridTooltipCell?.studentId === student.id && gridTooltipCell?.sessionIndex === si;
                         return (
                           <td key={si} className="text-center" style={{
                             padding: gridAllWeeks ? '10px 14px' : '8px',
@@ -804,7 +818,43 @@ const AdminDashboard: React.FC = () => {
                             ) : state === 'c' ? (
                               <span style={emojiStyle} className="text-[18px]">✅</span>
                             ) : state === 'x' ? (
-                              <span style={emojiStyle} className="text-[18px]">❌</span>
+                              <span style={{ position: 'relative', display: 'inline-block', cursor: 'default' }}
+                                onMouseEnter={() => setGridTooltipCell({ studentId: student.id, sessionIndex: si })}
+                                onMouseLeave={() => setGridTooltipCell(null)}>
+                                <span style={emojiStyle} className="text-[18px]">❌</span>
+                                {/* Static dot indicator */}
+                                <span style={{
+                                  position: 'absolute', top: -3, right: -3, width: 7, height: 7, borderRadius: '50%',
+                                  background: absenceNote ? '#4ade80' : '#fbbf24',
+                                  border: '2px solid hsl(var(--card))',
+                                }} />
+                                {/* Tooltip */}
+                                {isTooltipOpen && (
+                                  <div style={{
+                                    position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                                    marginBottom: 8, background: '#252525', border: '1px solid #333', borderRadius: 9,
+                                    padding: '10px 13px', minWidth: 185, zIndex: 30, textAlign: 'left', whiteSpace: 'normal',
+                                  }}>
+                                    <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Absence note</div>
+                                    {absenceNote ? (
+                                      <div style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.4 }}>{absenceNote}</div>
+                                    ) : (
+                                      <div style={{ fontSize: 13, color: '#555', fontStyle: 'italic' }}>No reason added yet</div>
+                                    )}
+                                    {/* Arrow */}
+                                    <div style={{
+                                      position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
+                                      width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
+                                      borderTop: '6px solid #333',
+                                    }} />
+                                    <div style={{
+                                      position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)',
+                                      width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
+                                      borderTop: '5px solid #252525',
+                                    }} />
+                                  </div>
+                                )}
+                              </span>
                             ) : (
                               <div className="w-[22px] h-[22px] rounded-[5px] mx-auto" style={{
                                 border: info.isDemo ? '1.5px solid hsl(var(--amber-border))' : '1.5px solid hsl(var(--checkbox-border))',
@@ -813,8 +863,10 @@ const AdminDashboard: React.FC = () => {
                           </td>
                         );
                       })}
+                      <td className="text-center py-1" style={{ fontSize: 12, fontWeight: 600, color: rateColor }}>{ratePct}%</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
