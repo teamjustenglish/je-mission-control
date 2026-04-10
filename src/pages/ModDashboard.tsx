@@ -966,7 +966,7 @@ const ModDashboard: React.FC = () => {
               {(profile?.name || 'M').slice(0, 2).toUpperCase()}
             </div>
             <span className="text-sm text-foreground">{profile?.name || 'Moderator'}</span>
-            <button onClick={signOut} className="text-xs text-muted-foreground hover:text-foreground ml-2">Logout</button>
+            <button onClick={async () => { try { await signOut(); } catch (e) { console.error(e); window.location.href = '/'; } }} className="text-xs text-muted-foreground hover:text-foreground ml-2">Logout</button>
           </div>
         </div>
       </div>
