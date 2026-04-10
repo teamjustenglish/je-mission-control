@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search } from 'lucide-react';
@@ -131,7 +132,7 @@ const AdminDashboard: React.FC = () => {
   const [gridSelectedWeek, setGridSelectedWeek] = useState(1);
   const [gridAllWeeks, setGridAllWeeks] = useState(false);
   const [gridDemoDaysExpanded, setGridDemoDaysExpanded] = useState(false);
-  const [gridTooltipCell, setGridTooltipCell] = useState<{ studentId: string; sessionIndex: number } | null>(null);
+  const [gridTooltipCell, setGridTooltipCell] = useState<{ studentId: string; sessionIndex: number; top: number; left: number; centerX: number } | null>(null);
 
   // Batch data cache for quick grid view loading
   const adminBatchCacheRef = useRef<Record<string, {
