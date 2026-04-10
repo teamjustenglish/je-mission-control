@@ -315,7 +315,9 @@ const AdminDashboard: React.FC = () => {
         } else { setAvgDemoScore(0); }
       } else { setAvgDemoScore(0); }
     } else { setAvgDemoScore(0); }
-  }, []);
+    // Preload all batch data for grid views
+    if (mods) preloadAllBatchData(mods as Profile[]);
+  }, [preloadAllBatchData]);
 
   // Load activity with filter
   useEffect(() => { loadActivity(); }, [activityFilter, customDateFrom, customDateTo, moderators]);
