@@ -1508,6 +1508,25 @@ const ModDashboard: React.FC = () => {
           <p>No batches yet. Click "+" to create your first batch.</p>
         </div>
       )}
+
+      {/* Student progress modal */}
+      {progressModalStudent && activeBatch && (
+        <StudentProgressModal
+          student={progressModalStudent}
+          batchName={activeBatch.name}
+          modName={profile?.name || ''}
+          weekNumber={(() => {
+            if (!activeBatch.start_date) return 1;
+            const daysDiff = Math.floor((Date.now() - new Date(activeBatch.start_date).getTime()) / (1000 * 60 * 60 * 24));
+            return Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
+          })()}
+          attendance={attendance}
+          demoDays={demoDays}
+          demoScores={demoScores}
+          demoFeedback={demoFeedback}
+          onClose={() => setProgressModalStudent(null)}
+        />
+      )}
     </div>
   );
 };
