@@ -1494,7 +1494,7 @@ const ModDashboard: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-center h-96 text-muted-foreground">
+        <div className="flex items-center justify-center h-96 text-muted-foreground" style={{ paddingTop: 48 }}>
           <p>No batches yet. Click "+" to create your first batch.</p>
         </div>
       )}
