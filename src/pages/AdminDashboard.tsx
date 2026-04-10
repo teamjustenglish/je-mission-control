@@ -227,6 +227,39 @@ const AdminDashboard: React.FC = () => {
       };
     });
     setAllStudentsData(studentsPageData);
+
+    // Compute missing absence note flags (only for absences older than 24h based on batch schedule)
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const flagsMap = new Map<string, MissingNoteFlag>();
+    for (const batch of allBatches) {
+      if (!batch.start_date) continue;
+      const batchStart = new Date(batch.start_date).getTime();
+      const mod = mods.find(m => m.id === batch.mod_id);
+      if (!mod) continue;
+      const batchStudents = allStudents.filter(s => s.batch_id === batch.id);
+      const batchAtt = allAttendance.filter(a => a.batch_id === batch.id);
+      for (const student of batchStudents) {
+        const studentAtt = batchAtt.filter(a => a.student_id === student.id && a.state === 'x' && !a.absence_note);
+        for (const att of studentAtt) {
+          // Estimate when this session occurred
+          const weekNum = Math.floor(att.session_index / 4);
+          const dayInWeek = att.session_index % 4;
+          const dayOffsets = [0, 1, 3, 4]; // Mon, Tue, Thu, Fri
+          const sessionDate = batchStart + (weekNum * 7 + dayOffsets[dayInWeek]) * oneDayMs;
+          if (now - sessionDate > oneDayMs) {
+            const key = `${mod.id}-${batch.id}`;
+            if (!flagsMap.has(key)) {
+              flagsMap.set(key, { modName: mod.name || mod.email, modId: mod.id, count: 0, studentNames: [], batchName: batch.name });
+            }
+            const flag = flagsMap.get(key)!;
+            flag.count++;
+            if (!flag.studentNames.includes(student.name)) flag.studentNames.push(student.name);
+          }
+        }
+      }
+    }
+    setMissingNoteFlags(Array.from(flagsMap.values()));
   }, []);
 
   const loadData = useCallback(async () => {
