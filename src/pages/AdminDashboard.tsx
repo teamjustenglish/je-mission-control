@@ -154,6 +154,10 @@ const AdminDashboard: React.FC = () => {
   // Student progress modal
   const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
 
+  // Missing absence notes flags
+  interface MissingNoteFlag { modName: string; modId: string; count: number; studentNames: string[]; batchName: string; }
+  const [missingNoteFlags, setMissingNoteFlags] = useState<MissingNoteFlag[]>([]);
+
   useEffect(() => { loadData(); }, []);
 
   // Preload all batch data for admin grid views
