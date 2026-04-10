@@ -945,7 +945,7 @@ const ModDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Top nav */}
-      <div className="px-6" style={{ background: 'hsl(var(--nav-bg))', borderBottom: '1px solid hsl(var(--nav-border))' }}>
+      <div className="px-6" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: 'hsl(var(--nav-bg))', borderBottom: '1px solid hsl(var(--nav-border))' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
             {batches.map(batch => (
