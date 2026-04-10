@@ -944,14 +944,18 @@ const ModDashboard: React.FC = () => {
         </div>
       );
     }
+    const state = getAttendanceState(studentId, sessionIndex);
+    const note = getAbsenceNote(studentId, sessionIndex);
     return (
-      <AttendanceCell
-        state={getAttendanceState(studentId, sessionIndex)}
-        isDemo={isDemo}
-        absenceNote={getAbsenceNote(studentId, sessionIndex)}
-        onClick={() => cycleAttendance(studentId, sessionIndex)}
-        onNoteClick={() => openNoteModal(studentId, sessionIndex)}
-      />
+      <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined}>
+        <AttendanceCell
+          state={state}
+          isDemo={isDemo}
+          absenceNote={note}
+          onClick={() => cycleAttendance(studentId, sessionIndex)}
+          onNoteClick={() => openNoteModal(studentId, sessionIndex)}
+        />
+      </div>
     );
   };
 
