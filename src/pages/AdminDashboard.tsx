@@ -943,6 +943,42 @@ const AdminDashboard: React.FC = () => {
             onClose={() => setProgressModalData(null)}
           />
         )}
+
+        {/* Portal tooltip for absence notes */}
+        {gridTooltipCell && createPortal(
+          (() => {
+            const note = getGridAbsenceNote(gridTooltipCell.studentId, gridTooltipCell.sessionIndex);
+            const tooltipW = 220;
+            return (
+              <div style={{
+                position: 'fixed', zIndex: 9999,
+                top: gridTooltipCell.top - 8, left: gridTooltipCell.centerX,
+                transform: 'translate(-50%, -100%)',
+                background: '#252525', border: '1px solid #333', borderRadius: 9,
+                padding: '10px 13px', minWidth: 200, maxWidth: 280,
+                textAlign: 'left', whiteSpace: 'normal', pointerEvents: 'none',
+              }}>
+                <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Absence note</div>
+                {note ? (
+                  <div style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.4 }}>{note}</div>
+                ) : (
+                  <div style={{ fontSize: 13, color: '#555', fontStyle: 'italic' }}>No reason added yet</div>
+                )}
+                <div style={{
+                  position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
+                  width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
+                  borderTop: '6px solid #333',
+                }} />
+                <div style={{
+                  position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)',
+                  width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
+                  borderTop: '5px solid #252525',
+                }} />
+              </div>
+            );
+          })(),
+          document.body
+        )}
       </div>
     );
   }
