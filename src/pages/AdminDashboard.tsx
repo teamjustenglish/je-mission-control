@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye } from 'lucide-react';
+import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search } from 'lucide-react';
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA } from '@/lib/batchtrack';
 import ScoringRubric from '@/components/ScoringRubric';
+import StudentProgressModal from '@/components/StudentProgressModal';
 
 interface Profile {
   id: string;
@@ -131,13 +132,96 @@ const AdminDashboard: React.FC = () => {
   const [gridAllWeeks, setGridAllWeeks] = useState(false);
   const [gridDemoDaysExpanded, setGridDemoDaysExpanded] = useState(false);
 
+  // Batch data cache for quick grid view loading
+  const adminBatchCacheRef = useRef<Record<string, {
+    students: Student[]; attendance: AttendanceRecord[]; demoDays: DemoDay[];
+    demoScores: DemoScore[]; demoFeedback: DemoFeedback[]; rescheduledSessions: RescheduledSession[];
+    startDate: string | null;
+  }>>({});
+
   // FEATURE 2: Reset access modal
   const [resetAccessModal, setResetAccessModal] = useState<{ mod: Profile; code?: string; loading?: boolean; error?: string } | null>(null);
 
   // FEATURE 3: Credentials modal
   const [credentialsMod, setCredentialsMod] = useState<Profile | null>(null);
 
+  // Students page state
+  const [studentSearch, setStudentSearch] = useState('');
+  const [allStudentsData, setAllStudentsData] = useState<{ student: Student; batch: any; mod: Profile; weekNumber: number; attendancePct: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] }[]>([]);
+
+  // Student progress modal
+  const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
+
   useEffect(() => { loadData(); }, []);
+
+  // Preload all batch data for admin grid views
+  const preloadAllBatchData = useCallback(async (mods: Profile[]) => {
+    const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: allBatches } = await supabase.from('batches').select('*').gte('created_at', threeMonthsAgo);
+    if (!allBatches || allBatches.length === 0) return;
+    const batchIds = allBatches.map(b => b.id);
+    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
+      supabase.from('students').select('*').in('batch_id', batchIds),
+      supabase.from('attendance').select('*').in('batch_id', batchIds),
+      supabase.from('demo_days').select('*').in('batch_id', batchIds),
+      supabase.from('rescheduled_sessions').select('*').in('batch_id', batchIds),
+    ]);
+    const allStudents = studentsRes.data || [];
+    const allAttendance = (attendanceRes.data || []) as AttendanceRecord[];
+    const allDemoDays = demoDaysRes.data || [];
+    const allRescheduled = (rescheduledRes.data || []) as RescheduledSession[];
+    const ddIds = allDemoDays.map(d => d.id);
+    let allDemoScores: DemoScore[] = [];
+    let allDemoFeedback: DemoFeedback[] = [];
+    if (ddIds.length > 0) {
+      const [scoresRes, fbRes] = await Promise.all([
+        supabase.from('demo_scores').select('*').in('demo_day_id', ddIds),
+        supabase.from('demo_feedback').select('*').in('demo_day_id', ddIds),
+      ]);
+      allDemoScores = scoresRes.data || [];
+      allDemoFeedback = (fbRes.data || []) as DemoFeedback[];
+    }
+    // Cache per batch
+    for (const batch of allBatches) {
+      adminBatchCacheRef.current[batch.id] = {
+        students: allStudents.filter(s => s.batch_id === batch.id),
+        attendance: allAttendance.filter(a => a.batch_id === batch.id),
+        demoDays: allDemoDays.filter(d => d.batch_id === batch.id),
+        demoScores: allDemoScores.filter(s => allDemoDays.filter(d => d.batch_id === batch.id).map(d => d.id).includes(s.demo_day_id)),
+        demoFeedback: allDemoFeedback.filter(f => allDemoDays.filter(d => d.batch_id === batch.id).map(d => d.id).includes(f.demo_day_id)),
+        rescheduledSessions: allRescheduled.filter(r => r.batch_id === batch.id),
+        startDate: batch.start_date || null,
+      };
+    }
+    // Build students data for Students page
+    const studentsPageData = allStudents.map(student => {
+      const batch = allBatches.find(b => b.id === student.batch_id);
+      const mod = mods.find(m => m.id === batch?.mod_id);
+      let weekNum = 1;
+      if (batch?.start_date) {
+        const daysDiff = Math.floor((Date.now() - new Date(batch.start_date).getTime()) / (1000 * 60 * 60 * 24));
+        weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
+      }
+      const sessionsPassed = Math.min(weekNum * 4, 24);
+      const sAtt = allAttendance.filter(a => a.student_id === student.id);
+      const present = sAtt.filter(a => a.state === 'c').length;
+      const pct = sessionsPassed > 0 ? Math.round((present / sessionsPassed) * 100) : 0;
+      const batchDDs = allDemoDays.filter(d => d.batch_id === student.batch_id);
+      const batchDDIds = batchDDs.map(d => d.id);
+      return {
+        student,
+        batch: batch || { name: 'Unknown', label: '' },
+        mod: mod || { id: '', email: '', name: 'Unknown', role: 'moderator', created_at: '' } as Profile,
+        weekNumber: weekNum,
+        attendancePct: pct,
+        attendance: allAttendance,
+        demoDays: batchDDs,
+        demoScores: allDemoScores.filter(s => batchDDIds.includes(s.demo_day_id)),
+        demoFeedback: allDemoFeedback.filter(f => batchDDIds.includes(f.demo_day_id)),
+      };
+    });
+    setAllStudentsData(studentsPageData);
+  }, []);
 
   const loadData = useCallback(async () => {
     const { data: mods } = await supabase.from('profiles').select('*').eq('role', 'moderator');
@@ -231,7 +315,9 @@ const AdminDashboard: React.FC = () => {
         } else { setAvgDemoScore(0); }
       } else { setAvgDemoScore(0); }
     } else { setAvgDemoScore(0); }
-  }, []);
+    // Preload all batch data for grid views
+    if (mods) preloadAllBatchData(mods as Profile[]);
+  }, [preloadAllBatchData]);
 
   // Load activity with filter
   useEffect(() => { loadActivity(); }, [activityFilter, customDateFrom, customDateTo, moderators]);
@@ -395,8 +481,26 @@ const AdminDashboard: React.FC = () => {
     setLoadingModBatches(false);
   };
 
-  // FEATURE 1: Open full grid view
+  // FEATURE 1: Open full grid view (uses cache)
   const openGridView = async (batchId: string, batchName: string, modName: string) => {
+    const cached = adminBatchCacheRef.current[batchId];
+    if (cached) {
+      setGridViewBatch({
+        batchId, batchName, modName,
+        students: cached.students,
+        attendance: cached.attendance,
+        demoDays: cached.demoDays,
+        demoScores: cached.demoScores,
+        demoFeedback: cached.demoFeedback,
+        rescheduledSessions: cached.rescheduledSessions,
+        startDate: cached.startDate,
+      });
+      setGridSelectedWeek(1);
+      setGridAllWeeks(false);
+      setGridDemoDaysExpanded(false);
+      return;
+    }
+    // Fallback: fetch from DB
     const [batchRes, studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
       supabase.from('batches').select('*').eq('id', batchId).single(),
       supabase.from('students').select('*').eq('batch_id', batchId).order('created_at'),
@@ -464,8 +568,9 @@ const AdminDashboard: React.FC = () => {
   };
 
   const sidebarItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, section: 'OVERVIEW' },
+    { id: 'dashboard', label: "Bird's eye", icon: BarChart3, section: 'OVERVIEW' },
     { id: 'moderators', label: 'Moderators', icon: Users, section: 'OVERVIEW' },
+    { id: 'students', label: 'Students', icon: GraduationCap, section: 'OVERVIEW' },
     { id: 'batches', label: 'All batches', icon: BookOpen, section: 'OVERVIEW' },
     { id: 'export', label: 'Export all', icon: Download, section: 'TOOLS' },
     { id: 'settings', label: 'Settings', icon: Settings, section: 'TOOLS' },
@@ -595,7 +700,7 @@ const AdminDashboard: React.FC = () => {
               <table className="text-sm" style={{ tableLayout: 'fixed', width: gridAllWeeks ? 'max-content' : '100%' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                    <th className="text-left py-2 font-medium text-muted-foreground" style={{ width: 140, minWidth: 140, fontSize: 12 }}>Student</th>
+                    <th className="text-left py-2 font-medium text-muted-foreground" style={{ width: 160, minWidth: 160, fontSize: 12 }}>Student</th>
                     {(gridAllWeeks ? Array.from({ length: 24 }, (_, i) => i) : weekSessions).map(si => {
                       const info = getSessionLabel(si);
                       const rescheduled = getGridRescheduled(si);
@@ -603,7 +708,7 @@ const AdminDashboard: React.FC = () => {
                       const newDateStr = rescheduled ? new Date(rescheduled.new_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null;
                       return (
                         <th key={si} className="text-center py-2 font-medium" style={{
-                          fontSize: 12,
+                          fontSize: 12, minWidth: gridAllWeeks ? 60 : undefined,
                           background: rescheduled ? '#1e1800' : info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))',
                           color: rescheduled ? '#d4920a' : info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))',
                         }}>
@@ -619,15 +724,28 @@ const AdminDashboard: React.FC = () => {
                 <tbody>
                   {students.map(student => (
                     <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                      <td className="py-1 font-medium text-foreground" style={{ fontSize: 12 }}>{student.name || '(unnamed)'}</td>
+                      <td className="py-1 font-medium text-foreground" style={{ fontSize: 12, cursor: 'pointer' }}
+                        onClick={() => setProgressModalData({
+                          student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
+                          weekNumber: (() => {
+                            if (!gridViewBatch.startDate) return 1;
+                            const d = Math.floor((Date.now() - new Date(gridViewBatch.startDate).getTime()) / (1000*60*60*24));
+                            return Math.min(Math.max(Math.ceil(d/7),1),6);
+                          })(),
+                          attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
+                          demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
+                        })}>
+                        {student.name || '(unnamed)'} <span style={emojiStyle}>📄</span>
+                      </td>
                       {(gridAllWeeks ? Array.from({ length: 24 }, (_, i) => i) : weekSessions).map(si => {
                         const info = getSessionLabel(si);
                         const state = getGridAttState(student.id, si);
                         const rescheduled = getGridRescheduled(si);
                         return (
-                          <td key={si} className="text-center py-2" style={{
+                          <td key={si} className="text-center" style={{
+                            padding: gridAllWeeks ? '10px 14px' : '8px',
                             ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
-                            ...(gridAllWeeks && si % 4 === 0 && si > 0 ? { borderLeft: '2px solid hsl(var(--border))' } : {}),
+                            ...(gridAllWeeks && si % 4 === 0 && si > 0 ? { borderLeft: '2px solid #2e2e2e' } : {}),
                           }}>
                             {rescheduled ? (
                               <span style={{ fontSize: 15, fontWeight: 700, color: '#d4920a' }}>↻</span>
@@ -807,9 +925,9 @@ const AdminDashboard: React.FC = () => {
                         <div className="flex items-center justify-between mb-1">
                           <div>
                             <p className="text-sm font-medium text-foreground">{batch.name}</p>
-                            <p className="text-xs text-muted-foreground">{batch.modName} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
+                            <p className="text-xs text-muted-foreground">{batch.modName} · Currently in week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
                           </div>
-                          <span className="text-sm font-medium" style={{ color: barColor }}>{batch.attendancePct}%</span>
+                          <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {batch.attendancePct}%</span>
                         </div>
                         <div style={{ height: 4, borderRadius: 2, background: '#2a2a2a' }}>
                           <div style={{ height: '100%', width: `${batch.attendancePct}%`, borderRadius: 2, background: barColor, transition: 'width 0.3s' }} />
@@ -998,7 +1116,7 @@ const AdminDashboard: React.FC = () => {
                                 <div key={card.id} style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: 16 }}>
                                   <div className="mb-3">
                                     <p className="text-sm font-medium text-foreground">{card.name}</p>
-                                    <p className="text-xs text-muted-foreground">Week {card.weekNumber} of 6</p>
+                                    <p className="text-xs text-muted-foreground">Currently in week {card.weekNumber} of 6</p>
                                   </div>
                                   <div className="grid grid-cols-2 gap-2 mb-3">
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
@@ -1006,8 +1124,8 @@ const AdminDashboard: React.FC = () => {
                                       <div style={{ fontSize: 10, color: '#888' }}>Students</div>
                                     </div>
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
-                                      <div style={{ fontSize: 16, fontWeight: 600, color: attColor }}>{card.attendancePct}%</div>
-                                      <div style={{ fontSize: 10, color: '#888' }}>Attendance</div>
+                                      <div style={{ fontSize: 16, fontWeight: 600, color: attColor }}>Attendance · {card.attendancePct}%</div>
+                                      <div style={{ fontSize: 10, color: '#888' }}></div>
                                     </div>
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
                                       <div style={{ fontSize: 16, fontWeight: 600, color: scoreColor }}>{card.avgDemoScore || '—'}</div>
@@ -1250,9 +1368,9 @@ const AdminDashboard: React.FC = () => {
                     <div className="flex items-center justify-between mb-1">
                       <div>
                         <p className="text-sm font-medium text-foreground">{batch.name}</p>
-                        <p className="text-xs text-muted-foreground">{batch.modName} · {batch.studentCount} students · Week {batch.weekNumber} of 6</p>
+                        <p className="text-xs text-muted-foreground">{batch.modName} · {batch.studentCount} students · Currently in week {batch.weekNumber} of 6</p>
                       </div>
-                      <span className="text-sm font-medium" style={{ color: barColor }}>{batch.attendancePct}%</span>
+                      <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {batch.attendancePct}%</span>
                     </div>
                     <div style={{ height: 4, borderRadius: 2, background: '#2a2a2a' }}>
                       <div style={{ height: '100%', width: `${batch.attendancePct}%`, borderRadius: 2, background: barColor }} />
@@ -1265,6 +1383,59 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {activePage === 'students' && (
+          <div>
+            <h2 className="text-lg font-semibold text-foreground mb-1">All students</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              {allStudentsData.length} students across {new Set(allStudentsData.map(s => s.batch.id)).size} active batches
+            </p>
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)}
+                placeholder="Search by student name..."
+                style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 8, padding: '10px 12px 10px 36px', fontSize: 13, color: '#e8e8e8', outline: 'none' }}
+              />
+            </div>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
+              {(() => {
+                const filtered = studentSearch.trim()
+                  ? allStudentsData.filter(s => s.student.name.toLowerCase().includes(studentSearch.toLowerCase()))
+                  : [...allStudentsData].sort((a, b) => a.student.name.localeCompare(b.student.name));
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <p style={{ fontSize: 14, color: '#888' }}>No students found matching '{studentSearch}'</p>
+                    </div>
+                  );
+                }
+                return filtered.map(({ student, batch, mod, weekNumber, attendancePct, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb }) => {
+                  const attColor = attendancePct >= 70 ? '#4ade80' : attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                  return (
+                    <div key={student.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                      <div className="flex items-center gap-3">
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#2a1f00', color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600 }}>
+                          {getInitials(student.name)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground" style={{ cursor: 'pointer' }}
+                            onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>
+                            {student.name} <span style={emojiStyle}>📄</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">{batch.name} · {mod.name} · Currently in week {weekNumber} of 6</p>
+                        </div>
+                      </div>
+                      <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : '#2a0a0a', color: attColor }}>
+                        Attendance · {attendancePct}%
+                      </span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
+
         {activePage === 'export' && (
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-4">Export All</h2>
@@ -1272,6 +1443,21 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Student progress modal */}
+      {progressModalData && (
+        <StudentProgressModal
+          student={progressModalData.student}
+          batchName={progressModalData.batchName}
+          modName={progressModalData.modName}
+          weekNumber={progressModalData.weekNumber}
+          attendance={progressModalData.attendance}
+          demoDays={progressModalData.demoDays}
+          demoScores={progressModalData.demoScores}
+          demoFeedback={progressModalData.demoFeedback}
+          onClose={() => setProgressModalData(null)}
+        />
+      )}
     </div>
   );
 };

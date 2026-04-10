@@ -5,6 +5,7 @@ import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRIT
 import { Plus, Trash2, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
 import StudentReport from '@/components/StudentReport';
 import ScoringRubric from '@/components/ScoringRubric';
+import StudentProgressModal from '@/components/StudentProgressModal';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -278,6 +279,7 @@ const ModDashboard: React.FC = () => {
   const [hoveredStudentId, setHoveredStudentId] = useState<string | null>(null);
   const [reportStudent, setReportStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
+  const [progressModalStudent, setProgressModalStudent] = useState<Student | null>(null);
 
   // Edit batch modal state
   const [editBatchId, setEditBatchId] = useState<string | null>(null);
@@ -1317,7 +1319,7 @@ const ModDashboard: React.FC = () => {
                 <table className="text-sm" style={{ tableLayout: 'fixed', width: 'max-content' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                      <th className="text-left py-2 font-medium text-muted-foreground sticky left-0 bg-card" style={{ width: 140, minWidth: 140, fontSize: 12 }}>Student</th>
+                      <th className="text-left py-2 font-medium text-muted-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12 }}>Student</th>
                       {Array.from({ length: 24 }, (_, i) => {
                         const info = getSessionLabel(i);
                         return renderColumnHeader(i, info);
@@ -1327,15 +1329,20 @@ const ModDashboard: React.FC = () => {
                   <tbody>
                     {students.map(student => (
                       <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                        <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 140, minWidth: 140, fontSize: 12, whiteSpace: 'nowrap' }}>{student.name || '(unnamed)'}</td>
+                        <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12, whiteSpace: 'nowrap' }}>
+                          <span style={{ cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>
+                            {student.name || '(unnamed)'} <span style={emojiStyle}>📄</span>
+                          </span>
+                        </td>
                         {Array.from({ length: 24 }, (_, i) => {
                           const info = getSessionLabel(i);
                           const rescheduled = isSessionRescheduled(i);
                           return (
                             <td key={i} style={{
-                              width: 48,
+                              minWidth: 60,
+                              padding: '10px 14px',
                               ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
-                              ...(i % 4 === 0 && i > 0 ? { borderLeft: '2px solid hsl(var(--border))' } : {}),
+                              ...(i % 4 === 0 && i > 0 ? { borderLeft: '2px solid #2e2e2e' } : {}),
                             }}>
                               {renderCell(student.id, i, info.isDemo)}
                             </td>
@@ -1373,9 +1380,12 @@ const ModDashboard: React.FC = () => {
                               className="bg-transparent outline-none text-sm w-24 text-foreground"
                               style={{ borderBottom: '1px solid hsl(var(--foreground))' }} autoFocus />
                           ) : (
-                            <span className="cursor-pointer hover:underline" onClick={() => setEditingStudentId(student.id)}>
-                              {student.name || '(click to name)'}
-                            </span>
+                            <>
+                              <span className="cursor-pointer hover:underline" onClick={() => setEditingStudentId(student.id)}>
+                                {student.name || '(click to name)'}
+                              </span>
+                              <span style={{ ...emojiStyle, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
+                            </>
                           )}
                           {hoveredStudentId === student.id && (
                             <div className="flex items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
@@ -1385,7 +1395,7 @@ const ModDashboard: React.FC = () => {
                               <button onClick={() => setReportStudent(student)}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 hover:text-foreground"
                                 style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
-                                <span style={emojiStyle}>📄</span> Progress
+                                Progress
                               </button>
                             </div>
                           )}
@@ -1497,6 +1507,25 @@ const ModDashboard: React.FC = () => {
         <div className="flex items-center justify-center h-96 text-muted-foreground" style={{ paddingTop: 48 }}>
           <p>No batches yet. Click "+" to create your first batch.</p>
         </div>
+      )}
+
+      {/* Student progress modal */}
+      {progressModalStudent && activeBatch && (
+        <StudentProgressModal
+          student={progressModalStudent}
+          batchName={activeBatch.name}
+          modName={profile?.name || ''}
+          weekNumber={(() => {
+            if (!activeBatch.start_date) return 1;
+            const daysDiff = Math.floor((Date.now() - new Date(activeBatch.start_date).getTime()) / (1000 * 60 * 60 * 24));
+            return Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
+          })()}
+          attendance={attendance}
+          demoDays={demoDays}
+          demoScores={demoScores}
+          demoFeedback={demoFeedback}
+          onClose={() => setProgressModalStudent(null)}
+        />
       )}
     </div>
   );
