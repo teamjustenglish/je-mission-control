@@ -763,6 +763,7 @@ const AdminDashboard: React.FC = () => {
                         </th>
                       );
                     })}
+                    <th className="text-center py-2" style={{ fontSize: 11, fontWeight: 500, color: '#555', width: 50, minWidth: 50 }}>Rate</th>
                   </tr>
                 </thead>
                 <tbody>
