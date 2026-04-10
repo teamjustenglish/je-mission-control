@@ -667,6 +667,10 @@ const AdminDashboard: React.FC = () => {
     return gridViewBatch?.attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex)?.state || 'e';
   };
 
+  const getGridAbsenceNote = (studentId: string, sessionIndex: number): string | null => {
+    return gridViewBatch?.attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex)?.absence_note || null;
+  };
+
   const getGridScore = (demoDayId: string, studentId: string, criterion: string): number => {
     return gridViewBatch?.demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion)?.score || 0;
   };
