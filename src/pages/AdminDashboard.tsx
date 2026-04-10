@@ -481,8 +481,26 @@ const AdminDashboard: React.FC = () => {
     setLoadingModBatches(false);
   };
 
-  // FEATURE 1: Open full grid view
+  // FEATURE 1: Open full grid view (uses cache)
   const openGridView = async (batchId: string, batchName: string, modName: string) => {
+    const cached = adminBatchCacheRef.current[batchId];
+    if (cached) {
+      setGridViewBatch({
+        batchId, batchName, modName,
+        students: cached.students,
+        attendance: cached.attendance,
+        demoDays: cached.demoDays,
+        demoScores: cached.demoScores,
+        demoFeedback: cached.demoFeedback,
+        rescheduledSessions: cached.rescheduledSessions,
+        startDate: cached.startDate,
+      });
+      setGridSelectedWeek(1);
+      setGridAllWeeks(false);
+      setGridDemoDaysExpanded(false);
+      return;
+    }
+    // Fallback: fetch from DB
     const [batchRes, studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
       supabase.from('batches').select('*').eq('id', batchId).single(),
       supabase.from('students').select('*').eq('batch_id', batchId).order('created_at'),
