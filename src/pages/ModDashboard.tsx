@@ -209,41 +209,46 @@ const ColumnMenu: React.FC<{
   );
 };
 
-// Score input with validation: 0-5, decimals allowed
+// Score input with validation: 0-5, decimals allowed, fully controlled
 const ScoreInput: React.FC<{
-  value: number;
-  onChange: (val: number) => void;
+  value: string;
+  onChange: (val: string) => void;
 }> = ({ value, onChange }) => {
-  const [localVal, setLocalVal] = useState(value ? String(value) : '');
   const [flash, setFlash] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { setLocalVal(value ? String(value) : ''); }, [value]);
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { inputRef.current?.blur(); return; }
+    if (e.key === 'Backspace' || e.key === 'Tab' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Delete') return;
+    if (!/[\d.]/.test(e.key)) { e.preventDefault(); }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    if (raw === '' || raw === '.') { setLocalVal(raw); return; }
+    if (raw === '' || raw === '.') { onChange(raw); return; }
     const num = parseFloat(raw);
-    if (isNaN(num)) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
-    if (num < 0 || num > 5) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
-    setLocalVal(raw);
+    if (isNaN(num)) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
+    if (num > 5) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
+    if (num < 0) { onChange(''); return; }
+    onChange(raw);
   };
 
   const handleBlur = () => {
-    const num = parseFloat(localVal);
-    if (!isNaN(num) && num >= 0 && num <= 5) onChange(num);
-    else if (localVal === '') onChange(0);
+    if (value === '' || value === '.') return;
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 0) { onChange(''); return; }
+    if (num > 5) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
   };
 
   return (
     <input
-      ref={inputRef} type="number" min={0} max={5} step={0.1}
-      value={localVal} onChange={handleChange} onBlur={handleBlur}
-      onKeyDown={(e) => { if (e.key === 'Enter') inputRef.current?.blur(); }}
+      ref={inputRef} type="number" min={0} max={5} step={0.5}
+      value={value} onChange={handleChange} onBlur={handleBlur}
+      onKeyDown={handleKeyPress}
       className="score-input"
       style={{
         width: 44, textAlign: 'center', fontSize: 12, padding: '3px 6px',
-        border: flash ? '1.5px solid hsl(var(--danger-text))' : '1px solid hsl(var(--input-border))',
+        border: flash ? '1.5px solid #f87171' : '1px solid hsl(var(--input-border))',
         borderRadius: 5, background: 'hsl(var(--input-bg))', color: 'hsl(var(--foreground))',
         MozAppearance: 'textfield', outline: 'none', transition: 'border-color 0.2s',
       }}
