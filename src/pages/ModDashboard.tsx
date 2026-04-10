@@ -58,8 +58,16 @@ const AttendanceCell: React.FC<{
         <>
           <span style={{ position: 'relative', display: 'inline-block', paddingBottom: 8, marginBottom: -8 }}>
             <span style={emojiStyle} className="text-[18px] leading-none" onClick={onClick}>❌</span>
-            {absenceNote && (
+            {absenceNote ? (
               <span style={{
+                position: 'absolute', top: -3, right: -3,
+                width: 7, height: 7, borderRadius: '50%',
+                background: '#4ade80',
+                border: '2px solid #1e1e1e',
+                zIndex: 10,
+              }} />
+            ) : (
+              <span className="pulse-dot" style={{
                 position: 'absolute', top: -3, right: -3,
                 width: 7, height: 7, borderRadius: '50%',
                 background: '#FBBF24',
