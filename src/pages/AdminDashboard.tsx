@@ -377,7 +377,7 @@ const AdminDashboard: React.FC = () => {
             ))}
           </div>
         ))}
-        <div className="mt-auto">
+        <div className="mt-4">
           <button onClick={signOut} className="text-xs text-muted-foreground hover:text-foreground mt-2">Logout</button>
         </div>
       </div>
