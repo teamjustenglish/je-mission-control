@@ -1060,9 +1060,14 @@ const ModDashboard: React.FC = () => {
           onClick={() => setNoteModal(null)}>
           <div onClick={(e) => e.stopPropagation()}
             style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 320, width: '100%' }}>
-            <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 4 }}>Absence note</div>
+            <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 4 }}>Absence note for {noteModal.studentName}</div>
             <div style={{ fontSize: 11, color: '#555', marginBottom: 12 }}>
-              {noteModal.studentName} · {noteModal.dayLabel} {noteModal.dateLabel}
+              {(() => {
+                const dayMap: Record<string, string> = { Mon: 'Monday', Tue: 'Tuesday', Thu: 'Thursday', Fri: 'Friday' };
+                const fullDay = dayMap[noteModal.dayLabel] || noteModal.dayLabel;
+                const weekNum = Math.floor(noteModal.sessionIndex / 4) + 1;
+                return `${fullDay} · Week ${weekNum}`;
+              })()}
             </div>
             <textarea
               value={noteText}
