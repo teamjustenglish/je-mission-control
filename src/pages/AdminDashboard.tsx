@@ -1383,6 +1383,59 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {activePage === 'students' && (
+          <div>
+            <h2 className="text-lg font-semibold text-foreground mb-1">All students</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              {allStudentsData.length} students across {new Set(allStudentsData.map(s => s.batch.id)).size} active batches
+            </p>
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text" value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)}
+                placeholder="Search by student name..."
+                style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 8, padding: '10px 12px 10px 36px', fontSize: 13, color: '#e8e8e8', outline: 'none' }}
+              />
+            </div>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
+              {(() => {
+                const filtered = studentSearch.trim()
+                  ? allStudentsData.filter(s => s.student.name.toLowerCase().includes(studentSearch.toLowerCase()))
+                  : [...allStudentsData].sort((a, b) => a.student.name.localeCompare(b.student.name));
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <p style={{ fontSize: 14, color: '#888' }}>No students found matching '{studentSearch}'</p>
+                    </div>
+                  );
+                }
+                return filtered.map(({ student, batch, mod, weekNumber, attendancePct, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb }) => {
+                  const attColor = attendancePct >= 70 ? '#4ade80' : attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                  return (
+                    <div key={student.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                      <div className="flex items-center gap-3">
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#2a1f00', color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600 }}>
+                          {getInitials(student.name)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground" style={{ cursor: 'pointer' }}
+                            onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>
+                            {student.name} <span style={emojiStyle}>📄</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">{batch.name} · {mod.name} · Currently in week {weekNumber} of 6</p>
+                        </div>
+                      </div>
+                      <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : '#2a0a0a', color: attColor }}>
+                        Attendance · {attendancePct}%
+                      </span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
+
         {activePage === 'export' && (
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-4">Export All</h2>
@@ -1390,6 +1443,21 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Student progress modal */}
+      {progressModalData && (
+        <StudentProgressModal
+          student={progressModalData.student}
+          batchName={progressModalData.batchName}
+          modName={progressModalData.modName}
+          weekNumber={progressModalData.weekNumber}
+          attendance={progressModalData.attendance}
+          demoDays={progressModalData.demoDays}
+          demoScores={progressModalData.demoScores}
+          demoFeedback={progressModalData.demoFeedback}
+          onClose={() => setProgressModalData(null)}
+        />
+      )}
     </div>
   );
 };
