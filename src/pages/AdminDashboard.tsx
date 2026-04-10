@@ -700,7 +700,7 @@ const AdminDashboard: React.FC = () => {
               <table className="text-sm" style={{ tableLayout: 'fixed', width: gridAllWeeks ? 'max-content' : '100%' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                    <th className="text-left py-2 font-medium text-muted-foreground" style={{ width: 140, minWidth: 140, fontSize: 12 }}>Student</th>
+                    <th className="text-left py-2 font-medium text-muted-foreground" style={{ width: 160, minWidth: 160, fontSize: 12 }}>Student</th>
                     {(gridAllWeeks ? Array.from({ length: 24 }, (_, i) => i) : weekSessions).map(si => {
                       const info = getSessionLabel(si);
                       const rescheduled = getGridRescheduled(si);
@@ -708,7 +708,7 @@ const AdminDashboard: React.FC = () => {
                       const newDateStr = rescheduled ? new Date(rescheduled.new_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null;
                       return (
                         <th key={si} className="text-center py-2 font-medium" style={{
-                          fontSize: 12,
+                          fontSize: 12, minWidth: gridAllWeeks ? 60 : undefined,
                           background: rescheduled ? '#1e1800' : info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))',
                           color: rescheduled ? '#d4920a' : info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))',
                         }}>
@@ -724,15 +724,28 @@ const AdminDashboard: React.FC = () => {
                 <tbody>
                   {students.map(student => (
                     <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                      <td className="py-1 font-medium text-foreground" style={{ fontSize: 12 }}>{student.name || '(unnamed)'}</td>
+                      <td className="py-1 font-medium text-foreground" style={{ fontSize: 12, cursor: 'pointer' }}
+                        onClick={() => setProgressModalData({
+                          student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
+                          weekNumber: (() => {
+                            if (!gridViewBatch.startDate) return 1;
+                            const d = Math.floor((Date.now() - new Date(gridViewBatch.startDate).getTime()) / (1000*60*60*24));
+                            return Math.min(Math.max(Math.ceil(d/7),1),6);
+                          })(),
+                          attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
+                          demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
+                        })}>
+                        {student.name || '(unnamed)'} <span style={emojiStyle}>📄</span>
+                      </td>
                       {(gridAllWeeks ? Array.from({ length: 24 }, (_, i) => i) : weekSessions).map(si => {
                         const info = getSessionLabel(si);
                         const state = getGridAttState(student.id, si);
                         const rescheduled = getGridRescheduled(si);
                         return (
-                          <td key={si} className="text-center py-2" style={{
+                          <td key={si} className="text-center" style={{
+                            padding: gridAllWeeks ? '10px 14px' : '8px',
                             ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
-                            ...(gridAllWeeks && si % 4 === 0 && si > 0 ? { borderLeft: '2px solid hsl(var(--border))' } : {}),
+                            ...(gridAllWeeks && si % 4 === 0 && si > 0 ? { borderLeft: '2px solid #2e2e2e' } : {}),
                           }}>
                             {rescheduled ? (
                               <span style={{ fontSize: 15, fontWeight: 700, color: '#d4920a' }}>↻</span>
