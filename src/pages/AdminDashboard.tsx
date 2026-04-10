@@ -925,9 +925,9 @@ const AdminDashboard: React.FC = () => {
                         <div className="flex items-center justify-between mb-1">
                           <div>
                             <p className="text-sm font-medium text-foreground">{batch.name}</p>
-                            <p className="text-xs text-muted-foreground">{batch.modName} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
+                            <p className="text-xs text-muted-foreground">{batch.modName} · Currently in week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
                           </div>
-                          <span className="text-sm font-medium" style={{ color: barColor }}>{batch.attendancePct}%</span>
+                          <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {batch.attendancePct}%</span>
                         </div>
                         <div style={{ height: 4, borderRadius: 2, background: '#2a2a2a' }}>
                           <div style={{ height: '100%', width: `${batch.attendancePct}%`, borderRadius: 2, background: barColor, transition: 'width 0.3s' }} />
