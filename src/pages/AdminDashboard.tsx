@@ -154,6 +154,75 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => { loadData(); }, []);
 
+  // Preload all batch data for admin grid views
+  const preloadAllBatchData = useCallback(async (mods: Profile[]) => {
+    const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: allBatches } = await supabase.from('batches').select('*').gte('created_at', threeMonthsAgo);
+    if (!allBatches || allBatches.length === 0) return;
+    const batchIds = allBatches.map(b => b.id);
+    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
+      supabase.from('students').select('*').in('batch_id', batchIds),
+      supabase.from('attendance').select('*').in('batch_id', batchIds),
+      supabase.from('demo_days').select('*').in('batch_id', batchIds),
+      supabase.from('rescheduled_sessions').select('*').in('batch_id', batchIds),
+    ]);
+    const allStudents = studentsRes.data || [];
+    const allAttendance = (attendanceRes.data || []) as AttendanceRecord[];
+    const allDemoDays = demoDaysRes.data || [];
+    const allRescheduled = (rescheduledRes.data || []) as RescheduledSession[];
+    const ddIds = allDemoDays.map(d => d.id);
+    let allDemoScores: DemoScore[] = [];
+    let allDemoFeedback: DemoFeedback[] = [];
+    if (ddIds.length > 0) {
+      const [scoresRes, fbRes] = await Promise.all([
+        supabase.from('demo_scores').select('*').in('demo_day_id', ddIds),
+        supabase.from('demo_feedback').select('*').in('demo_day_id', ddIds),
+      ]);
+      allDemoScores = scoresRes.data || [];
+      allDemoFeedback = (fbRes.data || []) as DemoFeedback[];
+    }
+    // Cache per batch
+    for (const batch of allBatches) {
+      adminBatchCacheRef.current[batch.id] = {
+        students: allStudents.filter(s => s.batch_id === batch.id),
+        attendance: allAttendance.filter(a => a.batch_id === batch.id),
+        demoDays: allDemoDays.filter(d => d.batch_id === batch.id),
+        demoScores: allDemoScores.filter(s => allDemoDays.filter(d => d.batch_id === batch.id).map(d => d.id).includes(s.demo_day_id)),
+        demoFeedback: allDemoFeedback.filter(f => allDemoDays.filter(d => d.batch_id === batch.id).map(d => d.id).includes(f.demo_day_id)),
+        rescheduledSessions: allRescheduled.filter(r => r.batch_id === batch.id),
+        startDate: batch.start_date || null,
+      };
+    }
+    // Build students data for Students page
+    const studentsPageData = allStudents.map(student => {
+      const batch = allBatches.find(b => b.id === student.batch_id);
+      const mod = mods.find(m => m.id === batch?.mod_id);
+      let weekNum = 1;
+      if (batch?.start_date) {
+        const daysDiff = Math.floor((Date.now() - new Date(batch.start_date).getTime()) / (1000 * 60 * 60 * 24));
+        weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
+      }
+      const sessionsPassed = Math.min(weekNum * 4, 24);
+      const sAtt = allAttendance.filter(a => a.student_id === student.id);
+      const present = sAtt.filter(a => a.state === 'c').length;
+      const pct = sessionsPassed > 0 ? Math.round((present / sessionsPassed) * 100) : 0;
+      const batchDDs = allDemoDays.filter(d => d.batch_id === student.batch_id);
+      const batchDDIds = batchDDs.map(d => d.id);
+      return {
+        student,
+        batch: batch || { name: 'Unknown', label: '' },
+        mod: mod || { id: '', email: '', name: 'Unknown', role: 'moderator', created_at: '' } as Profile,
+        weekNumber: weekNum,
+        attendancePct: pct,
+        attendance: allAttendance,
+        demoDays: batchDDs,
+        demoScores: allDemoScores.filter(s => batchDDIds.includes(s.demo_day_id)),
+        demoFeedback: allDemoFeedback.filter(f => batchDDIds.includes(f.demo_day_id)),
+      };
+    });
+    setAllStudentsData(studentsPageData);
+  }, []);
+
   const loadData = useCallback(async () => {
     const { data: mods } = await supabase.from('profiles').select('*').eq('role', 'moderator');
     if (mods) setModerators(mods as Profile[]);
