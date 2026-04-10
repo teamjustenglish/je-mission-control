@@ -1099,6 +1099,20 @@ const AdminDashboard: React.FC = () => {
                   ))}
                 </div>
               )}
+              {missingNoteFlags.length > 0 && (
+                <div className="mt-4 space-y-1" style={{ borderTop: '1px solid hsl(var(--row-border))', paddingTop: 12 }}>
+                  {missingNoteFlags.map((flag, i) => (
+                    <div key={i} className="flex items-start gap-3 py-2" style={{ background: '#1a1200', borderRadius: 8, padding: '10px 12px', marginBottom: 4 }}>
+                      <div className="flex-1">
+                        <p style={{ fontSize: 12, color: '#d4920a' }}>
+                          {flag.modName} has {flag.count} absence{flag.count > 1 ? 's' : ''} with no reason added — {flag.studentNames.join(', ')} · {flag.batchName}
+                        </p>
+                      </div>
+                      <span className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: '#2a1f00', color: '#d4920a' }}>missing notes</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
