@@ -279,6 +279,7 @@ const ModDashboard: React.FC = () => {
   const [hoveredStudentId, setHoveredStudentId] = useState<string | null>(null);
   const [reportStudent, setReportStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
+  const [progressModalStudent, setProgressModalStudent] = useState<Student | null>(null);
 
   // Edit batch modal state
   const [editBatchId, setEditBatchId] = useState<string | null>(null);
