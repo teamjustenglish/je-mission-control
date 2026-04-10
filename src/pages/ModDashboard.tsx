@@ -5,6 +5,7 @@ import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRIT
 import { Plus, Trash2, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
 import StudentReport from '@/components/StudentReport';
 import ScoringRubric from '@/components/ScoringRubric';
+import StudentProgressModal from '@/components/StudentProgressModal';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
