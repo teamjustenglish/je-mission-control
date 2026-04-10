@@ -209,41 +209,46 @@ const ColumnMenu: React.FC<{
   );
 };
 
-// Score input with validation: 0-5, decimals allowed
+// Score input with validation: 0-5, decimals allowed, fully controlled
 const ScoreInput: React.FC<{
-  value: number;
-  onChange: (val: number) => void;
+  value: string;
+  onChange: (val: string) => void;
 }> = ({ value, onChange }) => {
-  const [localVal, setLocalVal] = useState(value ? String(value) : '');
   const [flash, setFlash] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { setLocalVal(value ? String(value) : ''); }, [value]);
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { inputRef.current?.blur(); return; }
+    if (e.key === 'Backspace' || e.key === 'Tab' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Delete') return;
+    if (!/[\d.]/.test(e.key)) { e.preventDefault(); }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    if (raw === '' || raw === '.') { setLocalVal(raw); return; }
+    if (raw === '' || raw === '.') { onChange(raw); return; }
     const num = parseFloat(raw);
-    if (isNaN(num)) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
-    if (num < 0 || num > 5) { setFlash(true); setLocalVal(''); setTimeout(() => setFlash(false), 400); return; }
-    setLocalVal(raw);
+    if (isNaN(num)) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
+    if (num > 5) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
+    if (num < 0) { onChange(''); return; }
+    onChange(raw);
   };
 
   const handleBlur = () => {
-    const num = parseFloat(localVal);
-    if (!isNaN(num) && num >= 0 && num <= 5) onChange(num);
-    else if (localVal === '') onChange(0);
+    if (value === '' || value === '.') return;
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 0) { onChange(''); return; }
+    if (num > 5) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
   };
 
   return (
     <input
-      ref={inputRef} type="number" min={0} max={5} step={0.1}
-      value={localVal} onChange={handleChange} onBlur={handleBlur}
-      onKeyDown={(e) => { if (e.key === 'Enter') inputRef.current?.blur(); }}
+      ref={inputRef} type="number" min={0} max={5} step={0.5}
+      value={value} onChange={handleChange} onBlur={handleBlur}
+      onKeyDown={handleKeyPress}
       className="score-input"
       style={{
         width: 44, textAlign: 'center', fontSize: 12, padding: '3px 6px',
-        border: flash ? '1.5px solid hsl(var(--danger-text))' : '1px solid hsl(var(--input-border))',
+        border: flash ? '1.5px solid #f87171' : '1px solid hsl(var(--input-border))',
         borderRadius: 5, background: 'hsl(var(--input-bg))', color: 'hsl(var(--foreground))',
         MozAppearance: 'textfield', outline: 'none', transition: 'border-color 0.2s',
       }}
@@ -309,6 +314,10 @@ const ModDashboard: React.FC = () => {
   } | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
   const feedbackTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Score values state: keyed by "demoDayId|studentId|criterion" → string value
+  const [scoreValues, setScoreValues] = useState<Record<string, string>>({});
+  const scoreDebounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
@@ -742,36 +751,69 @@ const ModDashboard: React.FC = () => {
     return loggedSessions.size;
   })();
 
-  const updateDemoScore = async (demoDayId: string, studentId: string, criterion: string, score: number) => {
-    const existing = demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion);
-    showSyncStatus('syncing');
-    if (existing) {
-      setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
-      supabase.from('demo_scores').update({ score }).eq('id', existing.id)
-        .then(({ error }) => { if (error) { loadBatchData(); showSyncStatus('idle'); } else { showSyncStatus('saved'); } });
-    } else {
-      const tempId = `temp-score-${Date.now()}`;
-      setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
-      supabase.from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
-        .select().single().then(({ data, error }) => {
-          if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); }
-          else if (data) { setDemoScores(prev => prev.map(s => s.id === tempId ? data : s)); showSyncStatus('saved'); }
-        });
+  // Initialize scoreValues from demoScores whenever demoScores changes (e.g. on batch load)
+  useEffect(() => {
+    const vals: Record<string, string> = {};
+    for (const s of demoScores) {
+      const key = `${s.demo_day_id}|${s.student_id}|${s.criterion}`;
+      if (Number(s.score) !== 0) vals[key] = String(s.score);
     }
-    showSaved();
-    if (user && activeBatch) {
-      logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
-    }
+    setScoreValues(vals);
+  }, [demoScores]);
+
+  const updateScoreValue = (demoDayId: string, studentId: string, criterion: string, rawVal: string) => {
+    const key = `${demoDayId}|${studentId}|${criterion}`;
+    setScoreValues(prev => ({ ...prev, [key]: rawVal }));
+
+    // Debounce supabase sync
+    if (scoreDebounceTimers.current[key]) clearTimeout(scoreDebounceTimers.current[key]);
+    scoreDebounceTimers.current[key] = setTimeout(() => {
+      const num = parseFloat(rawVal);
+      const score = (!rawVal || rawVal === '.' || isNaN(num)) ? 0 : num;
+      const existing = demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion);
+      showSyncStatus('syncing');
+      if (existing) {
+        supabase.from('demo_scores').update({ score }).eq('id', existing.id)
+          .then(({ error }) => {
+            if (error) { loadBatchData(); showSyncStatus('idle'); }
+            else {
+              setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
+              showSyncStatus('saved');
+            }
+          });
+      } else {
+        const tempId = `temp-score-${Date.now()}-${key}`;
+        setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
+        supabase.from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
+          .select().single().then(({ data, error }) => {
+            if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); }
+            else if (data) { setDemoScores(prev => prev.map(s => s.id === tempId ? data : s)); showSyncStatus('saved'); }
+          });
+      }
+      showSaved();
+      if (user && activeBatch) {
+        logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
+      }
+    }, 1000);
   };
 
-  const getScore = (demoDayId: string, studentId: string, criterion: string): number => {
-    return demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion)?.score || 0;
+  const getScoreValue = (demoDayId: string, studentId: string, criterion: string): string => {
+    const key = `${demoDayId}|${studentId}|${criterion}`;
+    return scoreValues[key] ?? '';
   };
 
   const getStudentDemoTotal = (demoDayId: string, studentId: string): string => {
-    const scores = demoScores.filter(s => s.demo_day_id === demoDayId && s.student_id === studentId && Number(s.score) > 0);
-    if (scores.length === 0) return '—';
-    const total = scores.reduce((sum, s) => sum + Number(s.score), 0);
+    let hasAny = false;
+    let total = 0;
+    for (const c of CRITERIA) {
+      const key = `${demoDayId}|${studentId}|${c}`;
+      const val = scoreValues[key];
+      if (val && val !== '.' && val !== '') {
+        const num = parseFloat(val);
+        if (!isNaN(num) && num > 0) { hasAny = true; total += num; }
+      }
+    }
+    if (!hasAny) return '—';
     return (Math.round(total * 10) / 10).toString();
   };
 
@@ -903,7 +945,7 @@ const ModDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Top nav */}
-      <div className="px-6" style={{ background: 'hsl(var(--nav-bg))', borderBottom: '1px solid hsl(var(--nav-border))' }}>
+      <div className="px-6" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: 'hsl(var(--nav-bg))', borderBottom: '1px solid hsl(var(--nav-border))' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
             {batches.map(batch => (
@@ -1195,7 +1237,7 @@ const ModDashboard: React.FC = () => {
 
 
       {activeBatch ? (
-        <div className="p-6 max-w-6xl mx-auto">
+        <div className="p-6 max-w-6xl mx-auto" style={{ paddingTop: 64 }}>
           {/* Stats row */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
@@ -1416,7 +1458,7 @@ const ModDashboard: React.FC = () => {
                               <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>{criterion}</td>
                               {students.map(s => (
                                 <td key={s.id} className="text-center px-2 py-2">
-                                  <ScoreInput value={getScore(dd.id, s.id, criterion)} onChange={(val) => updateDemoScore(dd.id, s.id, criterion, val)} />
+                                  <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} />
                                 </td>
                               ))}
                             </tr>
@@ -1452,7 +1494,7 @@ const ModDashboard: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-center h-96 text-muted-foreground">
+        <div className="flex items-center justify-center h-96 text-muted-foreground" style={{ paddingTop: 48 }}>
           <p>No batches yet. Click "+" to create your first batch.</p>
         </div>
       )}

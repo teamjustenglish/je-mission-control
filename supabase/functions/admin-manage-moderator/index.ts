@@ -59,6 +59,30 @@ Deno.serve(async (req) => {
       })
     }
 
+    if (action === 'reset') {
+      const { userId, email, name } = body
+      if (!userId || !email) throw new Error('userId and email are required')
+
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+      let code = 'BT-'
+      for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
+
+      const tempPassword = crypto.randomUUID() + '!Aa1'
+      const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: tempPassword })
+      if (pwErr) throw pwErr
+
+      await supabaseAdmin.from('moderator_codes').insert({
+        mod_id: userId,
+        email,
+        code,
+        temp_password: tempPassword,
+      })
+
+      return new Response(JSON.stringify({ code, name }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (action === 'ban') {
       const { userId, ban } = body
       if (!userId) throw new Error('userId is required')
