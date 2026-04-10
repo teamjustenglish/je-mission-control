@@ -154,6 +154,10 @@ const AdminDashboard: React.FC = () => {
   // Student progress modal
   const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
 
+  // Missing absence notes flags
+  interface MissingNoteFlag { modName: string; modId: string; count: number; studentNames: string[]; batchName: string; }
+  const [missingNoteFlags, setMissingNoteFlags] = useState<MissingNoteFlag[]>([]);
+
   useEffect(() => { loadData(); }, []);
 
   // Preload all batch data for admin grid views
@@ -223,6 +227,39 @@ const AdminDashboard: React.FC = () => {
       };
     });
     setAllStudentsData(studentsPageData);
+
+    // Compute missing absence note flags (only for absences older than 24h based on batch schedule)
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const flagsMap = new Map<string, MissingNoteFlag>();
+    for (const batch of allBatches) {
+      if (!batch.start_date) continue;
+      const batchStart = new Date(batch.start_date).getTime();
+      const mod = mods.find(m => m.id === batch.mod_id);
+      if (!mod) continue;
+      const batchStudents = allStudents.filter(s => s.batch_id === batch.id);
+      const batchAtt = allAttendance.filter(a => a.batch_id === batch.id);
+      for (const student of batchStudents) {
+        const studentAtt = batchAtt.filter(a => a.student_id === student.id && a.state === 'x' && !a.absence_note);
+        for (const att of studentAtt) {
+          // Estimate when this session occurred
+          const weekNum = Math.floor(att.session_index / 4);
+          const dayInWeek = att.session_index % 4;
+          const dayOffsets = [0, 1, 3, 4]; // Mon, Tue, Thu, Fri
+          const sessionDate = batchStart + (weekNum * 7 + dayOffsets[dayInWeek]) * oneDayMs;
+          if (now - sessionDate > oneDayMs) {
+            const key = `${mod.id}-${batch.id}`;
+            if (!flagsMap.has(key)) {
+              flagsMap.set(key, { modName: mod.name || mod.email, modId: mod.id, count: 0, studentNames: [], batchName: batch.name });
+            }
+            const flag = flagsMap.get(key)!;
+            flag.count++;
+            if (!flag.studentNames.includes(student.name)) flag.studentNames.push(student.name);
+          }
+        }
+      }
+    }
+    setMissingNoteFlags(Array.from(flagsMap.values()));
   }, []);
 
   const loadData = useCallback(async () => {
@@ -861,6 +898,21 @@ const AdminDashboard: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Student progress modal inside grid view */}
+        {progressModalData && (
+          <StudentProgressModal
+            student={progressModalData.student}
+            batchName={progressModalData.batchName}
+            modName={progressModalData.modName}
+            weekNumber={progressModalData.weekNumber}
+            attendance={progressModalData.attendance}
+            demoDays={progressModalData.demoDays}
+            demoScores={progressModalData.demoScores}
+            demoFeedback={progressModalData.demoFeedback}
+            onClose={() => setProgressModalData(null)}
+          />
+        )}
       </div>
     );
   }
@@ -1044,6 +1096,20 @@ const AdminDashboard: React.FC = () => {
                     <p key={mod.id} style={{ fontSize: 12, color: '#fbbf24' }}>
                       ⚠️ {mod.name || mod.email} has not logged any activity in the last 3 days
                     </p>
+                  ))}
+                </div>
+              )}
+              {missingNoteFlags.length > 0 && (
+                <div className="mt-4 space-y-1" style={{ borderTop: '1px solid hsl(var(--row-border))', paddingTop: 12 }}>
+                  {missingNoteFlags.map((flag, i) => (
+                    <div key={i} className="flex items-start gap-3 py-2" style={{ background: '#1a1200', borderRadius: 8, padding: '10px 12px', marginBottom: 4 }}>
+                      <div className="flex-1">
+                        <p style={{ fontSize: 12, color: '#d4920a' }}>
+                          {flag.modName} has {flag.count} absence{flag.count > 1 ? 's' : ''} with no reason added — {flag.studentNames.join(', ')} · {flag.batchName}
+                        </p>
+                      </div>
+                      <span className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: '#2a1f00', color: '#d4920a' }}>missing notes</span>
+                    </div>
                   ))}
                 </div>
               )}

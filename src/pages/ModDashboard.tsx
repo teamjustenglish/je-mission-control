@@ -58,8 +58,16 @@ const AttendanceCell: React.FC<{
         <>
           <span style={{ position: 'relative', display: 'inline-block', paddingBottom: 8, marginBottom: -8 }}>
             <span style={emojiStyle} className="text-[18px] leading-none" onClick={onClick}>❌</span>
-            {absenceNote && (
+            {absenceNote ? (
               <span style={{
+                position: 'absolute', top: -3, right: -3,
+                width: 7, height: 7, borderRadius: '50%',
+                background: '#4ade80',
+                border: '2px solid #1e1e1e',
+                zIndex: 10,
+              }} />
+            ) : (
+              <span className="pulse-dot" style={{
                 position: 'absolute', top: -3, right: -3,
                 width: 7, height: 7, borderRadius: '50%',
                 background: '#FBBF24',
@@ -333,6 +341,9 @@ const ModDashboard: React.FC = () => {
   } | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleReason, setRescheduleReason] = useState('');
+  
+  // Absence note reminder banner
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const activeBatch = batches.find(b => b.id === activeBatchId);
 
@@ -933,14 +944,18 @@ const ModDashboard: React.FC = () => {
         </div>
       );
     }
+    const state = getAttendanceState(studentId, sessionIndex);
+    const note = getAbsenceNote(studentId, sessionIndex);
     return (
-      <AttendanceCell
-        state={getAttendanceState(studentId, sessionIndex)}
-        isDemo={isDemo}
-        absenceNote={getAbsenceNote(studentId, sessionIndex)}
-        onClick={() => cycleAttendance(studentId, sessionIndex)}
-        onNoteClick={() => openNoteModal(studentId, sessionIndex)}
-      />
+      <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined}>
+        <AttendanceCell
+          state={state}
+          isDemo={isDemo}
+          absenceNote={note}
+          onClick={() => cycleAttendance(studentId, sessionIndex)}
+          onNoteClick={() => openNoteModal(studentId, sessionIndex)}
+        />
+      </div>
     );
   };
 
@@ -1417,16 +1432,75 @@ const ModDashboard: React.FC = () => {
               </table>
             )}
 
-            {students.length > 0 && (
-              <>
-                {isDemoWeek(selectedWeek) && !allWeeksView && (
-                  <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'hsl(var(--amber-text))' }}>
-                    <span style={emojiStyle}>⭐</span> Demo day attendance marked above · Scores tracked in Demo days section below
-                  </div>
-                )}
-                <button onClick={addStudent} className="mt-3 text-xs text-muted-foreground hover:text-foreground">+ Add student</button>
-              </>
-            )}
+            {students.length > 0 && (() => {
+              // Calculate missing absence notes for current week
+              const currentWeekSessions = getWeekSessions(selectedWeek);
+              const missingNoteCells: { studentId: string; sessionIndex: number }[] = [];
+              if (!allWeeksView) {
+                for (const s of students) {
+                  for (const si of currentWeekSessions) {
+                    const state = getAttendanceState(s.id, si);
+                    if (state === 'x') {
+                      const note = getAbsenceNote(s.id, si);
+                      if (!note) missingNoteCells.push({ studentId: s.id, sessionIndex: si });
+                    }
+                  }
+                }
+              }
+              const missingCount = missingNoteCells.length;
+              const showBanner = !allWeeksView && missingCount > 0 && !bannerDismissed;
+              const modFirstName = (profile?.name || 'Mod').split(' ')[0];
+
+              return (
+                <>
+                  {showBanner && (
+                    <div style={{
+                      background: '#1a1400', border: '1px solid #7a5000', borderRadius: 10, padding: '13px 16px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 18, ...emojiStyle }}>📝</span>
+                        <span style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.5 }}>
+                          Almost done, {modFirstName}! Just {missingCount} absence{missingCount > 1 ? 's' : ''} need a reason — quick note and you're all good 👍
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                        <button
+                          onClick={() => {
+                            if (missingNoteCells.length > 0) {
+                              const first = missingNoteCells[0];
+                              const el = document.querySelector(`[data-absence-cell="${first.studentId}-${first.sessionIndex}"]`);
+                              if (el) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                el.classList.add('amber-glow');
+                                setTimeout(() => el.classList.remove('amber-glow'), 1500);
+                              }
+                              openNoteModal(first.studentId, first.sessionIndex);
+                            }
+                          }}
+                          style={{
+                            fontSize: 12, padding: '5px 12px', border: '1px solid #7a5000', borderRadius: 7,
+                            background: '#2a1f00', color: '#d4920a', cursor: 'pointer',
+                          }}
+                        >Add notes</button>
+                        <span
+                          onClick={() => setBannerDismissed(true)}
+                          style={{ fontSize: 11, color: '#555', cursor: 'pointer' }}
+                          onMouseEnter={(e) => { (e.target as HTMLElement).style.color = '#888'; }}
+                          onMouseLeave={(e) => { (e.target as HTMLElement).style.color = '#555'; }}
+                        >Skip for now</span>
+                      </div>
+                    </div>
+                  )}
+                  {isDemoWeek(selectedWeek) && !allWeeksView && (
+                    <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'hsl(var(--amber-text))' }}>
+                      <span style={emojiStyle}>⭐</span> Demo day attendance marked above · Scores tracked in Demo days section below
+                    </div>
+                  )}
+                  <button onClick={addStudent} className="mt-3 text-xs text-muted-foreground hover:text-foreground">+ Add student</button>
+                </>
+              );
+            })()}
           </div>
 
           {/* Demo days section */}

@@ -124,3 +124,21 @@ input[type="number"] {
   animation: fadeInOut 2s ease-in-out forwards;
 }
 
+/* Pulsing dot for missing absence notes */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}
+.pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* Amber glow highlight for absence note cells */
+@keyframes amber-glow-fade {
+  0% { box-shadow: 0 0 0 3px #fbbf24; }
+  100% { box-shadow: 0 0 0 0px transparent; }
+}
+.amber-glow {
+  animation: amber-glow-fade 1.5s ease-out forwards;
+}
+
