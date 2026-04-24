@@ -549,10 +549,11 @@ const ModDashboard: React.FC = () => {
     if (!editBatchId || !user || !editBatchLabel.trim()) return;
     const monthName = MONTHS[editBatchMonth - 1];
     const newName = `${monthName} ${editBatchYear} · ${editBatchLabel.trim()}`;
+    const startDateValue = editBatchStartDate.trim() ? editBatchStartDate : null;
     await supabase.from('batches').update({
-      name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim(),
+      name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim(), start_date: startDateValue,
     }).eq('id', editBatchId);
-    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim() } : b));
+    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim(), start_date: startDateValue } : b));
     setEditBatchId(null);
     showSaved();
   };
