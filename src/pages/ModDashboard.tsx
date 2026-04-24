@@ -704,47 +704,79 @@ const ModDashboard: React.FC = () => {
     showSaved();
   };
 
-  // Reschedule handlers
+  // === Reschedule v2: max 3, Wednesdays only ===
+  const MAX_RESCHEDULES = 3;
+  const reschedulesUsed = rescheduledSessions.length;
+  const reschedulesRemaining = Math.max(0, MAX_RESCHEDULES - reschedulesUsed);
+
+  // Compute Wednesday date for a given week (week 1-6) using batch start_date (Monday of week 1)
+  const getWednesdayDate = (week: number): Date | null => {
+    if (!activeBatch?.start_date) return null;
+    const start = new Date(activeBatch.start_date);
+    const d = new Date(start);
+    d.setDate(start.getDate() + (week - 1) * 7 + 2); // Mon=0, Wed=+2
+    return d;
+  };
+  const fmtDate = (d: Date | null) => d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+  // Is the Wednesday of `week` already used by a reschedule?
+  const wednesdayUsedBy = (week: number): RescheduledSession | undefined => {
+    return rescheduledSessions.find(r => (r.to_week ?? null) === week);
+  };
+
+  // Does a week tab contain a rescheduled-to Wednesday?
+  const weekHasWednesday = (week: number) => !!wednesdayUsedBy(week);
+
+  // Reschedule handlers — open modal for a specific original session
   const openRescheduleModal = (sessionIndex: number, existingId?: string) => {
+    if (!existingId && reschedulesRemaining <= 0) return;
     const info = getSessionLabel(sessionIndex);
     const weekNum = Math.floor(sessionIndex / 4) + 1;
     const dayName = info.isDemo ? 'Demo day' : info.day;
     const existing = rescheduledSessions.find(r => r.id === existingId);
-    setRescheduleDate(existing?.new_date || '');
-    setRescheduleReason(existing?.reason || '');
+    setSelectedWednesdayWeek(existing?.to_week ?? null);
     setRescheduleModal({ sessionIndex, dayName, weekNumber: weekNum, existingId });
   };
 
   const saveReschedule = async () => {
-    if (!rescheduleModal || !activeBatchId || !user || !rescheduleDate) return;
-    const dateStr = getSessionDate(rescheduleModal.sessionIndex);
+    if (!rescheduleModal || !activeBatchId || !user || selectedWednesdayWeek == null) return;
+    const wedDate = getWednesdayDate(selectedWednesdayWeek);
+    if (!wedDate) return;
+    const toDateStr = wedDate.toISOString().split('T')[0];
+    const fromWeek = rescheduleModal.weekNumber;
+    const fromDay = rescheduleModal.dayName;
     if (rescheduleModal.existingId) {
       await supabase.from('rescheduled_sessions').update({
-        new_date: rescheduleDate, reason: rescheduleReason || null,
-      }).eq('id', rescheduleModal.existingId);
-      setRescheduledSessions(prev => prev.map(r => r.id === rescheduleModal.existingId ? { ...r, new_date: rescheduleDate, reason: rescheduleReason || null } : r));
+        from_week: fromWeek, from_day: fromDay,
+        to_week: selectedWednesdayWeek, to_date: toDateStr,
+        new_date: toDateStr, week_number: fromWeek, day_name: fromDay,
+      } as any).eq('id', rescheduleModal.existingId);
+      setRescheduledSessions(prev => prev.map(r => r.id === rescheduleModal.existingId
+        ? { ...r, from_week: fromWeek, from_day: fromDay, to_week: selectedWednesdayWeek, to_date: toDateStr, new_date: toDateStr, week_number: fromWeek, day_name: fromDay }
+        : r));
     } else {
       const { data } = await supabase.from('rescheduled_sessions').insert({
         batch_id: activeBatchId,
-        week_number: rescheduleModal.weekNumber,
-        day_name: rescheduleModal.dayName,
+        week_number: fromWeek, day_name: fromDay,
+        from_week: fromWeek, from_day: fromDay,
+        to_week: selectedWednesdayWeek, to_date: toDateStr,
         original_date: getSessionDateObj(rescheduleModal.sessionIndex)?.toISOString().split('T')[0] || null,
-        new_date: rescheduleDate,
-        reason: rescheduleReason || null,
+        new_date: toDateStr,
         created_by: user.id,
-      }).select().single();
+      } as any).select().single();
       if (data) setRescheduledSessions(prev => [...prev, data as RescheduledSession]);
     }
-    const newDateFormatted = new Date(rescheduleDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    const desc = `Rescheduled ${rescheduleModal.dayName} ${dateStr || ''} → ${newDateFormatted}${rescheduleReason ? ' · ' + rescheduleReason : ''}`;
+    const desc = `Rescheduled W${fromWeek} ${fromDay} → W${selectedWednesdayWeek} Wed (${fmtDate(wedDate)})`;
     await logActivity(user.id, profile?.name || '', 'session_rescheduled', desc, activeBatch?.name || '');
     setRescheduleModal(null);
+    setSelectedWednesdayWeek(null);
     showSaved();
   };
 
   const removeReschedule = async (id: string) => {
     await supabase.from('rescheduled_sessions').delete().eq('id', id);
     setRescheduledSessions(prev => prev.filter(r => r.id !== id));
+    setRemoveRescheduleConfirm(null);
     showSaved();
   };
 
