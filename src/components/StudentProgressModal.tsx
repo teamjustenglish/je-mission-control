@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import html2canvas from 'html2canvas';
-import { getSessionLabel, isDemoWeek, CRITERIA } from '@/lib/batchtrack';
+import { getSessionLabel, isDemoWeek, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
 
 interface StudentProgressModalProps {
   student: { id: string; name: string; batch_id: string };
