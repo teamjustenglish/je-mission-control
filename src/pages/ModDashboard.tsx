@@ -1536,7 +1536,7 @@ const ModDashboard: React.FC = () => {
                         {Array.from({ length: 24 }, (_, i) => {
                           const info = getSessionLabel(i);
                           const rescheduled = isSessionRescheduled(i);
-                          return (
+                          const cell = (
                             <td key={i} style={{
                               minWidth: 60,
                               padding: '10px 14px',
@@ -1546,6 +1546,20 @@ const ModDashboard: React.FC = () => {
                               {renderCell(student.id, i, info.isDemo)}
                             </td>
                           );
+                          if (i % 4 === 1) {
+                            const w = Math.floor(i / 4) + 1;
+                            if (getRescheduleForWeekWed(w)) {
+                              return (
+                                <React.Fragment key={i}>
+                                  {cell}
+                                  <td key={`wed-${w}`} style={{ minWidth: 60, padding: '10px 14px', background: '#0d1a0d' }}>
+                                    {renderWedCell(student.id, w)}
+                                  </td>
+                                </React.Fragment>
+                              );
+                            }
+                          }
+                          return cell;
                         })}
                       </tr>
                     ))}
