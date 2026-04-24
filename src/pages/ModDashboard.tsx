@@ -1597,14 +1597,25 @@ const ModDashboard: React.FC = () => {
                           )}
                         </div>
                       </td>
-                      {weekSessions.map(si => {
+                      {weekSessions.map((si, idx) => {
                         const info = getSessionLabel(si);
                         const rescheduled = isSessionRescheduled(si);
-                        return (
+                        const cell = (
                           <td key={si} style={{ ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
                             {renderCell(student.id, si, info.isDemo)}
                           </td>
                         );
+                        if (idx === 1 && getRescheduleForWeekWed(selectedWeek)) {
+                          return (
+                            <React.Fragment key={si}>
+                              {cell}
+                              <td key={`wed-${selectedWeek}`} style={{ background: '#0d1a0d' }}>
+                                {renderWedCell(student.id, selectedWeek)}
+                              </td>
+                            </React.Fragment>
+                          );
+                        }
+                        return cell;
                       })}
                     </tr>
                   ))}
