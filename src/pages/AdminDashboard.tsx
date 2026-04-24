@@ -48,7 +48,7 @@ interface BatchInfo {
   mod_id: string;
   modName: string;
   studentCount: number;
-  attendancePct: number;
+  attendancePct: number | null;
   weekNumber: number;
 }
 
