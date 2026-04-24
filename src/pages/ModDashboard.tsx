@@ -755,38 +755,65 @@ const ModDashboard: React.FC = () => {
   };
 
   const saveReschedule = async () => {
-    if (!rescheduleModal || !activeBatchId || !user || selectedWednesdayWeek == null) return;
+    setRescheduleError(null);
+    if (!rescheduleModal || !activeBatchId || !user) {
+      setRescheduleError('Something went wrong, please try again');
+      return;
+    }
+    if (selectedWednesdayWeek == null) {
+      setRescheduleError('Please select a Wednesday');
+      return;
+    }
+    if (!rescheduleModal.existingId && reschedulesUsed >= MAX_RESCHEDULES) {
+      setRescheduleError('Maximum reschedules reached (3 of 3)');
+      setTimeout(() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); setRescheduleError(null); }, 1200);
+      return;
+    }
     const wedDate = getWednesdayDate(selectedWednesdayWeek);
-    if (!wedDate) return;
+    if (!wedDate) {
+      setRescheduleError('Set a batch start date before rescheduling');
+      return;
+    }
     const toDateStr = wedDate.toISOString().split('T')[0];
     const fromWeek = rescheduleModal.weekNumber;
     const fromDay = rescheduleModal.dayName;
-    if (rescheduleModal.existingId) {
-      await supabase.from('rescheduled_sessions').update({
-        from_week: fromWeek, from_day: fromDay,
-        to_week: selectedWednesdayWeek, to_date: toDateStr,
-        new_date: toDateStr, week_number: fromWeek, day_name: fromDay,
-      } as any).eq('id', rescheduleModal.existingId);
-      setRescheduledSessions(prev => prev.map(r => r.id === rescheduleModal.existingId
-        ? { ...r, from_week: fromWeek, from_day: fromDay, to_week: selectedWednesdayWeek, to_date: toDateStr, new_date: toDateStr, week_number: fromWeek, day_name: fromDay }
-        : r));
-    } else {
-      const { data } = await supabase.from('rescheduled_sessions').insert({
-        batch_id: activeBatchId,
-        week_number: fromWeek, day_name: fromDay,
-        from_week: fromWeek, from_day: fromDay,
-        to_week: selectedWednesdayWeek, to_date: toDateStr,
-        original_date: getSessionDateObj(rescheduleModal.sessionIndex)?.toISOString().split('T')[0] || null,
-        new_date: toDateStr,
-        created_by: user.id,
-      } as any).select().single();
-      if (data) setRescheduledSessions(prev => [...prev, data as RescheduledSession]);
+    setRescheduleSaving(true);
+    try {
+      if (rescheduleModal.existingId) {
+        const { error } = await supabase.from('rescheduled_sessions').update({
+          from_week: fromWeek, from_day: fromDay,
+          to_week: selectedWednesdayWeek, to_date: toDateStr,
+          new_date: toDateStr, week_number: fromWeek, day_name: fromDay,
+        } as any).eq('id', rescheduleModal.existingId);
+        if (error) throw error;
+        setRescheduledSessions(prev => prev.map(r => r.id === rescheduleModal.existingId
+          ? { ...r, from_week: fromWeek, from_day: fromDay, to_week: selectedWednesdayWeek, to_date: toDateStr, new_date: toDateStr, week_number: fromWeek, day_name: fromDay }
+          : r));
+      } else {
+        const { data, error } = await supabase.from('rescheduled_sessions').insert({
+          batch_id: activeBatchId,
+          week_number: fromWeek, day_name: fromDay,
+          from_week: fromWeek, from_day: fromDay,
+          to_week: selectedWednesdayWeek, to_date: toDateStr,
+          original_date: getSessionDateObj(rescheduleModal.sessionIndex)?.toISOString().split('T')[0] || null,
+          new_date: toDateStr,
+          created_by: user.id,
+        } as any).select().single();
+        if (error) throw error;
+        if (data) setRescheduledSessions(prev => [...prev, data as RescheduledSession]);
+      }
+      const desc = `Rescheduled W${fromWeek} ${fromDay} → W${selectedWednesdayWeek} Wed (${fmtDate(wedDate)})`;
+      await logActivity(user.id, profile?.name || '', 'session_rescheduled', desc, activeBatch?.name || '');
+      setRescheduleModal(null);
+      setSelectedWednesdayWeek(null);
+      setRescheduleError(null);
+      showSaved();
+    } catch (err) {
+      console.error('saveReschedule error', err);
+      setRescheduleError('Something went wrong, please try again');
+    } finally {
+      setRescheduleSaving(false);
     }
-    const desc = `Rescheduled W${fromWeek} ${fromDay} → W${selectedWednesdayWeek} Wed (${fmtDate(wedDate)})`;
-    await logActivity(user.id, profile?.name || '', 'session_rescheduled', desc, activeBatch?.name || '');
-    setRescheduleModal(null);
-    setSelectedWednesdayWeek(null);
-    showSaved();
   };
 
   const removeReschedule = async (id: string) => {
