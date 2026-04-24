@@ -821,11 +821,11 @@ const ModDashboard: React.FC = () => {
   // Stats
   const totalStudents = students.length;
   const totalSessions = 24;
-  const avgAttendance = (() => {
-    if (students.length === 0) return 0;
-    const totalPossible = students.length * totalSessions;
+  const avgAttendance: number | null = (() => {
+    if (students.length === 0) return null;
+    const sessionsOccurred = getSessionsOccurred(activeBatch?.start_date);
     const present = attendance.filter(a => a.state === 'c').length;
-    return totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0;
+    return computeAttendancePct(present, students.length, sessionsOccurred);
   })();
   const avgDemoScore = (() => {
     if (demoScores.length === 0) return 0;
