@@ -27,21 +27,21 @@ const AppRoutes = () => {
     <Routes>
       {/* Admin routes */}
       <Route path="/admin/login" element={
-        user && role === 'admin' ? <Navigate to="/admin" /> : <AdminLoginPage />
+        user && role === 'admin' ? <Navigate to="/admin/dashboard" replace /> : <AdminLoginPage />
       } />
       <Route path="/admin/*" element={
-        !user ? <Navigate to="/admin/login" /> :
-        role !== 'admin' ? <Navigate to="/" /> :
+        !user ? <Navigate to="/admin/login" replace /> :
+        role !== 'admin' ? <Navigate to="/" replace /> :
         <AdminDashboard />
       } />
 
-      {/* Mod routes */}
+      {/* Mod / root routes */}
       <Route path="/" element={
         !user ? <LoginPage /> :
-        role === 'admin' ? <Navigate to="/admin" /> :
+        role === 'admin' ? <Navigate to="/admin/dashboard" replace /> :
         <ModDashboard />
       } />
-      <Route path="*" element={<Navigate to="/" />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };

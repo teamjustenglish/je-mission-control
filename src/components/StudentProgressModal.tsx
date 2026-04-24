@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { getSessionLabel, isDemoWeek, CRITERIA } from '@/lib/batchtrack';
 
 interface StudentProgressModalProps {
@@ -18,6 +19,27 @@ const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Sego
 const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
   student, batchName, modName, weekNumber, attendance, demoDays, demoScores, demoFeedback, onClose,
 }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleExport = async () => {
+    if (!cardRef.current) return;
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: '#1e1e1e',
+        scale: 2,
+        useCORS: true,
+      });
+      const link = document.createElement('a');
+      const safeName = (student.name || 'student').replace(/[^a-z0-9]+/gi, '_');
+      const safeBatch = (batchName || 'batch').replace(/[^a-z0-9]+/gi, '_');
+      link.download = `${safeName}_progress_${safeBatch}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      console.error('Export failed, falling back to print', e);
+      window.print();
+    }
+  };
   const studentAtt = attendance.filter(a => a.student_id === student.id);
   const totalSessions = 24;
   const present = studentAtt.filter(a => a.state === 'c').length;
@@ -63,6 +85,7 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)' }}
       onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()}
+        ref={cardRef}
         style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 14, maxWidth: 500, width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: 0 }}>
         {/* Header */}
         <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -75,7 +98,15 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
               <div style={{ fontSize: 12, color: '#555' }}>{batchName} · {modName} · Currently in week {weekNumber} of 6</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18, padding: 4 }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} data-html2canvas-ignore="true">
+            <button
+              onClick={handleExport}
+              style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #333', borderRadius: 6, background: '#242424', color: '#888', cursor: 'pointer', transition: 'all 0.15s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#555'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#333'; }}
+            >⬇ Export</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18, padding: 4 }}>✕</button>
+          </div>
         </div>
 
         {/* Stats row */}

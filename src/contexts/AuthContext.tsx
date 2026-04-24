@@ -81,11 +81,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('signOut error', e);
+    }
     setUser(null);
     setSession(null);
     setProfile(null);
     setRole(null);
+    try {
+      // Clear any cached supabase auth tokens
+      Object.keys(localStorage).forEach((k) => {
+        if (k.startsWith('sb-') || k.includes('supabase')) localStorage.removeItem(k);
+      });
+    } catch {}
+    // Hard redirect to mod login
+    window.location.href = '/';
   };
 
   return (
