@@ -18,7 +18,7 @@ interface StudentProgressModalProps {
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
 
 const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
-  student, batchName, modName, weekNumber, attendance, demoDays, demoScores, demoFeedback, onClose,
+  student, batchName, modName, weekNumber, startDate, attendance, demoDays, demoScores, demoFeedback, onClose,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
