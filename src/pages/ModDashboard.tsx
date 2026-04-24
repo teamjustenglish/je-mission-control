@@ -138,12 +138,14 @@ const AttendanceCell: React.FC<{
 const ColumnMenu: React.FC<{
   sessionIndex: number;
   isRescheduled: boolean;
-  onMarkAllPresent: () => void;
-  onMarkAllAbsent: () => void;
+  onMarkAllPresent?: () => void;
+  onMarkAllAbsent?: () => void;
   onReschedule: () => void;
   onEditReschedule?: () => void;
   onRemoveReschedule?: () => void;
-}> = ({ isRescheduled, onMarkAllPresent, onMarkAllAbsent, onReschedule, onEditReschedule, onRemoveReschedule }) => {
+  rescheduleDisabled?: boolean;
+  hideMarkAll?: boolean;
+}> = ({ isRescheduled, onMarkAllPresent, onMarkAllAbsent, onReschedule, onEditReschedule, onRemoveReschedule, rescheduleDisabled, hideMarkAll }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -192,24 +194,28 @@ const ColumnMenu: React.FC<{
           ) : (
             <>
               <button
-                onClick={() => { setOpen(false); onReschedule(); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#d4920a', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#d4920a'; }}
+                onClick={() => { if (rescheduleDisabled) return; setOpen(false); onReschedule(); }}
+                title={rescheduleDisabled ? 'Maximum reschedules reached (3 of 3)' : ''}
+                disabled={rescheduleDisabled}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: rescheduleDisabled ? '#555' : '#d4920a', borderRadius: 6, background: 'transparent', border: 'none', cursor: rescheduleDisabled ? 'not-allowed' : 'pointer' }}
+                onMouseEnter={(e) => { if (rescheduleDisabled) return; (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                onMouseLeave={(e) => { if (rescheduleDisabled) return; (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#d4920a'; }}
               >↻ Reschedule session</button>
-              <div style={{ height: 1, background: '#333', margin: '4px 0' }} />
-              <button
-                onClick={() => { setOpen(false); onMarkAllPresent(); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
-              >✓ Mark all present</button>
-              <button
-                onClick={() => { setOpen(false); onMarkAllAbsent(); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
-              >✗ Mark all absent</button>
+              {!hideMarkAll && <>
+                <div style={{ height: 1, background: '#333', margin: '4px 0' }} />
+                <button
+                  onClick={() => { setOpen(false); onMarkAllPresent?.(); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                >✓ Mark all present</button>
+                <button
+                  onClick={() => { setOpen(false); onMarkAllAbsent?.(); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                >✗ Mark all absent</button>
+              </>}
             </>
           )}
         </div>
@@ -494,7 +500,10 @@ const ModDashboard: React.FC = () => {
   const isSessionRescheduled = (sessionIndex: number): RescheduledSession | undefined => {
     const info = getSessionLabel(sessionIndex);
     const week = Math.floor(sessionIndex / 4) + 1;
-    return rescheduledSessions.find(r => r.week_number === week && r.day_name === (info.isDemo ? 'Demo day' : info.day));
+    const dayName = info.isDemo ? 'Demo day' : info.day;
+    return rescheduledSessions.find(r =>
+      ((r.from_week ?? r.week_number) === week) && ((r.from_day ?? r.day_name) === dayName)
+    );
   };
 
   const createBatch = async () => {
@@ -929,11 +938,16 @@ const ModDashboard: React.FC = () => {
   const weekSessions = getWeekSessions(selectedWeek);
   const attendanceColor = avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
 
+  // Wednesday helpers — synthetic session_index = 1000 + (week-1) for the optional Wed column
+  const WED_BASE = 1000;
+  const wedSessionIndex = (week: number) => WED_BASE + (week - 1);
+  const getRescheduleForWeekWed = (week: number): RescheduledSession | undefined =>
+    rescheduledSessions.find(r => (r.to_week ?? null) === week);
+
   // Render column header with ⋮ menu
   const renderColumnHeader = (si: number, info: { day: string; week: number; isDemo: boolean }) => {
     const dateStr = getSessionDate(si);
     const rescheduled = isSessionRescheduled(si);
-    const newDateStr = rescheduled ? new Date(rescheduled.new_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null;
 
     return (
       <th key={si} className="text-center py-2 font-medium" style={{
@@ -942,7 +956,9 @@ const ModDashboard: React.FC = () => {
         color: rescheduled ? '#d4920a' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          <span>{info.isDemo ? 'Demo day' : info.day}</span>
+          <span style={{ fontWeight: rescheduled ? 600 : undefined }}>
+            {info.isDemo ? 'Demo day' : info.day}{rescheduled ? ' ↻' : ''}
+          </span>
           <ColumnMenu
             sessionIndex={si}
             isRescheduled={!!rescheduled}
@@ -950,17 +966,46 @@ const ModDashboard: React.FC = () => {
             onMarkAllAbsent={() => markAllForSession(si, 'x')}
             onReschedule={() => openRescheduleModal(si)}
             onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
-            onRemoveReschedule={() => rescheduled && removeReschedule(rescheduled.id)}
+            onRemoveReschedule={() => rescheduled && setRemoveRescheduleConfirm(rescheduled)}
+            rescheduleDisabled={!rescheduled && reschedulesRemaining <= 0}
           />
         </div>
         {rescheduled ? (
-          <>
-            <div style={{ fontSize: 10, opacity: 0.8 }}>{newDateStr}</div>
-            <div style={{ fontSize: 9, opacity: 0.7 }}>↻ rescheduled</div>
-          </>
+          <div style={{ fontSize: 9, color: '#9a6000' }}>
+            rescheduled → W{rescheduled.to_week ?? '?'} Wed
+          </div>
         ) : (
           dateStr && <div style={{ fontSize: 10, opacity: 0.7 }}>{dateStr}</div>
         )}
+      </th>
+    );
+  };
+
+  // Render Wednesday column header (target of a reschedule)
+  const renderWedHeader = (week: number) => {
+    const r = getRescheduleForWeekWed(week);
+    if (!r) return null;
+    const wedDate = getWednesdayDate(week);
+    const dateStr = wedDate ? wedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+    return (
+      <th key={`wed-${week}`} className="text-center py-2 font-medium" style={{
+        fontSize: 12, position: 'relative',
+        background: '#0d1a0d', color: '#4ade80',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <span style={{ fontWeight: 600 }}>Wed</span>
+          <ColumnMenu
+            sessionIndex={wedSessionIndex(week)}
+            isRescheduled={true}
+            onReschedule={() => {}}
+            onEditReschedule={() => openRescheduleModal((((r.from_week ?? r.week_number) - 1) * 4) + (['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) >= 0 ? ['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) : 0), r.id)}
+            onRemoveReschedule={() => setRemoveRescheduleConfirm(r)}
+          />
+        </div>
+        <div style={{ fontSize: 9, color: '#4ade80', opacity: 0.7 }}>
+          ↻ from W{r.from_week ?? r.week_number} {r.from_day ?? r.day_name}
+        </div>
+        {dateStr && <div style={{ fontSize: 10, color: '#4ade80', opacity: 0.5 }}>{dateStr}</div>}
       </th>
     );
   };
@@ -972,9 +1017,9 @@ const ModDashboard: React.FC = () => {
       return (
         <div className="flex items-center justify-center py-2" style={{ background: '#1e1800' }}>
           <div style={{
-            width: 28, height: 28, borderRadius: 6,
+            width: 26, height: 26, borderRadius: 5,
             background: '#2a1f00', border: '1.5px solid #5a4a00',
-            color: '#d4920a', fontSize: 15, fontWeight: 700,
+            color: '#d4920a', fontSize: 14, fontWeight: 700,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           }}>↻</div>
         </div>
@@ -990,6 +1035,24 @@ const ModDashboard: React.FC = () => {
           absenceNote={note}
           onClick={() => cycleAttendance(studentId, sessionIndex)}
           onNoteClick={() => openNoteModal(studentId, sessionIndex)}
+        />
+      </div>
+    );
+  };
+
+  // Render the Wednesday cell (normal attendance, green-tinted background)
+  const renderWedCell = (studentId: string, week: number) => {
+    const si = wedSessionIndex(week);
+    const state = getAttendanceState(studentId, si);
+    const note = getAbsenceNote(studentId, si);
+    return (
+      <div style={{ background: '#0d1a0d' }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
+        <AttendanceCell
+          state={state}
+          isDemo={false}
+          absenceNote={note}
+          onClick={() => cycleAttendance(studentId, si)}
+          onNoteClick={() => openNoteModal(studentId, si)}
         />
       </div>
     );
@@ -1418,12 +1481,15 @@ const ModDashboard: React.FC = () => {
                 {[1, 2, 3, 4, 5, 6].map(w => {
                   const demo = isDemoWeek(w);
                   const selected = w === selectedWeek;
+                  const hasWed = weekHasWednesday(w);
                   let style: React.CSSProperties = { padding: '4px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer' };
-                  if (selected && demo) style = { ...style, background: 'hsl(var(--week-demo-active-bg))', color: 'hsl(var(--week-demo-active-text))', border: '1px solid hsl(var(--week-demo-active-bg))' };
+                  if (hasWed) style = { ...style, background: '#0d1a0d', color: '#4ade80', border: '1px solid #166534' };
+                  else if (selected && demo) style = { ...style, background: 'hsl(var(--week-demo-active-bg))', color: 'hsl(var(--week-demo-active-text))', border: '1px solid hsl(var(--week-demo-active-bg))' };
                   else if (selected) style = { ...style, background: 'hsl(var(--week-btn-active-bg))', color: 'hsl(var(--week-btn-active-text))', border: '1px solid hsl(var(--week-btn-active-bg))' };
                   else if (demo) style = { ...style, background: 'hsl(var(--week-demo-bg))', color: 'hsl(var(--week-demo-text))', border: '1px solid hsl(var(--week-demo-border))' };
                   else style = { ...style, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' };
-                  return <button key={w} onClick={() => setSelectedWeek(w)} style={style}>Week {w}{demo ? ' · Demo' : ''}</button>;
+                  if (selected && hasWed) style = { ...style, background: '#0d1a0d', color: '#4ade80', border: '2px solid #4ade80' };
+                  return <button key={w} onClick={() => setSelectedWeek(w)} style={style}>Week {w}{demo ? ' · Demo' : ''}{hasWed ? ' ↻' : ''}</button>;
                 })}
               </div>
             )}
@@ -1446,7 +1512,15 @@ const ModDashboard: React.FC = () => {
                       <th className="text-left py-2 font-medium text-muted-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12 }}>Student</th>
                       {Array.from({ length: 24 }, (_, i) => {
                         const info = getSessionLabel(i);
-                        return renderColumnHeader(i, info);
+                        const header = renderColumnHeader(i, info);
+                        // After Tue (i % 4 === 1) of each week, insert Wed if rescheduled
+                        if (i % 4 === 1) {
+                          const w = Math.floor(i / 4) + 1;
+                          if (getRescheduleForWeekWed(w)) {
+                            return <React.Fragment key={i}>{header}{renderWedHeader(w)}</React.Fragment>;
+                          }
+                        }
+                        return header;
                       })}
                     </tr>
                   </thead>
@@ -1462,7 +1536,7 @@ const ModDashboard: React.FC = () => {
                         {Array.from({ length: 24 }, (_, i) => {
                           const info = getSessionLabel(i);
                           const rescheduled = isSessionRescheduled(i);
-                          return (
+                          const cell = (
                             <td key={i} style={{
                               minWidth: 60,
                               padding: '10px 14px',
@@ -1472,6 +1546,20 @@ const ModDashboard: React.FC = () => {
                               {renderCell(student.id, i, info.isDemo)}
                             </td>
                           );
+                          if (i % 4 === 1) {
+                            const w = Math.floor(i / 4) + 1;
+                            if (getRescheduleForWeekWed(w)) {
+                              return (
+                                <React.Fragment key={i}>
+                                  {cell}
+                                  <td key={`wed-${w}`} style={{ minWidth: 60, padding: '10px 14px', background: '#0d1a0d' }}>
+                                    {renderWedCell(student.id, w)}
+                                  </td>
+                                </React.Fragment>
+                              );
+                            }
+                          }
+                          return cell;
                         })}
                       </tr>
                     ))}
@@ -1483,9 +1571,14 @@ const ModDashboard: React.FC = () => {
                 <thead>
                   <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                     <th className="text-left py-2 font-medium text-muted-foreground" style={{ width: 140, minWidth: 140, fontSize: 12, background: 'hsl(var(--grid-header-bg))' }}>Student</th>
-                    {weekSessions.map(si => {
+                    {weekSessions.map((si, idx) => {
                       const info = getSessionLabel(si);
-                      return renderColumnHeader(si, info);
+                      const header = renderColumnHeader(si, info);
+                      // Insert Wed column after Tue (idx 1) of selectedWeek if a reschedule targets it
+                      if (idx === 1 && getRescheduleForWeekWed(selectedWeek)) {
+                        return <React.Fragment key={si}>{header}{renderWedHeader(selectedWeek)}</React.Fragment>;
+                      }
+                      return header;
                     })}
                   </tr>
                 </thead>
@@ -1526,19 +1619,53 @@ const ModDashboard: React.FC = () => {
                           )}
                         </div>
                       </td>
-                      {weekSessions.map(si => {
+                      {weekSessions.map((si, idx) => {
                         const info = getSessionLabel(si);
                         const rescheduled = isSessionRescheduled(si);
-                        return (
+                        const cell = (
                           <td key={si} style={{ ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
                             {renderCell(student.id, si, info.isDemo)}
                           </td>
                         );
+                        if (idx === 1 && getRescheduleForWeekWed(selectedWeek)) {
+                          return (
+                            <React.Fragment key={si}>
+                              {cell}
+                              <td key={`wed-${selectedWeek}`} style={{ background: '#0d1a0d' }}>
+                                {renderWedCell(student.id, selectedWeek)}
+                              </td>
+                            </React.Fragment>
+                          );
+                        }
+                        return cell;
                       })}
                     </tr>
                   ))}
                 </tbody>
               </table>
+            )}
+
+            {/* Reschedule counter bar */}
+            {students.length > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 14px', borderTop: '1px solid #2a2a2a',
+              }}>
+                <span style={{ fontSize: 11, color: '#555' }}>Reschedules used:</span>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {[0, 1, 2].map(i => (
+                    <span key={i} style={{
+                      width: 10, height: 10, borderRadius: '50%',
+                      background: i < reschedulesUsed ? '#fbbf24' : '#2a2a2a',
+                      border: i < reschedulesUsed ? 'none' : '1px solid #333',
+                      display: 'inline-block',
+                    }} />
+                  ))}
+                </div>
+                <span style={{ fontSize: 11, color: reschedulesRemaining === 0 ? '#f87171' : '#555', marginLeft: 'auto' }}>
+                  {reschedulesRemaining === 0 ? 'Maximum reached' : `${reschedulesUsed} of 3 used · ${reschedulesRemaining} remaining`}
+                </span>
+              </div>
             )}
 
             {students.length > 0 && (() => {

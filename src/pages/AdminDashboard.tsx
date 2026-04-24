@@ -929,8 +929,8 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Student progress modal inside grid view */}
-        {progressModalData && (
+        {/* Student progress modal inside grid view — rendered via portal so it is never clipped */}
+        {progressModalData && createPortal(
           <StudentProgressModal
             student={progressModalData.student}
             batchName={progressModalData.batchName}
@@ -941,7 +941,8 @@ const AdminDashboard: React.FC = () => {
             demoScores={progressModalData.demoScores}
             demoFeedback={progressModalData.demoFeedback}
             onClose={() => setProgressModalData(null)}
-          />
+          />,
+          document.body
         )}
 
         {/* Portal tooltip for absence notes */}
