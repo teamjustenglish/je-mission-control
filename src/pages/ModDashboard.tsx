@@ -967,7 +967,7 @@ const ModDashboard: React.FC = () => {
   }
 
   const weekSessions = getWeekSessions(selectedWeek);
-  const attendanceColor = avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
+  const attendanceColor = avgAttendance === null ? 'hsl(var(--muted-foreground))' : avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
 
   // Wednesday helpers — synthetic session_index = 1000 + (week-1) for the optional Wed column
   const WED_BASE = 1000;
