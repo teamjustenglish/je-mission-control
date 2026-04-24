@@ -584,12 +584,17 @@ const ModDashboard: React.FC = () => {
     }
   };
 
-  // Dismiss context menu on outside click
+  // Dismiss context menu on outside click or Escape
   useEffect(() => {
     if (!batchContextMenu) return;
     const handler = () => setBatchContextMenu(null);
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') setBatchContextMenu(null); };
     document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => {
+      document.removeEventListener('click', handler);
+      document.removeEventListener('keydown', keyHandler);
+    };
   }, [batchContextMenu]);
 
 
