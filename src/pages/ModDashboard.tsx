@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA } from '@/lib/batchtrack';
+import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
 import { Plus, Trash2, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
 import StudentReport from '@/components/StudentReport';
 import ScoringRubric from '@/components/ScoringRubric';
@@ -821,11 +821,11 @@ const ModDashboard: React.FC = () => {
   // Stats
   const totalStudents = students.length;
   const totalSessions = 24;
-  const avgAttendance = (() => {
-    if (students.length === 0) return 0;
-    const totalPossible = students.length * totalSessions;
+  const avgAttendance: number | null = (() => {
+    if (students.length === 0) return null;
+    const sessionsOccurred = getSessionsOccurred(activeBatch?.start_date);
     const present = attendance.filter(a => a.state === 'c').length;
-    return totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0;
+    return computeAttendancePct(present, students.length, sessionsOccurred);
   })();
   const avgDemoScore = (() => {
     if (demoScores.length === 0) return 0;
@@ -967,7 +967,7 @@ const ModDashboard: React.FC = () => {
   }
 
   const weekSessions = getWeekSessions(selectedWeek);
-  const attendanceColor = avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
+  const attendanceColor = avgAttendance === null ? 'hsl(var(--muted-foreground))' : avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
 
   // Wednesday helpers — synthetic session_index = 1000 + (week-1) for the optional Wed column
   const WED_BASE = 1000;
@@ -1495,7 +1495,7 @@ const ModDashboard: React.FC = () => {
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Students</div>
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 22, fontWeight: 500, color: attendanceColor }}>{avgAttendance}%</div>
+              <div style={{ fontSize: 22, fontWeight: 500, color: attendanceColor }}>{avgAttendance === null ? '—' : `${avgAttendance}%`}</div>
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Avg attendance</div>
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
@@ -1892,6 +1892,7 @@ const ModDashboard: React.FC = () => {
             const daysDiff = Math.floor((Date.now() - new Date(activeBatch.start_date).getTime()) / (1000 * 60 * 60 * 24));
             return Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
           })()}
+          startDate={activeBatch.start_date || null}
           attendance={attendance}
           demoDays={demoDays}
           demoScores={demoScores}

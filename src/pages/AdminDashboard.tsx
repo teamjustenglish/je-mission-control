@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search } from 'lucide-react';
-import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA } from '@/lib/batchtrack';
+import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
 
@@ -48,7 +48,7 @@ interface BatchInfo {
   mod_id: string;
   modName: string;
   studentCount: number;
-  attendancePct: number;
+  attendancePct: number | null;
   weekNumber: number;
 }
 
@@ -60,7 +60,7 @@ interface ModBatchCard {
   year: number;
   start_date: string | null;
   studentCount: number;
-  attendancePct: number;
+  attendancePct: number | null;
   avgDemoScore: number;
   demoDaysDone: number;
   demoDaysTotal: number;
@@ -151,10 +151,10 @@ const AdminDashboard: React.FC = () => {
   const [studentSearch, setStudentSearch] = useState('');
   const [studentPage, setStudentPage] = useState(1);
   const STUDENTS_PER_PAGE = 15;
-  const [allStudentsData, setAllStudentsData] = useState<{ student: Student; batch: any; mod: Profile; weekNumber: number; attendancePct: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] }[]>([]);
+  const [allStudentsData, setAllStudentsData] = useState<{ student: Student; batch: any; mod: Profile; weekNumber: number; attendancePct: number | null; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] }[]>([]);
 
   // Student progress modal
-  const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
+  const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; startDate?: string | null; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
 
   // Missing absence notes flags
   interface MissingNoteFlag { modName: string; modId: string; count: number; studentNames: string[]; batchName: string; }
@@ -210,10 +210,10 @@ const AdminDashboard: React.FC = () => {
         const daysDiff = Math.floor((Date.now() - new Date(batch.start_date).getTime()) / (1000 * 60 * 60 * 24));
         weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
       }
-      const sessionsPassed = Math.min(weekNum * 4, 24);
+      const sessionsOccurred = getSessionsOccurred(batch?.start_date);
       const sAtt = allAttendance.filter(a => a.student_id === student.id);
       const present = sAtt.filter(a => a.state === 'c').length;
-      const pct = sessionsPassed > 0 ? Math.round((present / sessionsPassed) * 100) : 0;
+      const pct = computeAttendancePct(present, 1, sessionsOccurred);
       const batchDDs = allDemoDays.filter(d => d.batch_id === student.batch_id);
       const batchDDIds = batchDDs.map(d => d.id);
       return {
@@ -302,10 +302,9 @@ const AdminDashboard: React.FC = () => {
           const sessionsLogged = new Set(bAttendance.map(a => a.session_index)).size;
           weekNum = Math.min(Math.ceil(sessionsLogged / 4), 6) || 1;
         }
-        const sessionsPassed = Math.min(weekNum * 4, 24);
-        const totalPossible = bStudents.length * sessionsPassed;
+        const sessionsOccurred = getSessionsOccurred(batch.start_date);
         const present = bAttendance.filter(a => a.state === 'c').length;
-        const pct = totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0;
+        const pct = computeAttendancePct(present, bStudents.length, sessionsOccurred);
         const mod = mods?.find(m => m.id === batch.mod_id);
         batchInfos.push({
           id: batch.id, name: batch.name, mod_id: batch.mod_id,
@@ -315,13 +314,19 @@ const AdminDashboard: React.FC = () => {
       }
       setRunningBatches(batchInfos);
 
-      if (allAttendance.length > 0) {
-        const present = allAttendance.filter(a => a.state === 'c').length;
-        const total = allAttendance.length;
-        setAvgAttendance(total > 0 ? Math.round((present / total) * 100) : 0);
-      } else {
-        setAvgAttendance(0);
+      // Avg attendance across active batches: sum of present / sum of (students × sessions occurred)
+      let totPresent = 0;
+      let totDenom = 0;
+      for (const batch of allBatches) {
+        const bStudents = allStudents.filter(s => s.batch_id === batch.id);
+        if (bStudents.length === 0) continue;
+        const sessionsOccurred = getSessionsOccurred(batch.start_date);
+        if (sessionsOccurred === 0) continue;
+        const bAtt = allAttendance.filter(a => a.batch_id === batch.id);
+        totPresent += bAtt.filter(a => a.state === 'c').length;
+        totDenom += bStudents.length * sessionsOccurred;
       }
+      setAvgAttendance(totDenom > 0 ? Math.min(Math.round((totPresent / totDenom) * 100), 100) : 0);
 
       const flags: LowAttendanceFlag[] = [];
       for (const student of allStudents) {
@@ -329,15 +334,11 @@ const AdminDashboard: React.FC = () => {
         if (studentAtt.length === 0) continue;
         const batch = allBatches.find(b => b.id === student.batch_id);
         if (!batch?.start_date) continue;
-        const startDate = new Date(batch.start_date);
-        const daysDiff = Math.floor((Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysDiff < 1) continue;
-        const weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
-        const sessionsPassed = Math.min(weekNum * 4, 24);
-        if (sessionsPassed === 0) continue;
+        const sessionsOccurred = getSessionsOccurred(batch.start_date);
+        if (sessionsOccurred === 0) continue;
         const p = studentAtt.filter(a => a.state === 'c').length;
-        const pct = Math.round((p / sessionsPassed) * 100);
-        if (pct < 70) {
+        const pct = computeAttendancePct(p, 1, sessionsOccurred);
+        if (pct !== null && pct < 70) {
           const mod = mods?.find(m => m.id === batch?.mod_id);
           flags.push({ studentName: student.name, batchName: batch?.name || '', modName: (mod as any)?.name || '', pct });
         }
@@ -494,10 +495,9 @@ const AdminDashboard: React.FC = () => {
           weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
         }
 
-        const sessionsPassed = Math.min(weekNum * 4, 24);
-        const totalPossible = bStudents.length * sessionsPassed;
+        const sessionsOccurred = getSessionsOccurred(batch.start_date);
         const present = bAttendance.filter(a => a.state === 'c').length;
-        const attPct = totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0;
+        const attPct = computeAttendancePct(present, bStudents.length, sessionsOccurred);
 
         const bDDIds = bDemoDays.map(d => d.id);
         const bScores = allDemoScores.filter(s => bDDIds.includes(s.demo_day_id));
@@ -787,6 +787,7 @@ const AdminDashboard: React.FC = () => {
                             })(),
                             attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
                             demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
+                            startDate: gridViewBatch.startDate,
                           })}>
                           {student.name || '(unnamed)'}
                         </span>
@@ -800,6 +801,7 @@ const AdminDashboard: React.FC = () => {
                             })(),
                             attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
                             demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
+                            startDate: gridViewBatch.startDate,
                           })}>📄</span>
                       </td>
                       {sessions.map(si => {
@@ -936,6 +938,7 @@ const AdminDashboard: React.FC = () => {
             batchName={progressModalData.batchName}
             modName={progressModalData.modName}
             weekNumber={progressModalData.weekNumber}
+            startDate={progressModalData.startDate}
             attendance={progressModalData.attendance}
             demoDays={progressModalData.demoDays}
             demoScores={progressModalData.demoScores}
@@ -1053,7 +1056,8 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 <div className="space-y-3">
                   {runningBatches.map(batch => {
-                    const barColor = batch.attendancePct >= 70 ? '#4ade80' : batch.attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                    const pct = batch.attendancePct;
+                    const barColor = pct === null ? '#555' : pct >= 70 ? '#4ade80' : pct >= 50 ? '#fbbf24' : '#f87171';
                     return (
                       <div key={batch.id}>
                         <div className="flex items-center justify-between mb-1">
@@ -1061,10 +1065,10 @@ const AdminDashboard: React.FC = () => {
                             <p className="text-sm font-medium text-foreground">{batch.name}</p>
                             <p className="text-xs text-muted-foreground">{batch.modName} · Currently in week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
                           </div>
-                          <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {batch.attendancePct}%</span>
+                          <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {pct === null ? '—' : `${pct}%`}</span>
                         </div>
                         <div style={{ height: 4, borderRadius: 2, background: '#2a2a2a' }}>
-                          <div style={{ height: '100%', width: `${batch.attendancePct}%`, borderRadius: 2, background: barColor, transition: 'width 0.3s' }} />
+                          <div style={{ height: '100%', width: `${pct ?? 0}%`, borderRadius: 2, background: barColor, transition: 'width 0.3s' }} />
                         </div>
                       </div>
                     );
@@ -1256,7 +1260,7 @@ const AdminDashboard: React.FC = () => {
                         ) : (
                           <div className="grid grid-cols-2 gap-4">
                             {modBatchCards.map(card => {
-                              const attColor = card.attendancePct >= 70 ? '#4ade80' : card.attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                              const attColor = card.attendancePct === null ? '#555' : card.attendancePct >= 70 ? '#4ade80' : card.attendancePct >= 50 ? '#fbbf24' : '#f87171';
                               const scoreColor = card.avgDemoScore >= 14 ? '#4ade80' : card.avgDemoScore >= 10 ? '#fbbf24' : '#f87171';
                               const lastUpdateDiff = card.lastUpdated ? Date.now() - new Date(card.lastUpdated).getTime() : Infinity;
                               const dotColor = lastUpdateDiff < 24 * 60 * 60 * 1000 ? '#4ade80' : lastUpdateDiff < 7 * 24 * 60 * 60 * 1000 ? '#fbbf24' : '#555';
@@ -1272,7 +1276,7 @@ const AdminDashboard: React.FC = () => {
                                       <div style={{ fontSize: 10, color: '#888' }}>Students</div>
                                     </div>
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
-                                      <div style={{ fontSize: 16, fontWeight: 600, color: attColor }}>Attendance · {card.attendancePct}%</div>
+                                      <div style={{ fontSize: 16, fontWeight: 600, color: attColor }}>Attendance · {card.attendancePct === null ? '—' : `${card.attendancePct}%`}</div>
                                       <div style={{ fontSize: 10, color: '#888' }}></div>
                                     </div>
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
@@ -1510,7 +1514,8 @@ const AdminDashboard: React.FC = () => {
             <h2 className="text-lg font-semibold text-foreground mb-4">All Batches</h2>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
               {runningBatches.map(batch => {
-                const barColor = batch.attendancePct >= 70 ? '#4ade80' : batch.attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                const pct = batch.attendancePct;
+                const barColor = pct === null ? '#555' : pct >= 70 ? '#4ade80' : pct >= 50 ? '#fbbf24' : '#f87171';
                 return (
                   <div key={batch.id} className="p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                     <div className="flex items-center justify-between mb-1">
@@ -1518,10 +1523,10 @@ const AdminDashboard: React.FC = () => {
                         <p className="text-sm font-medium text-foreground">{batch.name}</p>
                         <p className="text-xs text-muted-foreground">{batch.modName} · {batch.studentCount} students · Currently in week {batch.weekNumber} of 6</p>
                       </div>
-                      <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {batch.attendancePct}%</span>
+                      <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {pct === null ? '—' : `${pct}%`}</span>
                     </div>
                     <div style={{ height: 4, borderRadius: 2, background: '#2a2a2a' }}>
-                      <div style={{ height: '100%', width: `${batch.attendancePct}%`, borderRadius: 2, background: barColor }} />
+                      <div style={{ height: '100%', width: `${pct ?? 0}%`, borderRadius: 2, background: barColor }} />
                     </div>
                   </div>
                 );
@@ -1560,7 +1565,7 @@ const AdminDashboard: React.FC = () => {
                           <p style={{ fontSize: 14, color: '#888' }}>No students found matching '{studentSearch}'</p>
                         </div>
                       ) : paginated.map(({ student, batch, mod, weekNumber, attendancePct, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb }) => {
-                        const attColor = attendancePct >= 70 ? '#4ade80' : attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                        const attColor = attendancePct === null ? '#555' : attendancePct >= 70 ? '#4ade80' : attendancePct >= 50 ? '#fbbf24' : '#f87171';
                         return (
                           <div key={student.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                             <div className="flex items-center gap-3">
@@ -1570,17 +1575,17 @@ const AdminDashboard: React.FC = () => {
                               <div>
                                 <p className="text-sm font-medium text-foreground">
                                   <span style={{ cursor: 'pointer' }} className="hover:underline"
-                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>
+                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, startDate: batch?.start_date || null, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>
                                     {student.name}
                                   </span>
                                   <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }}
-                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>📄</span>
+                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, startDate: batch?.start_date || null, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>📄</span>
                                 </p>
                                 <p className="text-xs text-muted-foreground">{batch.name} · {mod.name} · Currently in week {weekNumber} of 6</p>
                               </div>
                             </div>
-                            <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : '#2a0a0a', color: attColor }}>
-                              Attendance · {attendancePct}%
+                            <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : attColor === '#f87171' ? '#2a0a0a' : '#222', color: attColor }}>
+                              Attendance · {attendancePct === null ? '—' : `${attendancePct}%`}
                             </span>
                           </div>
                         );
@@ -1622,6 +1627,7 @@ const AdminDashboard: React.FC = () => {
           batchName={progressModalData.batchName}
           modName={progressModalData.modName}
           weekNumber={progressModalData.weekNumber}
+          startDate={progressModalData.startDate}
           attendance={progressModalData.attendance}
           demoDays={progressModalData.demoDays}
           demoScores={progressModalData.demoScores}

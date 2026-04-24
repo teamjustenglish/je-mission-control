@@ -1,12 +1,13 @@
 import React, { useRef } from 'react';
 import html2canvas from 'html2canvas';
-import { getSessionLabel, isDemoWeek, CRITERIA } from '@/lib/batchtrack';
+import { getSessionLabel, isDemoWeek, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
 
 interface StudentProgressModalProps {
   student: { id: string; name: string; batch_id: string };
   batchName: string;
   modName: string;
   weekNumber: number;
+  startDate?: string | null;
   attendance: { student_id: string; session_index: number; state: string; absence_note?: string | null }[];
   demoDays: { id: string; title: string; date: string | null; day_number: number }[];
   demoScores: { id: string; demo_day_id: string; student_id: string; criterion: string; score: number }[];
@@ -17,7 +18,7 @@ interface StudentProgressModalProps {
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
 
 const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
-  student, batchName, modName, weekNumber, attendance, demoDays, demoScores, demoFeedback, onClose,
+  student, batchName, modName, weekNumber, startDate, attendance, demoDays, demoScores, demoFeedback, onClose,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -44,9 +45,9 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
   const studentAtt = attendance.filter(a => a.student_id === student.id);
   const present = studentAtt.filter(a => a.state === 'c').length;
   const attended = present;
-  const sessionsOccurred = Math.min(weekNumber * 4, 24);
-  const overallPct = sessionsOccurred > 0 ? Math.round((present / sessionsOccurred) * 100) : 0;
-  const attColor = overallPct >= 70 ? '#4ade80' : overallPct >= 50 ? '#fbbf24' : '#f87171';
+  const sessionsOccurred = startDate ? getSessionsOccurred(startDate) : Math.min(weekNumber * 4, 24);
+  const overallPct = computeAttendancePct(present, 1, sessionsOccurred);
+  const attColor = overallPct === null ? '#555' : overallPct >= 70 ? '#4ade80' : overallPct >= 50 ? '#fbbf24' : '#f87171';
 
   const currentWeek = Math.min(Math.max(weekNumber, 1), 6);
 
@@ -137,7 +138,7 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
             {/* Stats row */}
             <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div style={{ background: '#242424', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: 18, fontWeight: 600, color: attColor }}>Attendance · {overallPct}%</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: attColor }}>Attendance · {overallPct === null ? '—' : `${overallPct}%`}</div>
               </div>
               <div style={{ background: '#242424', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 600, color: '#e8e8e8' }}>{attended} / {sessionsOccurred}</div>
