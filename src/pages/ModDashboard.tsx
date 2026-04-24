@@ -349,6 +349,8 @@ const ModDashboard: React.FC = () => {
     sessionIndex: number; dayName: string; weekNumber: number; existingId?: string;
   } | null>(null);
   const [selectedWednesdayWeek, setSelectedWednesdayWeek] = useState<number | null>(null);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+  const [rescheduleSaving, setRescheduleSaving] = useState(false);
   // Removal confirmation
   const [removeRescheduleConfirm, setRemoveRescheduleConfirm] = useState<RescheduledSession | null>(null);
   
