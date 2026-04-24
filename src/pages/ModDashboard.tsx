@@ -1142,36 +1142,92 @@ const ModDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Reschedule modal */}
+      {/* Reschedule modal — Wednesday picker (max 3 per batch) */}
       {rescheduleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
-          onClick={() => setRescheduleModal(null)}>
+          onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); }}>
           <div onClick={(e) => e.stopPropagation()}
-            style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 340, width: '100%' }}>
-            <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 4 }}>Reschedule session</div>
-            <div style={{ fontSize: 11, color: '#555', marginBottom: 12 }}>
-              {rescheduleModal.dayName} · Week {rescheduleModal.weekNumber}
+            style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 400, width: '100%' }}>
+            <div style={{ fontSize: 15, color: '#F0F0F0', fontWeight: 600, marginBottom: 4 }}>↻ Reschedule session</div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>
+              Week {rescheduleModal.weekNumber} · {rescheduleModal.dayName} — moving to a Wednesday
             </div>
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>New date</label>
-              <input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)}
-                style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#F0F0F0', outline: 'none' }} />
+            {/* Counter */}
+            <div style={{ background: '#161616', borderRadius: 8, padding: '10px 12px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 5 }}>
+                {[0, 1, 2].map(i => (
+                  <span key={i} style={{
+                    width: 9, height: 9, borderRadius: '50%',
+                    background: i < (reschedulesUsed - (rescheduleModal.existingId ? 1 : 0)) ? '#fbbf24' : '#2a2a2a',
+                    border: i < (reschedulesUsed - (rescheduleModal.existingId ? 1 : 0)) ? 'none' : '1px solid #333',
+                    display: 'inline-block',
+                  }} />
+                ))}
+              </div>
+              <span style={{ fontSize: 12, color: '#888' }}>
+                {reschedulesUsed} of 3 reschedules used · {reschedulesRemaining} remaining
+              </span>
             </div>
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>Reason (optional)</label>
-              <input type="text" value={rescheduleReason} onChange={(e) => setRescheduleReason(e.target.value)}
-                placeholder="e.g. Room not available, public holiday..."
-                style={{ width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: '#F0F0F0', outline: 'none' }} />
+            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Choose a Wednesday to reschedule to:</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto', marginBottom: 14 }}>
+              {[1, 2, 3, 4, 5, 6].map(week => {
+                const usedBy = wednesdayUsedBy(week);
+                const isSelf = usedBy && usedBy.id === rescheduleModal.existingId;
+                const isUsed = usedBy && !isSelf;
+                const wedDate = getWednesdayDate(week);
+                const isSelected = selectedWednesdayWeek === week;
+                return (
+                  <label key={week}
+                    onClick={() => { if (!isUsed) setSelectedWednesdayWeek(week); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      background: isSelected ? '#0d1a0d' : '#222',
+                      border: `1px solid ${isSelected ? '#166534' : '#333'}`,
+                      borderRadius: 7, padding: '10px 12px',
+                      cursor: isUsed ? 'not-allowed' : 'pointer',
+                      opacity: isUsed ? 0.4 : 1,
+                    }}>
+                    <span style={{
+                      width: 14, height: 14, borderRadius: '50%',
+                      border: `2px solid ${isSelected ? '#4ade80' : '#555'}`,
+                      background: isSelected ? '#4ade80' : 'transparent',
+                      flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#e8e8e8' }}>Week {week} · Wednesday</div>
+                      <div style={{ fontSize: 11, color: '#555' }}>{fmtDate(wedDate) || '(set batch start date)'}</div>
+                    </div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 99,
+                      background: isUsed ? '#2a2a2a' : '#0d2a0d',
+                      color: isUsed ? '#888' : '#4ade80',
+                    }}>{isUsed ? 'Already used' : 'Available'}</span>
+                  </label>
+                );
+              })}
             </div>
-            <div className="flex justify-end gap-2 mt-3">
-              <button onClick={() => setRescheduleModal(null)}
-                style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
-              <button onClick={() => { setRescheduleModal(null); saveReschedule(); }} disabled={!rescheduleDate}
-                style={{ ...primaryBtnStyle, opacity: rescheduleDate ? 1 : 0.5 }} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>↻ Confirm reschedule</button>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); }}
+                style={cancelBtnStyle}>Cancel</button>
+              <button onClick={() => saveReschedule()} disabled={selectedWednesdayWeek == null}
+                style={{ background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: selectedWednesdayWeek == null ? 0.5 : 1 }}
+              >↻ Confirm reschedule</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove reschedule confirmation */}
+      {removeRescheduleConfirm && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setRemoveRescheduleConfirm(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 380, width: '100%' }}>
+            <div style={{ fontSize: 15, color: '#F0F0F0', fontWeight: 600, marginBottom: 6 }}>Remove this reschedule?</div>
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 16, lineHeight: 1.5 }}>
+              The original {removeRescheduleConfirm.from_day || removeRescheduleConfirm.day_name} session will be restored.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setRemoveRescheduleConfirm(null)} style={cancelBtnStyle}>Cancel</button>
+              <button onClick={() => removeReschedule(removeRescheduleConfirm.id)} style={destructBtnStyle}>Remove</button>
             </div>
           </div>
         </div>
