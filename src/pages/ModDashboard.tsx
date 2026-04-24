@@ -969,13 +969,25 @@ const ModDashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
             {batches.map(batch => (
-              <button key={batch.id}
-                onClick={() => switchBatch(batch.id)}
-                onDoubleClick={() => openEditBatch(batch)}
-                onContextMenu={(e) => { e.preventDefault(); setBatchContextMenu({ batchId: batch.id, x: e.clientX, y: e.clientY }); }}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  batch.id === activeBatchId ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}>{batch.name}</button>
+              <div key={batch.id} className="flex items-center" style={{ maxWidth: 220 }}>
+                <button
+                  onClick={() => switchBatch(batch.id)}
+                  onDoubleClick={() => openEditBatch(batch)}
+                  onContextMenu={(e) => { e.preventDefault(); setBatchContextMenu({ batchId: batch.id, x: e.clientX, y: e.clientY }); }}
+                  title={batch.name}
+                  className={`px-3 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    batch.id === activeBatchId ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                  style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}
+                >{batch.name}</button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setBatchContextMenu({ batchId: batch.id, x: e.clientX, y: e.clientY }); }}
+                  title="Batch options"
+                  style={{ flexShrink: 0, padding: '0 6px', color: '#666', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#666'; }}
+                >⋮</button>
+              </div>
             ))}
             <button onClick={() => setShowCreateBatch(true)} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
           </div>
