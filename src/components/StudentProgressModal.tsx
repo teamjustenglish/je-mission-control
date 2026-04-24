@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { getSessionLabel, isDemoWeek, CRITERIA } from '@/lib/batchtrack';
 
 interface StudentProgressModalProps {
@@ -18,6 +19,27 @@ const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Sego
 const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
   student, batchName, modName, weekNumber, attendance, demoDays, demoScores, demoFeedback, onClose,
 }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleExport = async () => {
+    if (!cardRef.current) return;
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: '#1e1e1e',
+        scale: 2,
+        useCORS: true,
+      });
+      const link = document.createElement('a');
+      const safeName = (student.name || 'student').replace(/[^a-z0-9]+/gi, '_');
+      const safeBatch = (batchName || 'batch').replace(/[^a-z0-9]+/gi, '_');
+      link.download = `${safeName}_progress_${safeBatch}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      console.error('Export failed, falling back to print', e);
+      window.print();
+    }
+  };
   const studentAtt = attendance.filter(a => a.student_id === student.id);
   const totalSessions = 24;
   const present = studentAtt.filter(a => a.state === 'c').length;
