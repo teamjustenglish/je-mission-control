@@ -239,19 +239,22 @@ const ScoreInput: React.FC<{
     if (isNaN(num)) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
     if (num > 5) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
     if (num < 0) { onChange(''); return; }
+    // Allow 0..5 inclusive (including exactly 5)
     onChange(raw);
   };
 
   const handleBlur = () => {
     if (value === '' || value === '.') return;
     const num = parseFloat(value);
-    if (isNaN(num) || num < 0) { onChange(''); return; }
+    if (isNaN(num)) { onChange(''); return; }
+    if (num < 0) { onChange(''); return; }
     if (num > 5) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
+    // num is 0..5 inclusive — keep it (do NOT clear when num === 5)
   };
 
   return (
     <input
-      ref={inputRef} type="number" min={0} max={5} step={0.5}
+      ref={inputRef} type="text" inputMode="decimal"
       value={value} onChange={handleChange} onBlur={handleBlur}
       onKeyDown={handleKeyPress}
       className="score-input"
