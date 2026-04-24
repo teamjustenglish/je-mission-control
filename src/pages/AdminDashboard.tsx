@@ -495,10 +495,9 @@ const AdminDashboard: React.FC = () => {
           weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
         }
 
-        const sessionsPassed = Math.min(weekNum * 4, 24);
-        const totalPossible = bStudents.length * sessionsPassed;
+        const sessionsOccurred = getSessionsOccurred(batch.start_date);
         const present = bAttendance.filter(a => a.state === 'c').length;
-        const attPct = totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0;
+        const attPct = computeAttendancePct(present, bStudents.length, sessionsOccurred);
 
         const bDDIds = bDemoDays.map(d => d.id);
         const bScores = allDemoScores.filter(s => bDDIds.includes(s.demo_day_id));
