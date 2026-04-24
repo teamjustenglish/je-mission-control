@@ -7,6 +7,7 @@ interface StudentProgressModalProps {
   batchName: string;
   modName: string;
   weekNumber: number;
+  startDate?: string | null;
   attendance: { student_id: string; session_index: number; state: string; absence_note?: string | null }[];
   demoDays: { id: string; title: string; date: string | null; day_number: number }[];
   demoScores: { id: string; demo_day_id: string; student_id: string; criterion: string; score: number }[];
