@@ -1495,7 +1495,7 @@ const ModDashboard: React.FC = () => {
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Students</div>
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 22, fontWeight: 500, color: attendanceColor }}>{avgAttendance}%</div>
+              <div style={{ fontSize: 22, fontWeight: 500, color: attendanceColor }}>{avgAttendance === null ? '—' : `${avgAttendance}%`}</div>
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Avg attendance</div>
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
