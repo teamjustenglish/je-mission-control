@@ -210,10 +210,10 @@ const AdminDashboard: React.FC = () => {
         const daysDiff = Math.floor((Date.now() - new Date(batch.start_date).getTime()) / (1000 * 60 * 60 * 24));
         weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
       }
-      const sessionsPassed = Math.min(weekNum * 4, 24);
+      const sessionsOccurred = getSessionsOccurred(batch?.start_date);
       const sAtt = allAttendance.filter(a => a.student_id === student.id);
       const present = sAtt.filter(a => a.state === 'c').length;
-      const pct = sessionsPassed > 0 ? Math.round((present / sessionsPassed) * 100) : 0;
+      const pct = computeAttendancePct(present, 1, sessionsOccurred);
       const batchDDs = allDemoDays.filter(d => d.batch_id === student.batch_id);
       const batchDDIds = batchDDs.map(d => d.id);
       return {
