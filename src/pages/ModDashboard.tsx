@@ -1064,27 +1064,39 @@ const ModDashboard: React.FC = () => {
       <div className="px-6" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: 'hsl(var(--nav-bg))', borderBottom: '1px solid hsl(var(--nav-border))' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
-            {batches.map(batch => (
-              <div key={batch.id} className="flex items-center" style={{ maxWidth: 220 }}>
-                <button
-                  onClick={() => switchBatch(batch.id)}
-                  onDoubleClick={() => openEditBatch(batch)}
-                  onContextMenu={(e) => { e.preventDefault(); setBatchContextMenu({ batchId: batch.id, x: e.clientX, y: e.clientY }); }}
-                  title={batch.name}
-                  className={`px-3 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    batch.id === activeBatchId ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
-                  }`}
-                  style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}
-                >{batch.name}</button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setBatchContextMenu({ batchId: batch.id, x: e.clientX, y: e.clientY }); }}
-                  title="Batch options"
-                  style={{ flexShrink: 0, padding: '0 6px', color: '#666', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = '#666'; }}
-                >⋮</button>
-              </div>
-            ))}
+            {batches.map(batch => {
+              const isActive = batch.id === activeBatchId;
+              return (
+                <div key={batch.id} className="flex items-center" style={{ maxWidth: 220 }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    setBatchContextMenu({ batchId: batch.id, x: rect.left, y: rect.bottom + 4 });
+                  }}>
+                  <button
+                    type="button"
+                    onClick={() => switchBatch(batch.id)}
+                    onDoubleClick={() => openEditBatch(batch)}
+                    title={batch.name}
+                    className={`px-3 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      isActive ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                    style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}
+                  >{batch.name}</button>
+                  {isActive && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setDeleteBatchConfirm(batch); }}
+                      title="Delete batch"
+                      aria-label="Delete batch"
+                      style={{ flexShrink: 0, marginLeft: 6, marginRight: 4, width: 14, height: 14, padding: 0, color: '#555', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
+                    >✕</button>
+                  )}
+                </div>
+              );
+            })}
             <button onClick={() => setShowCreateBatch(true)} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
           </div>
           <div className="flex items-center gap-3">
