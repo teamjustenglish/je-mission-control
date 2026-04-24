@@ -1278,7 +1278,12 @@ const ModDashboard: React.FC = () => {
               </span>
             </div>
             <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Choose a Wednesday to reschedule to:</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto', marginBottom: 14 }}>
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto',
+              marginBottom: rescheduleError ? 6 : 14,
+              border: rescheduleError === 'Please select a Wednesday' ? '1px solid #f87171' : '1px solid transparent',
+              borderRadius: 8, padding: rescheduleError === 'Please select a Wednesday' ? 4 : 0,
+            }}>
               {[1, 2, 3, 4, 5, 6].map(week => {
                 const usedBy = wednesdayUsedBy(week);
                 const isSelf = usedBy && usedBy.id === rescheduleModal.existingId;
@@ -1287,7 +1292,7 @@ const ModDashboard: React.FC = () => {
                 const isSelected = selectedWednesdayWeek === week;
                 return (
                   <label key={week}
-                    onClick={() => { if (!isUsed) setSelectedWednesdayWeek(week); }}
+                    onClick={() => { if (!isUsed) { setSelectedWednesdayWeek(week); setRescheduleError(null); } }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       background: isSelected ? '#0d1a0d' : '#222',
@@ -1315,11 +1320,14 @@ const ModDashboard: React.FC = () => {
                 );
               })}
             </div>
+            {rescheduleError && (
+              <div style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{rescheduleError}</div>
+            )}
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); }}
+              <button type="button" onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); setRescheduleError(null); }}
                 style={cancelBtnStyle}>Cancel</button>
-              <button onClick={() => saveReschedule()} disabled={selectedWednesdayWeek == null}
-                style={{ background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: selectedWednesdayWeek == null ? 0.5 : 1 }}
+              <button type="button" onClick={() => saveReschedule()}
+                style={{ background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: rescheduleSaving ? 'wait' : 'pointer', opacity: rescheduleSaving ? 0.7 : 1 }}
               >↻ Confirm reschedule</button>
             </div>
           </div>
