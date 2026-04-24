@@ -938,6 +938,7 @@ const AdminDashboard: React.FC = () => {
             batchName={progressModalData.batchName}
             modName={progressModalData.modName}
             weekNumber={progressModalData.weekNumber}
+            startDate={progressModalData.startDate}
             attendance={progressModalData.attendance}
             demoDays={progressModalData.demoDays}
             demoScores={progressModalData.demoScores}
