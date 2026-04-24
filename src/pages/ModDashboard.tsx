@@ -338,12 +338,11 @@ const ModDashboard: React.FC = () => {
   } | null>(null);
   const [noteText, setNoteText] = useState('');
 
-  // Reschedule modal state
+  // Reschedule modal state — new flow: pick a Wednesday from week 1-6
   const [rescheduleModal, setRescheduleModal] = useState<{
     sessionIndex: number; dayName: string; weekNumber: number; existingId?: string;
   } | null>(null);
-  const [rescheduleDate, setRescheduleDate] = useState('');
-  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [selectedWednesdayWeek, setSelectedWednesdayWeek] = useState<number | null>(null);
   
   // Absence note reminder banner
   const [bannerDismissed, setBannerDismissed] = useState(false);
