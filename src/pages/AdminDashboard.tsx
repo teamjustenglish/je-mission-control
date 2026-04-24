@@ -60,7 +60,7 @@ interface ModBatchCard {
   year: number;
   start_date: string | null;
   studentCount: number;
-  attendancePct: number;
+  attendancePct: number | null;
   avgDemoScore: number;
   demoDaysDone: number;
   demoDaysTotal: number;
