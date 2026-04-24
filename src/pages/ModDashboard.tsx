@@ -500,7 +500,10 @@ const ModDashboard: React.FC = () => {
   const isSessionRescheduled = (sessionIndex: number): RescheduledSession | undefined => {
     const info = getSessionLabel(sessionIndex);
     const week = Math.floor(sessionIndex / 4) + 1;
-    return rescheduledSessions.find(r => r.week_number === week && r.day_name === (info.isDemo ? 'Demo day' : info.day));
+    const dayName = info.isDemo ? 'Demo day' : info.day;
+    return rescheduledSessions.find(r =>
+      ((r.from_week ?? r.week_number) === week) && ((r.from_day ?? r.day_name) === dayName)
+    );
   };
 
   const createBatch = async () => {
