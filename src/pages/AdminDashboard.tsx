@@ -1562,7 +1562,7 @@ const AdminDashboard: React.FC = () => {
                           <p style={{ fontSize: 14, color: '#888' }}>No students found matching '{studentSearch}'</p>
                         </div>
                       ) : paginated.map(({ student, batch, mod, weekNumber, attendancePct, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb }) => {
-                        const attColor = attendancePct >= 70 ? '#4ade80' : attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                        const attColor = attendancePct === null ? '#555' : attendancePct >= 70 ? '#4ade80' : attendancePct >= 50 ? '#fbbf24' : '#f87171';
                         return (
                           <div key={student.id} className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                             <div className="flex items-center gap-3">
@@ -1581,8 +1581,8 @@ const AdminDashboard: React.FC = () => {
                                 <p className="text-xs text-muted-foreground">{batch.name} · {mod.name} · Currently in week {weekNumber} of 6</p>
                               </div>
                             </div>
-                            <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : '#2a0a0a', color: attColor }}>
-                              Attendance · {attendancePct}%
+                            <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : attColor === '#f87171' ? '#2a0a0a' : '#222', color: attColor }}>
+                              Attendance · {attendancePct === null ? '—' : `${attendancePct}%`}
                             </span>
                           </div>
                         );
