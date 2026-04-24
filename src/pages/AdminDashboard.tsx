@@ -1273,7 +1273,7 @@ const AdminDashboard: React.FC = () => {
                                       <div style={{ fontSize: 10, color: '#888' }}>Students</div>
                                     </div>
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
-                                      <div style={{ fontSize: 16, fontWeight: 600, color: attColor }}>Attendance · {card.attendancePct}%</div>
+                                      <div style={{ fontSize: 16, fontWeight: 600, color: attColor }}>Attendance · {card.attendancePct === null ? '—' : `${card.attendancePct}%`}</div>
                                       <div style={{ fontSize: 10, color: '#888' }}></div>
                                     </div>
                                     <div style={{ background: '#242424', borderRadius: 8, padding: '8px 10px' }}>
