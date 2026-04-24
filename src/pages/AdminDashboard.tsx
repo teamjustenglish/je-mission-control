@@ -801,6 +801,7 @@ const AdminDashboard: React.FC = () => {
                             })(),
                             attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
                             demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
+                            startDate: gridViewBatch.startDate,
                           })}>📄</span>
                       </td>
                       {sessions.map(si => {
