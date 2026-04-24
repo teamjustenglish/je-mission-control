@@ -1512,7 +1512,15 @@ const ModDashboard: React.FC = () => {
                       <th className="text-left py-2 font-medium text-muted-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12 }}>Student</th>
                       {Array.from({ length: 24 }, (_, i) => {
                         const info = getSessionLabel(i);
-                        return renderColumnHeader(i, info);
+                        const header = renderColumnHeader(i, info);
+                        // After Tue (i % 4 === 1) of each week, insert Wed if rescheduled
+                        if (i % 4 === 1) {
+                          const w = Math.floor(i / 4) + 1;
+                          if (getRescheduleForWeekWed(w)) {
+                            return <React.Fragment key={i}>{header}{renderWedHeader(w)}</React.Fragment>;
+                          }
+                        }
+                        return header;
                       })}
                     </tr>
                   </thead>
