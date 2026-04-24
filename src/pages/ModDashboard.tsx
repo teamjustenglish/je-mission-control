@@ -1645,6 +1645,29 @@ const ModDashboard: React.FC = () => {
               </table>
             )}
 
+            {/* Reschedule counter bar */}
+            {students.length > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 14px', borderTop: '1px solid #2a2a2a',
+              }}>
+                <span style={{ fontSize: 11, color: '#555' }}>Reschedules used:</span>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {[0, 1, 2].map(i => (
+                    <span key={i} style={{
+                      width: 10, height: 10, borderRadius: '50%',
+                      background: i < reschedulesUsed ? '#fbbf24' : '#2a2a2a',
+                      border: i < reschedulesUsed ? 'none' : '1px solid #333',
+                      display: 'inline-block',
+                    }} />
+                  ))}
+                </div>
+                <span style={{ fontSize: 11, color: reschedulesRemaining === 0 ? '#f87171' : '#555', marginLeft: 'auto' }}>
+                  {reschedulesRemaining === 0 ? 'Maximum reached' : `${reschedulesUsed} of 3 used · ${reschedulesRemaining} remaining`}
+                </span>
+              </div>
+            )}
+
             {students.length > 0 && (() => {
               // Calculate missing absence notes for current week
               const currentWeekSessions = getWeekSessions(selectedWeek);
