@@ -138,7 +138,7 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
             {/* Stats row */}
             <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div style={{ background: '#242424', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
-                <div style={{ fontSize: 18, fontWeight: 600, color: attColor }}>Attendance · {overallPct}%</div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: attColor }}>Attendance · {overallPct === null ? '—' : `${overallPct}%`}</div>
               </div>
               <div style={{ background: '#242424', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 600, color: '#e8e8e8' }}>{attended} / {sessionsOccurred}</div>
