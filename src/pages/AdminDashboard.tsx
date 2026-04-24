@@ -1574,11 +1574,11 @@ const AdminDashboard: React.FC = () => {
                               <div>
                                 <p className="text-sm font-medium text-foreground">
                                   <span style={{ cursor: 'pointer' }} className="hover:underline"
-                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>
+                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, startDate: batch?.start_date || null, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>
                                     {student.name}
                                   </span>
                                   <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }}
-                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>📄</span>
+                                    onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, startDate: batch?.start_date || null, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>📄</span>
                                 </p>
                                 <p className="text-xs text-muted-foreground">{batch.name} · {mod.name} · Currently in week {weekNumber} of 6</p>
                               </div>
