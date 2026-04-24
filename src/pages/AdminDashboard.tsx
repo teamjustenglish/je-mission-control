@@ -1257,7 +1257,7 @@ const AdminDashboard: React.FC = () => {
                         ) : (
                           <div className="grid grid-cols-2 gap-4">
                             {modBatchCards.map(card => {
-                              const attColor = card.attendancePct >= 70 ? '#4ade80' : card.attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                              const attColor = card.attendancePct === null ? '#555' : card.attendancePct >= 70 ? '#4ade80' : card.attendancePct >= 50 ? '#fbbf24' : '#f87171';
                               const scoreColor = card.avgDemoScore >= 14 ? '#4ade80' : card.avgDemoScore >= 10 ? '#fbbf24' : '#f87171';
                               const lastUpdateDiff = card.lastUpdated ? Date.now() - new Date(card.lastUpdated).getTime() : Infinity;
                               const dotColor = lastUpdateDiff < 24 * 60 * 60 * 1000 ? '#4ade80' : lastUpdateDiff < 7 * 24 * 60 * 60 * 1000 ? '#fbbf24' : '#555';
