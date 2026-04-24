@@ -314,13 +314,19 @@ const AdminDashboard: React.FC = () => {
       }
       setRunningBatches(batchInfos);
 
-      if (allAttendance.length > 0) {
-        const present = allAttendance.filter(a => a.state === 'c').length;
-        const total = allAttendance.length;
-        setAvgAttendance(total > 0 ? Math.round((present / total) * 100) : 0);
-      } else {
-        setAvgAttendance(0);
+      // Avg attendance across active batches: sum of present / sum of (students × sessions occurred)
+      let totPresent = 0;
+      let totDenom = 0;
+      for (const batch of allBatches) {
+        const bStudents = allStudents.filter(s => s.batch_id === batch.id);
+        if (bStudents.length === 0) continue;
+        const sessionsOccurred = getSessionsOccurred(batch.start_date);
+        if (sessionsOccurred === 0) continue;
+        const bAtt = allAttendance.filter(a => a.batch_id === batch.id);
+        totPresent += bAtt.filter(a => a.state === 'c').length;
+        totDenom += bStudents.length * sessionsOccurred;
       }
+      setAvgAttendance(totDenom > 0 ? Math.min(Math.round((totPresent / totDenom) * 100), 100) : 0);
 
       const flags: LowAttendanceFlag[] = [];
       for (const student of allStudents) {
@@ -328,15 +334,11 @@ const AdminDashboard: React.FC = () => {
         if (studentAtt.length === 0) continue;
         const batch = allBatches.find(b => b.id === student.batch_id);
         if (!batch?.start_date) continue;
-        const startDate = new Date(batch.start_date);
-        const daysDiff = Math.floor((Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysDiff < 1) continue;
-        const weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
-        const sessionsPassed = Math.min(weekNum * 4, 24);
-        if (sessionsPassed === 0) continue;
+        const sessionsOccurred = getSessionsOccurred(batch.start_date);
+        if (sessionsOccurred === 0) continue;
         const p = studentAtt.filter(a => a.state === 'c').length;
-        const pct = Math.round((p / sessionsPassed) * 100);
-        if (pct < 70) {
+        const pct = computeAttendancePct(p, 1, sessionsOccurred);
+        if (pct !== null && pct < 70) {
           const mod = mods?.find(m => m.id === batch?.mod_id);
           flags.push({ studentName: student.name, batchName: batch?.name || '', modName: (mod as any)?.name || '', pct });
         }
