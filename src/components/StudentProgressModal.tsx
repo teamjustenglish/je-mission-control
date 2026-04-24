@@ -85,6 +85,7 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)' }}
       onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()}
+        ref={cardRef}
         style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 14, maxWidth: 500, width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: 0 }}>
         {/* Header */}
         <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -97,7 +98,15 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
               <div style={{ fontSize: 12, color: '#555' }}>{batchName} · {modName} · Currently in week {weekNumber} of 6</div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18, padding: 4 }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} data-html2canvas-ignore="true">
+            <button
+              onClick={handleExport}
+              style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #333', borderRadius: 6, background: '#242424', color: '#888', cursor: 'pointer', transition: 'all 0.15s' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#555'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#333'; }}
+            >⬇ Export</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18, padding: 4 }}>✕</button>
+          </div>
         </div>
 
         {/* Stats row */}
