@@ -938,11 +938,16 @@ const ModDashboard: React.FC = () => {
   const weekSessions = getWeekSessions(selectedWeek);
   const attendanceColor = avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
 
+  // Wednesday helpers — synthetic session_index = 1000 + (week-1) for the optional Wed column
+  const WED_BASE = 1000;
+  const wedSessionIndex = (week: number) => WED_BASE + (week - 1);
+  const getRescheduleForWeekWed = (week: number): RescheduledSession | undefined =>
+    rescheduledSessions.find(r => (r.to_week ?? null) === week);
+
   // Render column header with ⋮ menu
   const renderColumnHeader = (si: number, info: { day: string; week: number; isDemo: boolean }) => {
     const dateStr = getSessionDate(si);
     const rescheduled = isSessionRescheduled(si);
-    const newDateStr = rescheduled ? new Date(rescheduled.new_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null;
 
     return (
       <th key={si} className="text-center py-2 font-medium" style={{
@@ -951,7 +956,9 @@ const ModDashboard: React.FC = () => {
         color: rescheduled ? '#d4920a' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          <span>{info.isDemo ? 'Demo day' : info.day}</span>
+          <span style={{ fontWeight: rescheduled ? 600 : undefined }}>
+            {info.isDemo ? 'Demo day' : info.day}{rescheduled ? ' ↻' : ''}
+          </span>
           <ColumnMenu
             sessionIndex={si}
             isRescheduled={!!rescheduled}
@@ -959,17 +966,46 @@ const ModDashboard: React.FC = () => {
             onMarkAllAbsent={() => markAllForSession(si, 'x')}
             onReschedule={() => openRescheduleModal(si)}
             onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
-            onRemoveReschedule={() => rescheduled && removeReschedule(rescheduled.id)}
+            onRemoveReschedule={() => rescheduled && setRemoveRescheduleConfirm(rescheduled)}
+            rescheduleDisabled={!rescheduled && reschedulesRemaining <= 0}
           />
         </div>
         {rescheduled ? (
-          <>
-            <div style={{ fontSize: 10, opacity: 0.8 }}>{newDateStr}</div>
-            <div style={{ fontSize: 9, opacity: 0.7 }}>↻ rescheduled</div>
-          </>
+          <div style={{ fontSize: 9, color: '#9a6000' }}>
+            rescheduled → W{rescheduled.to_week ?? '?'} Wed
+          </div>
         ) : (
           dateStr && <div style={{ fontSize: 10, opacity: 0.7 }}>{dateStr}</div>
         )}
+      </th>
+    );
+  };
+
+  // Render Wednesday column header (target of a reschedule)
+  const renderWedHeader = (week: number) => {
+    const r = getRescheduleForWeekWed(week);
+    if (!r) return null;
+    const wedDate = getWednesdayDate(week);
+    const dateStr = wedDate ? wedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+    return (
+      <th key={`wed-${week}`} className="text-center py-2 font-medium" style={{
+        fontSize: 12, position: 'relative',
+        background: '#0d1a0d', color: '#4ade80',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <span style={{ fontWeight: 600 }}>Wed</span>
+          <ColumnMenu
+            sessionIndex={wedSessionIndex(week)}
+            isRescheduled={true}
+            onReschedule={() => {}}
+            onEditReschedule={() => openRescheduleModal((((r.from_week ?? r.week_number) - 1) * 4) + (['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) >= 0 ? ['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) : 0), r.id)}
+            onRemoveReschedule={() => setRemoveRescheduleConfirm(r)}
+          />
+        </div>
+        <div style={{ fontSize: 9, color: '#4ade80', opacity: 0.7 }}>
+          ↻ from W{r.from_week ?? r.week_number} {r.from_day ?? r.day_name}
+        </div>
+        {dateStr && <div style={{ fontSize: 10, color: '#4ade80', opacity: 0.5 }}>{dateStr}</div>}
       </th>
     );
   };
@@ -981,9 +1017,9 @@ const ModDashboard: React.FC = () => {
       return (
         <div className="flex items-center justify-center py-2" style={{ background: '#1e1800' }}>
           <div style={{
-            width: 28, height: 28, borderRadius: 6,
+            width: 26, height: 26, borderRadius: 5,
             background: '#2a1f00', border: '1.5px solid #5a4a00',
-            color: '#d4920a', fontSize: 15, fontWeight: 700,
+            color: '#d4920a', fontSize: 14, fontWeight: 700,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           }}>↻</div>
         </div>
@@ -999,6 +1035,24 @@ const ModDashboard: React.FC = () => {
           absenceNote={note}
           onClick={() => cycleAttendance(studentId, sessionIndex)}
           onNoteClick={() => openNoteModal(studentId, sessionIndex)}
+        />
+      </div>
+    );
+  };
+
+  // Render the Wednesday cell (normal attendance, green-tinted background)
+  const renderWedCell = (studentId: string, week: number) => {
+    const si = wedSessionIndex(week);
+    const state = getAttendanceState(studentId, si);
+    const note = getAbsenceNote(studentId, si);
+    return (
+      <div style={{ background: '#0d1a0d' }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
+        <AttendanceCell
+          state={state}
+          isDemo={false}
+          absenceNote={note}
+          onClick={() => cycleAttendance(studentId, si)}
+          onNoteClick={() => openNoteModal(studentId, si)}
         />
       </div>
     );
