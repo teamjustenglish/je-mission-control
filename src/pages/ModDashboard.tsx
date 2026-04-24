@@ -239,14 +239,8 @@ const ScoreInput: React.FC<{
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    if (raw === '' || raw === '.') { onChange(raw); return; }
-    const num = parseFloat(raw);
-    if (isNaN(num)) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
-    if (num > 5) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
-    if (num < 0) { onChange(''); return; }
-    // Allow 0..5 inclusive (including exactly 5)
-    onChange(raw);
+    // Accept anything during typing — validate on blur only. This prevents flicker / value clearing mid-keystroke.
+    onChange(e.target.value);
   };
 
   const handleBlur = () => {
