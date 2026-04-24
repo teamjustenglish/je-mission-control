@@ -1360,14 +1360,24 @@ const ModDashboard: React.FC = () => {
         if (!batch) return null;
         return (
           <div style={{
-            position: 'fixed', left: batchContextMenu.x, top: batchContextMenu.y, zIndex: 60,
-            background: '#252525', border: '1px solid #333', borderRadius: 9, padding: 5, minWidth: 160,
-          }} onClick={(e) => e.stopPropagation()}>
+            position: 'fixed', left: batchContextMenu.x, top: batchContextMenu.y, zIndex: 100, minWidth: 160,
+            background: '#252525', border: '1px solid #333', borderRadius: 9, padding: 5,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          }} onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
             <button
+              type="button"
+              onClick={() => { setBatchContextMenu(null); openEditBatch(batch); }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2e2e2e'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >✏️ Rename batch</button>
+            <div style={{ height: 1, background: '#2e2e2e', margin: '3px 0' }} />
+            <button
+              type="button"
               onClick={() => { setBatchContextMenu(null); setDeleteBatchConfirm(batch); }}
-              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#f87171', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; }}
-              onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: '#f87171', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2e2e2e'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >🗑 Delete batch</button>
           </div>
         );
