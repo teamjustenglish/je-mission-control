@@ -194,24 +194,28 @@ const ColumnMenu: React.FC<{
           ) : (
             <>
               <button
-                onClick={() => { setOpen(false); onReschedule(); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#d4920a', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#d4920a'; }}
+                onClick={() => { if (rescheduleDisabled) return; setOpen(false); onReschedule(); }}
+                title={rescheduleDisabled ? 'Maximum reschedules reached (3 of 3)' : ''}
+                disabled={rescheduleDisabled}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: rescheduleDisabled ? '#555' : '#d4920a', borderRadius: 6, background: 'transparent', border: 'none', cursor: rescheduleDisabled ? 'not-allowed' : 'pointer' }}
+                onMouseEnter={(e) => { if (rescheduleDisabled) return; (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                onMouseLeave={(e) => { if (rescheduleDisabled) return; (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#d4920a'; }}
               >↻ Reschedule session</button>
-              <div style={{ height: 1, background: '#333', margin: '4px 0' }} />
-              <button
-                onClick={() => { setOpen(false); onMarkAllPresent(); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
-              >✓ Mark all present</button>
-              <button
-                onClick={() => { setOpen(false); onMarkAllAbsent(); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
-              >✗ Mark all absent</button>
+              {!hideMarkAll && <>
+                <div style={{ height: 1, background: '#333', margin: '4px 0' }} />
+                <button
+                  onClick={() => { setOpen(false); onMarkAllPresent?.(); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                >✓ Mark all present</button>
+                <button
+                  onClick={() => { setOpen(false); onMarkAllAbsent?.(); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                >✗ Mark all absent</button>
+              </>}
             </>
           )}
         </div>
