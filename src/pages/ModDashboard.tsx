@@ -844,7 +844,8 @@ const ModDashboard: React.FC = () => {
     return loggedSessions.size;
   })();
 
-  // Initialize scoreValues from demoScores whenever demoScores changes (e.g. on batch load)
+  // Initialize scoreValues from demoScores ONLY when switching batches.
+  // Do NOT depend on demoScores — our own upsert mutates it and would wipe in-progress typing.
   useEffect(() => {
     const vals: Record<string, string> = {};
     for (const s of demoScores) {
@@ -852,7 +853,8 @@ const ModDashboard: React.FC = () => {
       if (Number(s.score) !== 0) vals[key] = String(s.score);
     }
     setScoreValues(vals);
-  }, [demoScores]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBatchId]);
 
   const updateScoreValue = (demoDayId: string, studentId: string, criterion: string, rawVal: string) => {
     const key = `${demoDayId}|${studentId}|${criterion}`;
