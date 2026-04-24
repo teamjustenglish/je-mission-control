@@ -45,9 +45,9 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
   const studentAtt = attendance.filter(a => a.student_id === student.id);
   const present = studentAtt.filter(a => a.state === 'c').length;
   const attended = present;
-  const sessionsOccurred = Math.min(weekNumber * 4, 24);
-  const overallPct = sessionsOccurred > 0 ? Math.round((present / sessionsOccurred) * 100) : 0;
-  const attColor = overallPct >= 70 ? '#4ade80' : overallPct >= 50 ? '#fbbf24' : '#f87171';
+  const sessionsOccurred = startDate ? getSessionsOccurred(startDate) : Math.min(weekNumber * 4, 24);
+  const overallPct = computeAttendancePct(present, 1, sessionsOccurred);
+  const attColor = overallPct === null ? '#555' : overallPct >= 70 ? '#4ade80' : overallPct >= 50 ? '#fbbf24' : '#f87171';
 
   const currentWeek = Math.min(Math.max(weekNumber, 1), 6);
 
