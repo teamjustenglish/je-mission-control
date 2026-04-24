@@ -1481,12 +1481,15 @@ const ModDashboard: React.FC = () => {
                 {[1, 2, 3, 4, 5, 6].map(w => {
                   const demo = isDemoWeek(w);
                   const selected = w === selectedWeek;
+                  const hasWed = weekHasWednesday(w);
                   let style: React.CSSProperties = { padding: '4px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer' };
-                  if (selected && demo) style = { ...style, background: 'hsl(var(--week-demo-active-bg))', color: 'hsl(var(--week-demo-active-text))', border: '1px solid hsl(var(--week-demo-active-bg))' };
+                  if (hasWed) style = { ...style, background: '#0d1a0d', color: '#4ade80', border: '1px solid #166534' };
+                  else if (selected && demo) style = { ...style, background: 'hsl(var(--week-demo-active-bg))', color: 'hsl(var(--week-demo-active-text))', border: '1px solid hsl(var(--week-demo-active-bg))' };
                   else if (selected) style = { ...style, background: 'hsl(var(--week-btn-active-bg))', color: 'hsl(var(--week-btn-active-text))', border: '1px solid hsl(var(--week-btn-active-bg))' };
                   else if (demo) style = { ...style, background: 'hsl(var(--week-demo-bg))', color: 'hsl(var(--week-demo-text))', border: '1px solid hsl(var(--week-demo-border))' };
                   else style = { ...style, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' };
-                  return <button key={w} onClick={() => setSelectedWeek(w)} style={style}>Week {w}{demo ? ' · Demo' : ''}</button>;
+                  if (selected && hasWed) style = { ...style, background: '#0d1a0d', color: '#4ade80', border: '2px solid #4ade80' };
+                  return <button key={w} onClick={() => setSelectedWeek(w)} style={style}>Week {w}{demo ? ' · Demo' : ''}{hasWed ? ' ↻' : ''}</button>;
                 })}
               </div>
             )}
