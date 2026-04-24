@@ -239,14 +239,8 @@ const ScoreInput: React.FC<{
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    if (raw === '' || raw === '.') { onChange(raw); return; }
-    const num = parseFloat(raw);
-    if (isNaN(num)) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
-    if (num > 5) { setFlash(true); onChange(''); setTimeout(() => setFlash(false), 400); return; }
-    if (num < 0) { onChange(''); return; }
-    // Allow 0..5 inclusive (including exactly 5)
-    onChange(raw);
+    // Accept anything during typing — validate on blur only. This prevents flicker / value clearing mid-keystroke.
+    onChange(e.target.value);
   };
 
   const handleBlur = () => {
@@ -844,7 +838,8 @@ const ModDashboard: React.FC = () => {
     return loggedSessions.size;
   })();
 
-  // Initialize scoreValues from demoScores whenever demoScores changes (e.g. on batch load)
+  // Initialize scoreValues from demoScores ONLY when switching batches.
+  // Do NOT depend on demoScores — our own upsert mutates it and would wipe in-progress typing.
   useEffect(() => {
     const vals: Record<string, string> = {};
     for (const s of demoScores) {
@@ -852,7 +847,8 @@ const ModDashboard: React.FC = () => {
       if (Number(s.score) !== 0) vals[key] = String(s.score);
     }
     setScoreValues(vals);
-  }, [demoScores]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBatchId]);
 
   const updateScoreValue = (demoDayId: string, studentId: string, criterion: string, rawVal: string) => {
     const key = `${demoDayId}|${studentId}|${criterion}`;
@@ -868,7 +864,7 @@ const ModDashboard: React.FC = () => {
       if (existing) {
         supabase.from('demo_scores').update({ score }).eq('id', existing.id)
           .then(({ error }) => {
-            if (error) { loadBatchData(); showSyncStatus('idle'); }
+            if (error) { showSyncStatus('idle'); }
             else {
               setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
               showSyncStatus('saved');
