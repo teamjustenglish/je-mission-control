@@ -302,10 +302,9 @@ const AdminDashboard: React.FC = () => {
           const sessionsLogged = new Set(bAttendance.map(a => a.session_index)).size;
           weekNum = Math.min(Math.ceil(sessionsLogged / 4), 6) || 1;
         }
-        const sessionsPassed = Math.min(weekNum * 4, 24);
-        const totalPossible = bStudents.length * sessionsPassed;
+        const sessionsOccurred = getSessionsOccurred(batch.start_date);
         const present = bAttendance.filter(a => a.state === 'c').length;
-        const pct = totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0;
+        const pct = computeAttendancePct(present, bStudents.length, sessionsOccurred);
         const mod = mods?.find(m => m.id === batch.mod_id);
         batchInfos.push({
           id: batch.id, name: batch.name, mod_id: batch.mod_id,
