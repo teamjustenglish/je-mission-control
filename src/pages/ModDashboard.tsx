@@ -870,7 +870,7 @@ const ModDashboard: React.FC = () => {
       if (existing) {
         supabase.from('demo_scores').update({ score }).eq('id', existing.id)
           .then(({ error }) => {
-            if (error) { loadBatchData(); showSyncStatus('idle'); }
+            if (error) { showSyncStatus('idle'); }
             else {
               setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
               showSyncStatus('saved');
