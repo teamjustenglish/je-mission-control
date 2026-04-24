@@ -1892,6 +1892,7 @@ const ModDashboard: React.FC = () => {
             const daysDiff = Math.floor((Date.now() - new Date(activeBatch.start_date).getTime()) / (1000 * 60 * 60 * 24));
             return Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
           })()}
+          startDate={activeBatch.start_date || null}
           attendance={attendance}
           demoDays={demoDays}
           demoScores={demoScores}
