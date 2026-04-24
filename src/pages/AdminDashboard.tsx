@@ -154,7 +154,7 @@ const AdminDashboard: React.FC = () => {
   const [allStudentsData, setAllStudentsData] = useState<{ student: Student; batch: any; mod: Profile; weekNumber: number; attendancePct: number | null; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] }[]>([]);
 
   // Student progress modal
-  const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
+  const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; startDate?: string | null; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
 
   // Missing absence notes flags
   interface MissingNoteFlag { modName: string; modId: string; count: number; studentNames: string[]; batchName: string; }
