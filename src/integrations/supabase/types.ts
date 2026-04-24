@@ -298,10 +298,14 @@ export type Database = {
           created_at: string
           created_by: string
           day_name: string
+          from_day: string | null
+          from_week: number | null
           id: string
           new_date: string
           original_date: string | null
           reason: string | null
+          to_date: string | null
+          to_week: number | null
           week_number: number
         }
         Insert: {
@@ -309,10 +313,14 @@ export type Database = {
           created_at?: string
           created_by: string
           day_name: string
+          from_day?: string | null
+          from_week?: number | null
           id?: string
           new_date: string
           original_date?: string | null
           reason?: string | null
+          to_date?: string | null
+          to_week?: number | null
           week_number: number
         }
         Update: {
@@ -320,10 +328,14 @@ export type Database = {
           created_at?: string
           created_by?: string
           day_name?: string
+          from_day?: string | null
+          from_week?: number | null
           id?: string
           new_date?: string
           original_date?: string | null
           reason?: string | null
+          to_date?: string | null
+          to_week?: number | null
           week_number?: number
         }
         Relationships: [
