@@ -1511,7 +1511,8 @@ const AdminDashboard: React.FC = () => {
             <h2 className="text-lg font-semibold text-foreground mb-4">All Batches</h2>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
               {runningBatches.map(batch => {
-                const barColor = batch.attendancePct >= 70 ? '#4ade80' : batch.attendancePct >= 50 ? '#fbbf24' : '#f87171';
+                const pct = batch.attendancePct;
+                const barColor = pct === null ? '#555' : pct >= 70 ? '#4ade80' : pct >= 50 ? '#fbbf24' : '#f87171';
                 return (
                   <div key={batch.id} className="p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                     <div className="flex items-center justify-between mb-1">
@@ -1519,10 +1520,10 @@ const AdminDashboard: React.FC = () => {
                         <p className="text-sm font-medium text-foreground">{batch.name}</p>
                         <p className="text-xs text-muted-foreground">{batch.modName} · {batch.studentCount} students · Currently in week {batch.weekNumber} of 6</p>
                       </div>
-                      <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {batch.attendancePct}%</span>
+                      <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {pct === null ? '—' : `${pct}%`}</span>
                     </div>
                     <div style={{ height: 4, borderRadius: 2, background: '#2a2a2a' }}>
-                      <div style={{ height: '100%', width: `${batch.attendancePct}%`, borderRadius: 2, background: barColor }} />
+                      <div style={{ height: '100%', width: `${pct ?? 0}%`, borderRadius: 2, background: barColor }} />
                     </div>
                   </div>
                 );
