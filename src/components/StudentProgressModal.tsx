@@ -101,10 +101,10 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} data-html2canvas-ignore="true">
             <button
               onClick={handleExport}
-              style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #333', borderRadius: 6, background: '#242424', color: '#888', cursor: 'pointer', transition: 'all 0.15s' }}
+              style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #333', borderRadius: 6, background: '#242424', color: '#888', cursor: 'pointer', transition: 'all 0.15s', display: 'inline-flex', flexDirection: 'row', alignItems: 'center', gap: 6, lineHeight: 1, whiteSpace: 'nowrap' }}
               onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#555'; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#333'; }}
-            >⬇ Export</button>
+            ><span>⬇</span><span>Export</span></button>
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18, padding: 4 }}>✕</button>
           </div>
         </div>
