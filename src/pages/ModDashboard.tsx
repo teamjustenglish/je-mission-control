@@ -1549,9 +1549,14 @@ const ModDashboard: React.FC = () => {
                 <thead>
                   <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                     <th className="text-left py-2 font-medium text-muted-foreground" style={{ width: 140, minWidth: 140, fontSize: 12, background: 'hsl(var(--grid-header-bg))' }}>Student</th>
-                    {weekSessions.map(si => {
+                    {weekSessions.map((si, idx) => {
                       const info = getSessionLabel(si);
-                      return renderColumnHeader(si, info);
+                      const header = renderColumnHeader(si, info);
+                      // Insert Wed column after Tue (idx 1) of selectedWeek if a reschedule targets it
+                      if (idx === 1 && getRescheduleForWeekWed(selectedWeek)) {
+                        return <React.Fragment key={si}>{header}{renderWedHeader(selectedWeek)}</React.Fragment>;
+                      }
+                      return header;
                     })}
                   </tr>
                 </thead>
