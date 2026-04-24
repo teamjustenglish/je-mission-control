@@ -138,12 +138,14 @@ const AttendanceCell: React.FC<{
 const ColumnMenu: React.FC<{
   sessionIndex: number;
   isRescheduled: boolean;
-  onMarkAllPresent: () => void;
-  onMarkAllAbsent: () => void;
+  onMarkAllPresent?: () => void;
+  onMarkAllAbsent?: () => void;
   onReschedule: () => void;
   onEditReschedule?: () => void;
   onRemoveReschedule?: () => void;
-}> = ({ isRescheduled, onMarkAllPresent, onMarkAllAbsent, onReschedule, onEditReschedule, onRemoveReschedule }) => {
+  rescheduleDisabled?: boolean;
+  hideMarkAll?: boolean;
+}> = ({ isRescheduled, onMarkAllPresent, onMarkAllAbsent, onReschedule, onEditReschedule, onRemoveReschedule, rescheduleDisabled, hideMarkAll }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
