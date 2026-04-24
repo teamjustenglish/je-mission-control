@@ -349,6 +349,8 @@ const ModDashboard: React.FC = () => {
     sessionIndex: number; dayName: string; weekNumber: number; existingId?: string;
   } | null>(null);
   const [selectedWednesdayWeek, setSelectedWednesdayWeek] = useState<number | null>(null);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+  const [rescheduleSaving, setRescheduleSaving] = useState(false);
   // Removal confirmation
   const [removeRescheduleConfirm, setRemoveRescheduleConfirm] = useState<RescheduledSession | null>(null);
   
@@ -584,12 +586,17 @@ const ModDashboard: React.FC = () => {
     }
   };
 
-  // Dismiss context menu on outside click
+  // Dismiss context menu on outside click or Escape
   useEffect(() => {
     if (!batchContextMenu) return;
     const handler = () => setBatchContextMenu(null);
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') setBatchContextMenu(null); };
     document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => {
+      document.removeEventListener('click', handler);
+      document.removeEventListener('keydown', keyHandler);
+    };
   }, [batchContextMenu]);
 
 
@@ -748,38 +755,65 @@ const ModDashboard: React.FC = () => {
   };
 
   const saveReschedule = async () => {
-    if (!rescheduleModal || !activeBatchId || !user || selectedWednesdayWeek == null) return;
+    setRescheduleError(null);
+    if (!rescheduleModal || !activeBatchId || !user) {
+      setRescheduleError('Something went wrong, please try again');
+      return;
+    }
+    if (selectedWednesdayWeek == null) {
+      setRescheduleError('Please select a Wednesday');
+      return;
+    }
+    if (!rescheduleModal.existingId && reschedulesUsed >= MAX_RESCHEDULES) {
+      setRescheduleError('Maximum reschedules reached (3 of 3)');
+      setTimeout(() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); setRescheduleError(null); }, 1200);
+      return;
+    }
     const wedDate = getWednesdayDate(selectedWednesdayWeek);
-    if (!wedDate) return;
+    if (!wedDate) {
+      setRescheduleError('Set a batch start date before rescheduling');
+      return;
+    }
     const toDateStr = wedDate.toISOString().split('T')[0];
     const fromWeek = rescheduleModal.weekNumber;
     const fromDay = rescheduleModal.dayName;
-    if (rescheduleModal.existingId) {
-      await supabase.from('rescheduled_sessions').update({
-        from_week: fromWeek, from_day: fromDay,
-        to_week: selectedWednesdayWeek, to_date: toDateStr,
-        new_date: toDateStr, week_number: fromWeek, day_name: fromDay,
-      } as any).eq('id', rescheduleModal.existingId);
-      setRescheduledSessions(prev => prev.map(r => r.id === rescheduleModal.existingId
-        ? { ...r, from_week: fromWeek, from_day: fromDay, to_week: selectedWednesdayWeek, to_date: toDateStr, new_date: toDateStr, week_number: fromWeek, day_name: fromDay }
-        : r));
-    } else {
-      const { data } = await supabase.from('rescheduled_sessions').insert({
-        batch_id: activeBatchId,
-        week_number: fromWeek, day_name: fromDay,
-        from_week: fromWeek, from_day: fromDay,
-        to_week: selectedWednesdayWeek, to_date: toDateStr,
-        original_date: getSessionDateObj(rescheduleModal.sessionIndex)?.toISOString().split('T')[0] || null,
-        new_date: toDateStr,
-        created_by: user.id,
-      } as any).select().single();
-      if (data) setRescheduledSessions(prev => [...prev, data as RescheduledSession]);
+    setRescheduleSaving(true);
+    try {
+      if (rescheduleModal.existingId) {
+        const { error } = await supabase.from('rescheduled_sessions').update({
+          from_week: fromWeek, from_day: fromDay,
+          to_week: selectedWednesdayWeek, to_date: toDateStr,
+          new_date: toDateStr, week_number: fromWeek, day_name: fromDay,
+        } as any).eq('id', rescheduleModal.existingId);
+        if (error) throw error;
+        setRescheduledSessions(prev => prev.map(r => r.id === rescheduleModal.existingId
+          ? { ...r, from_week: fromWeek, from_day: fromDay, to_week: selectedWednesdayWeek, to_date: toDateStr, new_date: toDateStr, week_number: fromWeek, day_name: fromDay }
+          : r));
+      } else {
+        const { data, error } = await supabase.from('rescheduled_sessions').insert({
+          batch_id: activeBatchId,
+          week_number: fromWeek, day_name: fromDay,
+          from_week: fromWeek, from_day: fromDay,
+          to_week: selectedWednesdayWeek, to_date: toDateStr,
+          original_date: getSessionDateObj(rescheduleModal.sessionIndex)?.toISOString().split('T')[0] || null,
+          new_date: toDateStr,
+          created_by: user.id,
+        } as any).select().single();
+        if (error) throw error;
+        if (data) setRescheduledSessions(prev => [...prev, data as RescheduledSession]);
+      }
+      const desc = `Rescheduled W${fromWeek} ${fromDay} → W${selectedWednesdayWeek} Wed (${fmtDate(wedDate)})`;
+      await logActivity(user.id, profile?.name || '', 'session_rescheduled', desc, activeBatch?.name || '');
+      setRescheduleModal(null);
+      setSelectedWednesdayWeek(null);
+      setRescheduleError(null);
+      showSaved();
+    } catch (err) {
+      console.error('saveReschedule error', err);
+      setRescheduleError('Something went wrong, please try again');
+    } finally {
+      setRescheduleSaving(false);
     }
-    const desc = `Rescheduled W${fromWeek} ${fromDay} → W${selectedWednesdayWeek} Wed (${fmtDate(wedDate)})`;
-    await logActivity(user.id, profile?.name || '', 'session_rescheduled', desc, activeBatch?.name || '');
-    setRescheduleModal(null);
-    setSelectedWednesdayWeek(null);
-    showSaved();
   };
 
   const removeReschedule = async (id: string) => {
@@ -1064,27 +1098,39 @@ const ModDashboard: React.FC = () => {
       <div className="px-6" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: 'hsl(var(--nav-bg))', borderBottom: '1px solid hsl(var(--nav-border))' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
-            {batches.map(batch => (
-              <div key={batch.id} className="flex items-center" style={{ maxWidth: 220 }}>
-                <button
-                  onClick={() => switchBatch(batch.id)}
-                  onDoubleClick={() => openEditBatch(batch)}
-                  onContextMenu={(e) => { e.preventDefault(); setBatchContextMenu({ batchId: batch.id, x: e.clientX, y: e.clientY }); }}
-                  title={batch.name}
-                  className={`px-3 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    batch.id === activeBatchId ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
-                  }`}
-                  style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}
-                >{batch.name}</button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setBatchContextMenu({ batchId: batch.id, x: e.clientX, y: e.clientY }); }}
-                  title="Batch options"
-                  style={{ flexShrink: 0, padding: '0 6px', color: '#666', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = '#666'; }}
-                >⋮</button>
-              </div>
-            ))}
+            {batches.map(batch => {
+              const isActive = batch.id === activeBatchId;
+              return (
+                <div key={batch.id} className="flex items-center" style={{ maxWidth: 220 }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    setBatchContextMenu({ batchId: batch.id, x: rect.left, y: rect.bottom + 4 });
+                  }}>
+                  <button
+                    type="button"
+                    onClick={() => switchBatch(batch.id)}
+                    onDoubleClick={() => openEditBatch(batch)}
+                    title={batch.name}
+                    className={`px-3 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      isActive ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                    style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}
+                  >{batch.name}</button>
+                  {isActive && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setDeleteBatchConfirm(batch); }}
+                      title="Delete batch"
+                      aria-label="Delete batch"
+                      style={{ flexShrink: 0, marginLeft: 6, marginRight: 4, width: 14, height: 14, padding: 0, color: '#555', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
+                    >✕</button>
+                  )}
+                </div>
+              );
+            })}
             <button onClick={() => setShowCreateBatch(true)} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
           </div>
           <div className="flex items-center gap-3">
@@ -1208,7 +1254,7 @@ const ModDashboard: React.FC = () => {
       {/* Reschedule modal — Wednesday picker (max 3 per batch) */}
       {rescheduleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
-          onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); }}>
+          onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); setRescheduleError(null); }}>
           <div onClick={(e) => e.stopPropagation()}
             style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 400, width: '100%' }}>
             <div style={{ fontSize: 15, color: '#F0F0F0', fontWeight: 600, marginBottom: 4 }}>↻ Reschedule session</div>
@@ -1232,7 +1278,12 @@ const ModDashboard: React.FC = () => {
               </span>
             </div>
             <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Choose a Wednesday to reschedule to:</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto', marginBottom: 14 }}>
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto',
+              marginBottom: rescheduleError ? 6 : 14,
+              border: rescheduleError === 'Please select a Wednesday' ? '1px solid #f87171' : '1px solid transparent',
+              borderRadius: 8, padding: rescheduleError === 'Please select a Wednesday' ? 4 : 0,
+            }}>
               {[1, 2, 3, 4, 5, 6].map(week => {
                 const usedBy = wednesdayUsedBy(week);
                 const isSelf = usedBy && usedBy.id === rescheduleModal.existingId;
@@ -1241,7 +1292,7 @@ const ModDashboard: React.FC = () => {
                 const isSelected = selectedWednesdayWeek === week;
                 return (
                   <label key={week}
-                    onClick={() => { if (!isUsed) setSelectedWednesdayWeek(week); }}
+                    onClick={() => { if (!isUsed) { setSelectedWednesdayWeek(week); setRescheduleError(null); } }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       background: isSelected ? '#0d1a0d' : '#222',
@@ -1269,11 +1320,14 @@ const ModDashboard: React.FC = () => {
                 );
               })}
             </div>
+            {rescheduleError && (
+              <div style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{rescheduleError}</div>
+            )}
             <div className="flex justify-end gap-2">
-              <button onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); }}
+              <button type="button" onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); setRescheduleError(null); }}
                 style={cancelBtnStyle}>Cancel</button>
-              <button onClick={() => saveReschedule()} disabled={selectedWednesdayWeek == null}
-                style={{ background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: selectedWednesdayWeek == null ? 0.5 : 1 }}
+              <button type="button" onClick={() => saveReschedule()}
+                style={{ background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: rescheduleSaving ? 'wait' : 'pointer', opacity: rescheduleSaving ? 0.7 : 1 }}
               >↻ Confirm reschedule</button>
             </div>
           </div>
@@ -1343,14 +1397,24 @@ const ModDashboard: React.FC = () => {
         if (!batch) return null;
         return (
           <div style={{
-            position: 'fixed', left: batchContextMenu.x, top: batchContextMenu.y, zIndex: 60,
-            background: '#252525', border: '1px solid #333', borderRadius: 9, padding: 5, minWidth: 160,
-          }} onClick={(e) => e.stopPropagation()}>
+            position: 'fixed', left: batchContextMenu.x, top: batchContextMenu.y, zIndex: 100, minWidth: 160,
+            background: '#252525', border: '1px solid #333', borderRadius: 9, padding: 5,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          }} onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
             <button
+              type="button"
+              onClick={() => { setBatchContextMenu(null); openEditBatch(batch); }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2e2e2e'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >✏️ Rename batch</button>
+            <div style={{ height: 1, background: '#2e2e2e', margin: '3px 0' }} />
+            <button
+              type="button"
               onClick={() => { setBatchContextMenu(null); setDeleteBatchConfirm(batch); }}
-              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#f87171', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; }}
-              onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: '#f87171', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2e2e2e'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >🗑 Delete batch</button>
           </div>
         );
