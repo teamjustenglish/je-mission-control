@@ -1254,7 +1254,7 @@ const ModDashboard: React.FC = () => {
       {/* Reschedule modal — Wednesday picker (max 3 per batch) */}
       {rescheduleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
-          onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); }}>
+          onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); setRescheduleError(null); }}>
           <div onClick={(e) => e.stopPropagation()}
             style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 400, width: '100%' }}>
             <div style={{ fontSize: 15, color: '#F0F0F0', fontWeight: 600, marginBottom: 4 }}>↻ Reschedule session</div>
