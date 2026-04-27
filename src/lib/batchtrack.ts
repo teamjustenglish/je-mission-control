@@ -59,6 +59,19 @@ export const getWeekSessions = (weekNumber: number): number[] => {
 
 export const isDemoWeek = (weekNumber: number): boolean => weekNumber % 2 === 0;
 
+// Compute current week (1-6) based on batch start_date.
+// Returns null if start_date is missing (caller should treat as "show all weeks").
+// daysDiff < 0 → week 1, daysDiff >= 35 → week 6.
+export const getCurrentWeek = (startDate: string | null | undefined, now: Date = new Date()): number | null => {
+  if (!startDate) return null;
+  const start = new Date(startDate + 'T00:00:00');
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysDiff = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysDiff < 0) return 1;
+  if (daysDiff >= 35) return 6;
+  return Math.min(Math.max(Math.floor(daysDiff / 7) + 1, 1), 6);
+};
+
 // Sessions occur on Mon, Tue, Thu, Fri (day-of-week offsets from batch start Monday)
 // Returns total sessions that have already occurred based on batch start date and today.
 // Caps at 24. Returns 0 if batch hasn't started yet or no start date.

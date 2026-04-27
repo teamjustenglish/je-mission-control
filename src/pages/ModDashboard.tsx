@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
+import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 import { Plus, Trash2, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
 import StudentReport from '@/components/StudentReport';
 import ScoringRubric from '@/components/ScoringRubric';
@@ -9,6 +9,7 @@ import StudentProgressModal from '@/components/StudentProgressModal';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 interface Batch { id: string; name: string; mod_id: string; month: number; year: number; label: string; start_date?: string | null; }
 interface Student { id: string; batch_id: string; name: string; }
@@ -864,7 +865,7 @@ const ModDashboard: React.FC = () => {
       if (existing) {
         supabase.from('demo_scores').update({ score }).eq('id', existing.id)
           .then(({ error }) => {
-            if (error) { showSyncStatus('idle'); }
+            if (error) { showSyncStatus('idle'); toast.error('Failed to save score — please try again', { duration: 4000 }); }
             else {
               setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
               showSyncStatus('saved');
@@ -875,7 +876,7 @@ const ModDashboard: React.FC = () => {
         setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
         supabase.from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
           .select().single().then(({ data, error }) => {
-            if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); }
+            if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); toast.error('Failed to save score — please try again', { duration: 4000 }); }
             else if (data) { setDemoScores(prev => prev.map(s => s.id === tempId ? data : s)); showSyncStatus('saved'); }
           });
       }
@@ -1598,9 +1599,9 @@ const ModDashboard: React.FC = () => {
                           const info = getSessionLabel(i);
                           const rescheduled = isSessionRescheduled(i);
                           const cell = (
-                            <td key={i} style={{
+                            <td key={i} className="text-center align-middle" style={{
                               minWidth: 60,
-                              padding: '10px 14px',
+                              padding: 10,
                               ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
                               ...(i % 4 === 0 && i > 0 ? { borderLeft: '2px solid #2e2e2e' } : {}),
                             }}>
@@ -1613,7 +1614,7 @@ const ModDashboard: React.FC = () => {
                               return (
                                 <React.Fragment key={i}>
                                   {cell}
-                                  <td key={`wed-${w}`} style={{ minWidth: 60, padding: '10px 14px', background: '#0d1a0d' }}>
+                                  <td key={`wed-${w}`} className="text-center align-middle" style={{ minWidth: 60, padding: 10, background: '#0d1a0d' }}>
                                     {renderWedCell(student.id, w)}
                                   </td>
                                 </React.Fragment>
@@ -1684,7 +1685,7 @@ const ModDashboard: React.FC = () => {
                         const info = getSessionLabel(si);
                         const rescheduled = isSessionRescheduled(si);
                         const cell = (
-                          <td key={si} style={{ ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
+                          <td key={si} className="text-center align-middle" style={{ padding: 10, ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
                             {renderCell(student.id, si, info.isDemo)}
                           </td>
                         );
@@ -1692,7 +1693,7 @@ const ModDashboard: React.FC = () => {
                           return (
                             <React.Fragment key={si}>
                               {cell}
-                              <td key={`wed-${selectedWeek}`} style={{ background: '#0d1a0d' }}>
+                              <td key={`wed-${selectedWeek}`} className="text-center align-middle" style={{ padding: 10, background: '#0d1a0d' }}>
                                 {renderWedCell(student.id, selectedWeek)}
                               </td>
                             </React.Fragment>
@@ -1887,11 +1888,7 @@ const ModDashboard: React.FC = () => {
           student={progressModalStudent}
           batchName={activeBatch.name}
           modName={profile?.name || ''}
-          weekNumber={(() => {
-            if (!activeBatch.start_date) return 1;
-            const daysDiff = Math.floor((Date.now() - new Date(activeBatch.start_date).getTime()) / (1000 * 60 * 60 * 24));
-            return Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
-          })()}
+          weekNumber={getCurrentWeek(activeBatch.start_date) ?? 6}
           startDate={activeBatch.start_date || null}
           attendance={attendance}
           demoDays={demoDays}

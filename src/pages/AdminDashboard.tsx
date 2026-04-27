@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search } from 'lucide-react';
-import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
+import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
 
@@ -205,11 +205,7 @@ const AdminDashboard: React.FC = () => {
     const studentsPageData = allStudents.map(student => {
       const batch = allBatches.find(b => b.id === student.batch_id);
       const mod = mods.find(m => m.id === batch?.mod_id);
-      let weekNum = 1;
-      if (batch?.start_date) {
-        const daysDiff = Math.floor((Date.now() - new Date(batch.start_date).getTime()) / (1000 * 60 * 60 * 24));
-        weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
-      }
+      const weekNum = getCurrentWeek(batch?.start_date) ?? 6;
       const sessionsOccurred = getSessionsOccurred(batch?.start_date);
       const sAtt = allAttendance.filter(a => a.student_id === student.id);
       const present = sAtt.filter(a => a.state === 'c').length;
@@ -292,12 +288,9 @@ const AdminDashboard: React.FC = () => {
         const bStudents = allStudents.filter(s => s.batch_id === batch.id);
         if (bStudents.length === 0) continue;
         const bAttendance = allAttendance.filter(a => a.batch_id === batch.id);
-        let weekNum = 1;
+        let weekNum: number;
         if (batch.start_date) {
-          const startDate = new Date(batch.start_date);
-          const now = new Date();
-          const daysDiff = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-          weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
+          weekNum = getCurrentWeek(batch.start_date) ?? 6;
         } else {
           const sessionsLogged = new Set(bAttendance.map(a => a.session_index)).size;
           weekNum = Math.min(Math.ceil(sessionsLogged / 4), 6) || 1;
@@ -489,11 +482,7 @@ const AdminDashboard: React.FC = () => {
         const bAttendance = allAttendance.filter(a => a.batch_id === batch.id);
         const bDemoDays = allDemoDays.filter(d => d.batch_id === batch.id);
 
-        let weekNum = 1;
-        if (batch.start_date) {
-          const daysDiff = Math.floor((Date.now() - new Date(batch.start_date).getTime()) / (1000 * 60 * 60 * 24));
-          weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
-        }
+        const weekNum = getCurrentWeek(batch.start_date) ?? 6;
 
         const sessionsOccurred = getSessionsOccurred(batch.start_date);
         const present = bAttendance.filter(a => a.state === 'c').length;
@@ -780,11 +769,7 @@ const AdminDashboard: React.FC = () => {
                         <span style={{ cursor: 'pointer' }} className="hover:underline"
                           onClick={() => setProgressModalData({
                             student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
-                            weekNumber: (() => {
-                              if (!gridViewBatch.startDate) return 1;
-                              const d = Math.floor((Date.now() - new Date(gridViewBatch.startDate).getTime()) / (1000*60*60*24));
-                              return Math.min(Math.max(Math.ceil(d/7),1),6);
-                            })(),
+                            weekNumber: getCurrentWeek(gridViewBatch.startDate) ?? 6,
                             attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
                             demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
                             startDate: gridViewBatch.startDate,
@@ -794,11 +779,7 @@ const AdminDashboard: React.FC = () => {
                         <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }}
                           onClick={() => setProgressModalData({
                             student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
-                            weekNumber: (() => {
-                              if (!gridViewBatch.startDate) return 1;
-                              const d = Math.floor((Date.now() - new Date(gridViewBatch.startDate).getTime()) / (1000*60*60*24));
-                              return Math.min(Math.max(Math.ceil(d/7),1),6);
-                            })(),
+                            weekNumber: getCurrentWeek(gridViewBatch.startDate) ?? 6,
                             attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
                             demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
                             startDate: gridViewBatch.startDate,

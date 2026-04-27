@@ -112,7 +112,7 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
           ref={cardRef}
           style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 14, maxWidth: 500, width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0 }}>
           {/* Header (fixed) */}
-          <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ padding: '16px 18px', borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#2a1f00', color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, flexShrink: 0 }}>
                 {getInitials(student.name)}
@@ -136,7 +136,7 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
           {/* Scrollable body */}
           <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 }}>
             {/* Stats row */}
-            <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ padding: '16px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div style={{ background: '#242424', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 600, color: attColor }}>Attendance · {overallPct === null ? '—' : `${overallPct}%`}</div>
               </div>
@@ -191,10 +191,11 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
                             </div>
                           );
                         }
-                        const bg = d.state === 'c' ? '#14532d' : d.state === 'x' ? '#4a1717' : '#242424';
+                        const bg = d.state === 'c' ? '#14532d' : d.state === 'x' ? '#450a0a' : '#242424';
+                        const border = d.state === 'c' ? '#166534' : d.state === 'x' ? '#7f1d1d' : '#333';
                         return (
-                          <div key={d.idx} style={{
-                            flex: 1, height: 26, borderRadius: 5, background: bg,
+                          <div key={`${w}-${d.idx}`} style={{
+                            flex: 1, height: 26, borderRadius: 5, background: bg, border: `1px solid ${border}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}>
                             <span style={emojiStyle} className="text-sm">
