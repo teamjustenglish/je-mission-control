@@ -9,6 +9,7 @@ import StudentProgressModal from '@/components/StudentProgressModal';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 interface Batch { id: string; name: string; mod_id: string; month: number; year: number; label: string; start_date?: string | null; }
 interface Student { id: string; batch_id: string; name: string; }
