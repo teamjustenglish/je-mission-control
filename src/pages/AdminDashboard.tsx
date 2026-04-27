@@ -205,11 +205,7 @@ const AdminDashboard: React.FC = () => {
     const studentsPageData = allStudents.map(student => {
       const batch = allBatches.find(b => b.id === student.batch_id);
       const mod = mods.find(m => m.id === batch?.mod_id);
-      let weekNum = 1;
-      if (batch?.start_date) {
-        const daysDiff = Math.floor((Date.now() - new Date(batch.start_date).getTime()) / (1000 * 60 * 60 * 24));
-        weekNum = Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
-      }
+      const weekNum = getCurrentWeek(batch?.start_date) ?? 6;
       const sessionsOccurred = getSessionsOccurred(batch?.start_date);
       const sAtt = allAttendance.filter(a => a.student_id === student.id);
       const present = sAtt.filter(a => a.state === 'c').length;
