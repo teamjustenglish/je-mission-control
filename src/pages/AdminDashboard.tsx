@@ -769,11 +769,7 @@ const AdminDashboard: React.FC = () => {
                         <span style={{ cursor: 'pointer' }} className="hover:underline"
                           onClick={() => setProgressModalData({
                             student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
-                            weekNumber: (() => {
-                              if (!gridViewBatch.startDate) return 1;
-                              const d = Math.floor((Date.now() - new Date(gridViewBatch.startDate).getTime()) / (1000*60*60*24));
-                              return Math.min(Math.max(Math.ceil(d/7),1),6);
-                            })(),
+                            weekNumber: getCurrentWeek(gridViewBatch.startDate) ?? 6,
                             attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
                             demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
                             startDate: gridViewBatch.startDate,
