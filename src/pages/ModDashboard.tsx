@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
+import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 import { Plus, Trash2, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
 import StudentReport from '@/components/StudentReport';
 import ScoringRubric from '@/components/ScoringRubric';
