@@ -1684,7 +1684,7 @@ const ModDashboard: React.FC = () => {
                         const info = getSessionLabel(si);
                         const rescheduled = isSessionRescheduled(si);
                         const cell = (
-                          <td key={si} style={{ ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
+                          <td key={si} className="text-center align-middle" style={{ padding: 10, ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
                             {renderCell(student.id, si, info.isDemo)}
                           </td>
                         );
