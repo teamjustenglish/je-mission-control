@@ -1613,7 +1613,7 @@ const ModDashboard: React.FC = () => {
                               return (
                                 <React.Fragment key={i}>
                                   {cell}
-                                  <td key={`wed-${w}`} style={{ minWidth: 60, padding: '10px 14px', background: '#0d1a0d' }}>
+                                  <td key={`wed-${w}`} className="text-center align-middle" style={{ minWidth: 60, padding: 10, background: '#0d1a0d' }}>
                                     {renderWedCell(student.id, w)}
                                   </td>
                                 </React.Fragment>
