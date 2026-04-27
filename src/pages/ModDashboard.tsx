@@ -1692,7 +1692,7 @@ const ModDashboard: React.FC = () => {
                           return (
                             <React.Fragment key={si}>
                               {cell}
-                              <td key={`wed-${selectedWeek}`} style={{ background: '#0d1a0d' }}>
+                              <td key={`wed-${selectedWeek}`} className="text-center align-middle" style={{ padding: 10, background: '#0d1a0d' }}>
                                 {renderWedCell(student.id, selectedWeek)}
                               </td>
                             </React.Fragment>
