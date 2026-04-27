@@ -1887,11 +1887,7 @@ const ModDashboard: React.FC = () => {
           student={progressModalStudent}
           batchName={activeBatch.name}
           modName={profile?.name || ''}
-          weekNumber={(() => {
-            if (!activeBatch.start_date) return 1;
-            const daysDiff = Math.floor((Date.now() - new Date(activeBatch.start_date).getTime()) / (1000 * 60 * 60 * 24));
-            return Math.min(Math.max(Math.ceil(daysDiff / 7), 1), 6);
-          })()}
+          weekNumber={getCurrentWeek(activeBatch.start_date) ?? 6}
           startDate={activeBatch.start_date || null}
           attendance={attendance}
           demoDays={demoDays}
