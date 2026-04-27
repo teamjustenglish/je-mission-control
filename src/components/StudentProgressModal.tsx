@@ -136,7 +136,7 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
           {/* Scrollable body */}
           <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 }}>
             {/* Stats row */}
-            <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ padding: '16px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div style={{ background: '#242424', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 600, color: attColor }}>Attendance · {overallPct === null ? '—' : `${overallPct}%`}</div>
               </div>
