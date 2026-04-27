@@ -637,23 +637,41 @@ const ModDashboard: React.FC = () => {
     else if (existing.state === 'c') newState = 'x';
     else newState = 'e';
 
-    // Optimistic update
+    // Optimistic update — update local state immediately, sync to DB in background.
+    // On failure, revert ONLY this cell. Never refetch all attendance (causes flicker).
     showSyncStatus('syncing');
     if (existing) {
+      const prevState = existing.state;
+      const prevNote = existing.absence_note ?? null;
       const updateData: Partial<AttendanceRecord> = { state: newState };
       if (newState !== 'x') updateData.absence_note = null;
       setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, ...updateData } : a));
-      // Background sync
+      // Background sync — revert only this cell on error
       supabase.from('attendance').update({ state: newState, ...(newState !== 'x' ? { absence_note: null } : {}) }).eq('id', existing.id)
-        .then(({ error }) => { if (error) { loadBatchData(); showSyncStatus('idle'); } else { showSyncStatus('saved'); } });
+        .then(({ error }) => {
+          if (error) {
+            setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, state: prevState, absence_note: prevNote } : a));
+            toast.error('Failed to save attendance');
+            showSyncStatus('idle');
+          } else {
+            showSyncStatus('saved');
+          }
+        });
     } else {
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${Date.now()}-${studentId}-${sessionIndex}`;
       const optimistic: AttendanceRecord = { id: tempId, student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState };
       setAttendance(prev => [...prev, optimistic]);
       supabase.from('attendance').insert({ student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState })
         .select().single().then(({ data, error }) => {
-          if (error) { setAttendance(prev => prev.filter(a => a.id !== tempId)); showSyncStatus('idle'); }
-          else if (data) { setAttendance(prev => prev.map(a => a.id === tempId ? data as AttendanceRecord : a)); showSyncStatus('saved'); }
+          if (error) {
+            setAttendance(prev => prev.filter(a => a.id !== tempId));
+            toast.error('Failed to save attendance');
+            showSyncStatus('idle');
+          } else if (data) {
+            // Replace ONLY the temp row with the saved row — do not touch any other cell
+            setAttendance(prev => prev.map(a => a.id === tempId ? (data as AttendanceRecord) : a));
+            showSyncStatus('saved');
+          }
         });
     }
     showSaved();
