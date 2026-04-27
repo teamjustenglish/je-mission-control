@@ -876,7 +876,7 @@ const ModDashboard: React.FC = () => {
         setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
         supabase.from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
           .select().single().then(({ data, error }) => {
-            if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); }
+            if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); toast.error('Failed to save score — please try again', { duration: 4000 }); }
             else if (data) { setDemoScores(prev => prev.map(s => s.id === tempId ? data : s)); showSyncStatus('saved'); }
           });
       }
