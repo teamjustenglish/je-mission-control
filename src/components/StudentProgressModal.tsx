@@ -191,10 +191,11 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
                             </div>
                           );
                         }
-                        const bg = d.state === 'c' ? '#14532d' : d.state === 'x' ? '#4a1717' : '#242424';
+                        const bg = d.state === 'c' ? '#14532d' : d.state === 'x' ? '#450a0a' : '#242424';
+                        const border = d.state === 'c' ? '#166534' : d.state === 'x' ? '#7f1d1d' : '#333';
                         return (
-                          <div key={d.idx} style={{
-                            flex: 1, height: 26, borderRadius: 5, background: bg,
+                          <div key={`${w}-${d.idx}`} style={{
+                            flex: 1, height: 26, borderRadius: 5, background: bg, border: `1px solid ${border}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}>
                             <span style={emojiStyle} className="text-sm">
