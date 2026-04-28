@@ -511,8 +511,9 @@ const ModDashboard: React.FC = () => {
     const existing = batches.find(b => b.name === batchName);
     if (existing) { setActiveBatchId(existing.id); setShowCreateBatch(false); return; }
 
+    const startDateValue = newBatchStartDate.trim() ? newBatchStartDate : null;
     const { data } = await supabase.from('batches').insert({
-      mod_id: user.id, name: batchName, month: newBatchMonth, year: newBatchYear, label: newBatchLabel.trim(),
+      mod_id: user.id, name: batchName, month: newBatchMonth, year: newBatchYear, label: newBatchLabel.trim(), start_date: startDateValue,
     }).select().single();
     if (data) {
       await supabase.from('demo_days').insert([
