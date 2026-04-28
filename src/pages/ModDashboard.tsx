@@ -660,13 +660,13 @@ const ModDashboard: React.FC = () => {
       showSyncStatus('saved');
     } else {
       // Single upsert — relies on unique constraint (batch_id, student_id, session_index)
-      const payload: Record<string, unknown> = {
+      const payload = {
         student_id: studentId,
         batch_id: activeBatchId,
         session_index: sessionIndex,
         state: newState,
+        ...(newState !== 'x' ? { absence_note: null as string | null } : {}),
       };
-      if (newState !== 'x') payload.absence_note = null;
       supabase.from('attendance')
         .upsert(payload, { onConflict: 'batch_id,student_id,session_index' })
         .select().single()
