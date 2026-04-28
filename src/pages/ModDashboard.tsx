@@ -629,7 +629,7 @@ const ModDashboard: React.FC = () => {
     }
   };
 
-  // BUG 5: Optimistic attendance updates
+  // Optimistic attendance updates via upsert (uses unique (batch_id, student_id, session_index))
   const cycleAttendance = async (studentId: string, sessionIndex: number) => {
     if (!activeBatchId) return;
     const existing = attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex);
@@ -638,39 +638,66 @@ const ModDashboard: React.FC = () => {
     else if (existing.state === 'c') newState = 'x';
     else newState = 'e';
 
-    // Optimistic update — update local state immediately, sync to DB in background.
-    // On failure, revert ONLY this cell. Never refetch all attendance (causes flicker).
+    const prevState = existing?.state ?? 'e';
+    const prevNote = existing?.absence_note ?? null;
+    const tempId = `temp-${Date.now()}-${studentId}-${sessionIndex}`;
+    const isTempId = !!existing?.id?.startsWith('temp-');
+
+    // Optimistic local update
     showSyncStatus('syncing');
     if (existing) {
-      const prevState = existing.state;
-      const prevNote = existing.absence_note ?? null;
       const updateData: Partial<AttendanceRecord> = { state: newState };
       if (newState !== 'x') updateData.absence_note = null;
       setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, ...updateData } : a));
-      // Background sync — revert only this cell on error
-      supabase.from('attendance').update({ state: newState, ...(newState !== 'x' ? { absence_note: null } : {}) }).eq('id', existing.id)
-        .then(({ error }) => {
-          if (error) {
-            setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, state: prevState, absence_note: prevNote } : a));
-            toast.error('Failed to save attendance');
-            showSyncStatus('idle');
-          } else {
-            showSyncStatus('saved');
-          }
-        });
     } else {
-      const tempId = `temp-${Date.now()}-${studentId}-${sessionIndex}`;
       const optimistic: AttendanceRecord = { id: tempId, student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState };
       setAttendance(prev => [...prev, optimistic]);
-      supabase.from('attendance').insert({ student_id: studentId, batch_id: activeBatchId, session_index: sessionIndex, state: newState })
-        .select().single().then(({ data, error }) => {
+    }
+
+    // Guard: never send a temp id to Supabase. The pending insert will resolve and
+    // replace the temp row with the real row; the next click will then upsert normally.
+    if (isTempId) {
+      showSyncStatus('saved');
+    } else {
+      // Single upsert — relies on unique constraint (batch_id, student_id, session_index)
+      const payload: Record<string, unknown> = {
+        student_id: studentId,
+        batch_id: activeBatchId,
+        session_index: sessionIndex,
+        state: newState,
+      };
+      if (newState !== 'x') payload.absence_note = null;
+      supabase.from('attendance')
+        .upsert(payload, { onConflict: 'batch_id,student_id,session_index' })
+        .select().single()
+        .then(({ data, error }) => {
           if (error) {
-            setAttendance(prev => prev.filter(a => a.id !== tempId));
+            console.error('Attendance save error:', {
+              message: error.message,
+              code: error.code,
+              details: error.details,
+              hint: error.hint,
+              payload: { studentId, sessionIndex, state: newState },
+            });
+            // Revert only this cell
+            if (existing) {
+              setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, state: prevState, absence_note: prevNote } : a));
+            } else {
+              setAttendance(prev => prev.filter(a => a.id !== tempId));
+            }
             toast.error('Failed to save attendance');
             showSyncStatus('idle');
           } else if (data) {
-            // Replace ONLY the temp row with the saved row — do not touch any other cell
-            setAttendance(prev => prev.map(a => a.id === tempId ? (data as AttendanceRecord) : a));
+            // Reconcile local row with the canonical DB row (real id, etc.)
+            const saved = data as AttendanceRecord;
+            setAttendance(prev => {
+              const withoutTemp = prev.filter(a => a.id !== tempId);
+              const idx = withoutTemp.findIndex(a => a.student_id === saved.student_id && a.session_index === saved.session_index && a.batch_id === saved.batch_id);
+              if (idx === -1) return [...withoutTemp, saved];
+              const next = withoutTemp.slice();
+              next[idx] = saved;
+              return next;
+            });
             showSyncStatus('saved');
           }
         });
