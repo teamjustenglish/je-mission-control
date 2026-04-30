@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search } from 'lucide-react';
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
-import ScoringRubric from '@/components/ScoringRubric';
+
 import StudentProgressModal from '@/components/StudentProgressModal';
+import ModDashboard from './ModDashboard';
 
 interface Profile {
   id: string;
@@ -122,24 +122,11 @@ const AdminDashboard: React.FC = () => {
   const [modBatchCards, setModBatchCards] = useState<ModBatchCard[]>([]);
   const [loadingModBatches, setLoadingModBatches] = useState(false);
 
-  // FEATURE 1: Full grid view
+  // FEATURE 1: Full grid view (renders ModDashboard in read-only mode)
   const [gridViewBatch, setGridViewBatch] = useState<{
-    batchId: string; batchName: string; modName: string;
-    students: Student[]; attendance: AttendanceRecord[]; demoDays: DemoDay[];
-    demoScores: DemoScore[]; demoFeedback: DemoFeedback[]; rescheduledSessions: RescheduledSession[];
-    startDate: string | null;
+    batchId: string; batchName: string; modName: string; modId: string;
   } | null>(null);
-  const [gridSelectedWeek, setGridSelectedWeek] = useState(1);
-  const [gridAllWeeks, setGridAllWeeks] = useState(false);
-  const [gridDemoDaysExpanded, setGridDemoDaysExpanded] = useState(false);
-  const [gridTooltipCell, setGridTooltipCell] = useState<{ studentId: string; sessionIndex: number; top: number; left: number; centerX: number } | null>(null);
 
-  // Batch data cache for quick grid view loading
-  const adminBatchCacheRef = useRef<Record<string, {
-    students: Student[]; attendance: AttendanceRecord[]; demoDays: DemoDay[];
-    demoScores: DemoScore[]; demoFeedback: DemoFeedback[]; rescheduledSessions: RescheduledSession[];
-    startDate: string | null;
-  }>>({});
 
   // FEATURE 2: Reset access modal
   const [resetAccessModal, setResetAccessModal] = useState<{ mod: Profile; code?: string; loading?: boolean; error?: string } | null>(null);
@@ -189,18 +176,8 @@ const AdminDashboard: React.FC = () => {
       allDemoScores = scoresRes.data || [];
       allDemoFeedback = (fbRes.data || []) as DemoFeedback[];
     }
-    // Cache per batch
-    for (const batch of allBatches) {
-      adminBatchCacheRef.current[batch.id] = {
-        students: allStudents.filter(s => s.batch_id === batch.id),
-        attendance: allAttendance.filter(a => a.batch_id === batch.id),
-        demoDays: allDemoDays.filter(d => d.batch_id === batch.id),
-        demoScores: allDemoScores.filter(s => allDemoDays.filter(d => d.batch_id === batch.id).map(d => d.id).includes(s.demo_day_id)),
-        demoFeedback: allDemoFeedback.filter(f => allDemoDays.filter(d => d.batch_id === batch.id).map(d => d.id).includes(f.demo_day_id)),
-        rescheduledSessions: allRescheduled.filter(r => r.batch_id === batch.id),
-        startDate: batch.start_date || null,
-      };
-    }
+    // (No per-batch cache needed; admin grid now uses ModDashboard which fetches its own data.)
+
     // Build students data for Students page
     const studentsPageData = allStudents.map(student => {
       const batch = allBatches.find(b => b.id === student.batch_id);
@@ -511,59 +488,10 @@ const AdminDashboard: React.FC = () => {
     setLoadingModBatches(false);
   };
 
-  // FEATURE 1: Open full grid view (uses cache)
-  const openGridView = async (batchId: string, batchName: string, modName: string) => {
-    const cached = adminBatchCacheRef.current[batchId];
-    if (cached) {
-      setGridViewBatch({
-        batchId, batchName, modName,
-        students: cached.students,
-        attendance: cached.attendance,
-        demoDays: cached.demoDays,
-        demoScores: cached.demoScores,
-        demoFeedback: cached.demoFeedback,
-        rescheduledSessions: cached.rescheduledSessions,
-        startDate: cached.startDate,
-      });
-      setGridSelectedWeek(1);
-      setGridAllWeeks(false);
-      setGridDemoDaysExpanded(false);
-      return;
-    }
-    // Fallback: fetch from DB
-    const [batchRes, studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
-      supabase.from('batches').select('*').eq('id', batchId).single(),
-      supabase.from('students').select('*').eq('batch_id', batchId).order('created_at'),
-      supabase.from('attendance').select('*').eq('batch_id', batchId),
-      supabase.from('demo_days').select('*').eq('batch_id', batchId).order('day_number'),
-      supabase.from('rescheduled_sessions').select('*').eq('batch_id', batchId),
-    ]);
-    const fetchedStudents = studentsRes.data || [];
-    const fetchedDemoDays = demoDaysRes.data || [];
-    let fetchedScores: DemoScore[] = [];
-    let fetchedFeedback: DemoFeedback[] = [];
-    const ddIds = fetchedDemoDays.map(d => d.id);
-    if (ddIds.length > 0) {
-      const [scoresRes, fbRes] = await Promise.all([
-        supabase.from('demo_scores').select('*').in('demo_day_id', ddIds),
-        supabase.from('demo_feedback').select('*').in('demo_day_id', ddIds),
-      ]);
-      fetchedScores = scoresRes.data || [];
-      fetchedFeedback = (fbRes.data || []) as DemoFeedback[];
-    }
-    setGridViewBatch({
-      batchId, batchName, modName,
-      students: fetchedStudents,
-      attendance: (attendanceRes.data || []) as AttendanceRecord[],
-      demoDays: fetchedDemoDays,
-      demoScores: fetchedScores,
-      demoFeedback: fetchedFeedback,
-      rescheduledSessions: (rescheduledRes.data || []) as RescheduledSession[],
-      startDate: batchRes.data?.start_date || null,
-    });
-    setGridSelectedWeek(1);
-    setGridAllWeeks(false);
-    setGridDemoDaysExpanded(false);
+  // FEATURE 1: Open full grid view — renders ModDashboard in read-only mode.
+  // Data fetching is handled by ModDashboard itself, so we just stash the identifiers.
+  const openGridView = (batchId: string, batchName: string, modName: string, modId: string) => {
+    setGridViewBatch({ batchId, batchName, modName, modId });
   };
 
   const timeAgo = (dateStr: string) => {
@@ -641,329 +569,36 @@ const AdminDashboard: React.FC = () => {
     return 'Never logged in';
   };
 
-  // Grid view helpers
-  const getGridSessionDate = (sessionIndex: number): string | null => {
-    if (!gridViewBatch?.startDate) return null;
-    const start = new Date(gridViewBatch.startDate);
-    const week = Math.floor(sessionIndex / 4);
-    const dayInWeek = sessionIndex % 4;
-    const dayOffsets = [0, 1, 3, 4];
-    const date = new Date(start);
-    date.setDate(start.getDate() + week * 7 + dayOffsets[dayInWeek]);
-    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  };
-
-  const getGridAttState = (studentId: string, sessionIndex: number): string => {
-    return gridViewBatch?.attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex)?.state || 'e';
-  };
-
-  const getGridAbsenceNote = (studentId: string, sessionIndex: number): string | null => {
-    return gridViewBatch?.attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex)?.absence_note || null;
-  };
-
-  const getGridScore = (demoDayId: string, studentId: string, criterion: string): number => {
-    return gridViewBatch?.demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion)?.score || 0;
-  };
-
-  const getGridTotal = (demoDayId: string, studentId: string): string => {
-    if (!gridViewBatch) return '—';
-    const scores = gridViewBatch.demoScores.filter(s => s.demo_day_id === demoDayId && s.student_id === studentId && Number(s.score) > 0);
-    if (scores.length === 0) return '—';
-    const total = scores.reduce((sum, s) => sum + Number(s.score), 0);
-    return (Math.round(total * 10) / 10).toString();
-  };
-
-  const getTotalColor = (totalStr: string): string => {
-    if (totalStr === '—') return '#888';
-    const val = parseFloat(totalStr);
-    if (val >= 16) return '#4ade80';
-    if (val >= 12) return '#fbbf24';
-    return '#f87171';
-  };
-
-  const getGridRescheduled = (sessionIndex: number): RescheduledSession | undefined => {
-    if (!gridViewBatch) return undefined;
-    const info = getSessionLabel(sessionIndex);
-    const week = Math.floor(sessionIndex / 4) + 1;
-    return gridViewBatch.rescheduledSessions.find(r => r.week_number === week && r.day_name === (info.isDemo ? 'Demo day' : info.day));
-  };
-
-  // FULL GRID VIEW
+  // FULL GRID VIEW — reuses ModDashboard in read-only mode so admin sees exactly
+  // what the moderator sees, including future features added there.
   if (gridViewBatch) {
-    const { students, demoDays, demoScores: gScores, demoFeedback: gFeedback } = gridViewBatch;
-    const weekSessions = getWeekSessions(gridSelectedWeek);
-
     return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <button onClick={() => setGridViewBatch(null)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4" /> Back to moderators
-            </button>
-            <span className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full" style={{ background: '#1a2a3a', color: '#60a5fa', border: '1px solid #2a3a4a' }}>
-              <Eye className="w-3.5 h-3.5" /> Read-only view
-            </span>
-          </div>
-
-          <h2 className="text-lg font-semibold text-foreground mb-1">{gridViewBatch.batchName}</h2>
-          <p className="text-sm text-muted-foreground mb-6">{gridViewBatch.modName} · {students.length} students</p>
-
-          {/* Attendance */}
-          <div className="bg-card mb-4" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-foreground">Attendance</h3>
-              <button onClick={() => setGridAllWeeks(!gridAllWeeks)} className="text-xs px-3 py-1 rounded"
-                style={{ background: gridAllWeeks ? '#fff' : '#2a2a2a', color: gridAllWeeks ? '#111' : '#888', border: '1px solid #444' }}>
-                {gridAllWeeks ? 'Week view' : 'All weeks'}
-              </button>
-            </div>
-            {!gridAllWeeks && (
-              <div className="flex gap-2 mb-4">
-                {[1, 2, 3, 4, 5, 6].map(w => (
-                  <button key={w} onClick={() => setGridSelectedWeek(w)}
-                    style={{
-                      padding: '4px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer',
-                      background: w === gridSelectedWeek ? '#fff' : '#2a2a2a',
-                      color: w === gridSelectedWeek ? '#111' : '#888',
-                      border: `1px solid ${w === gridSelectedWeek ? '#fff' : '#333'}`,
-                    }}>Week {w}{isDemoWeek(w) ? ' · Demo' : ''}</button>
-                ))}
-              </div>
-            )}
-            <div className="overflow-x-auto">
-              <table className="text-sm" style={{ tableLayout: 'fixed', width: gridAllWeeks ? 'max-content' : '100%' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                    <th className="text-left py-2 font-medium text-muted-foreground" style={{ width: 160, minWidth: 160, fontSize: 12 }}>Student</th>
-                    {(gridAllWeeks ? Array.from({ length: 24 }, (_, i) => i) : weekSessions).map(si => {
-                      const info = getSessionLabel(si);
-                      const rescheduled = getGridRescheduled(si);
-                      const dateStr = getGridSessionDate(si);
-                      const newDateStr = rescheduled ? new Date(rescheduled.new_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null;
-                      return (
-                        <th key={si} className="text-center py-2 font-medium" style={{
-                          fontSize: 12, minWidth: gridAllWeeks ? 60 : undefined,
-                          background: rescheduled ? '#1e1800' : info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))',
-                          color: rescheduled ? '#d4920a' : info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))',
-                        }}>
-                          {info.isDemo ? 'Demo day' : info.day}
-                          {rescheduled ? (
-                            <div style={{ fontSize: 10, opacity: 0.8 }}>{newDateStr}<br /><span style={{ fontSize: 9 }}>↻</span></div>
-                          ) : dateStr && <div style={{ fontSize: 10, opacity: 0.7 }}>{dateStr}</div>}
-                        </th>
-                      );
-                    })}
-                    <th className="text-center py-2" style={{ fontSize: 11, fontWeight: 500, color: '#555', width: 50, minWidth: 50 }}>Rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.map(student => {
-                    const sessions = gridAllWeeks ? Array.from({ length: 24 }, (_, i) => i) : weekSessions;
-                    const totalSessions = sessions.filter(si => !getGridRescheduled(si)).length;
-                    const presentCount = sessions.filter(si => !getGridRescheduled(si) && getGridAttState(student.id, si) === 'c').length;
-                    const ratePct = totalSessions > 0 ? Math.round((presentCount / totalSessions) * 100) : 0;
-                    const rateColor = ratePct >= 75 ? '#4ade80' : ratePct >= 50 ? '#fbbf24' : '#f87171';
-                    return (
-                    <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                       <td className="py-1 font-medium text-foreground" style={{ fontSize: 12 }}>
-                        <span style={{ cursor: 'pointer' }} className="hover:underline"
-                          onClick={() => setProgressModalData({
-                            student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
-                            weekNumber: getCurrentWeek(gridViewBatch.startDate) ?? 6,
-                            attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
-                            demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
-                            startDate: gridViewBatch.startDate,
-                          })}>
-                          {student.name || '(unnamed)'}
-                        </span>
-                        <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }}
-                          onClick={() => setProgressModalData({
-                            student, batchName: gridViewBatch.batchName, modName: gridViewBatch.modName,
-                            weekNumber: getCurrentWeek(gridViewBatch.startDate) ?? 6,
-                            attendance: gridViewBatch.attendance, demoDays: gridViewBatch.demoDays,
-                            demoScores: gridViewBatch.demoScores, demoFeedback: gridViewBatch.demoFeedback,
-                            startDate: gridViewBatch.startDate,
-                          })}>📄</span>
-                      </td>
-                      {sessions.map(si => {
-                        const info = getSessionLabel(si);
-                        const state = getGridAttState(student.id, si);
-                        const rescheduled = getGridRescheduled(si);
-                        const absenceNote = state === 'x' ? getGridAbsenceNote(student.id, si) : null;
-                        const isTooltipOpen = gridTooltipCell?.studentId === student.id && gridTooltipCell?.sessionIndex === si;
-                        return (
-                          <td key={si} className="text-center" style={{
-                            padding: gridAllWeeks ? '10px 14px' : '8px',
-                            ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
-                            ...(gridAllWeeks && si % 4 === 0 && si > 0 ? { borderLeft: '2px solid #2e2e2e' } : {}),
-                          }}>
-                            {rescheduled ? (
-                              <span style={{ fontSize: 15, fontWeight: 700, color: '#d4920a' }}>↻</span>
-                            ) : state === 'c' ? (
-                              <span style={emojiStyle} className="text-[18px]">✅</span>
-                            ) : state === 'x' ? (
-                              <span style={{ position: 'relative', display: 'inline-block', cursor: 'default' }}
-                                onMouseEnter={(e) => {
-                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                  setGridTooltipCell({ studentId: student.id, sessionIndex: si, top: rect.top, left: rect.left, centerX: rect.left + rect.width / 2 });
-                                }}
-                                onMouseLeave={() => setGridTooltipCell(null)}>
-                                <span style={emojiStyle} className="text-[18px]">❌</span>
-                                {/* Static dot indicator */}
-                                <span style={{
-                                  position: 'absolute', top: -3, right: -3, width: 7, height: 7, borderRadius: '50%',
-                                  background: absenceNote ? '#4ade80' : '#fbbf24',
-                                  border: '2px solid hsl(var(--card))',
-                                }} />
-                              </span>
-                            ) : (
-                              <div className="w-[22px] h-[22px] rounded-[5px] mx-auto" style={{
-                                border: info.isDemo ? '1.5px solid hsl(var(--amber-border))' : '1.5px solid hsl(var(--checkbox-border))',
-                              }} />
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td className="text-center py-1" style={{ fontSize: 12, fontWeight: 600, color: rateColor }}>{ratePct}%</td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Demo days */}
-          <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden' }}>
-            <button onClick={() => setGridDemoDaysExpanded(!gridDemoDaysExpanded)} className="w-full flex items-center justify-between"
-              style={{ padding: '12px 16px', background: 'hsl(var(--grid-header-bg))' }}>
-              <div className="flex items-center gap-2">
-                {gridDemoDaysExpanded ? <ChevronDown className="w-4 h-4 text-foreground" /> : <ChevronRight className="w-4 h-4 text-foreground" />}
-                <span style={{ fontWeight: 500, fontSize: 13 }} className="text-foreground">Demo days</span>
-                <span style={{ background: 'hsl(var(--pill-success-bg))', color: 'hsl(var(--pill-success-text))', borderRadius: 99, padding: '2px 8px', fontSize: 11 }}>
-                  {demoDays.length} days
-                </span>
-              </div>
-            </button>
-            {gridDemoDaysExpanded && (
-              <div style={{ padding: '0 16px 16px' }} className="space-y-4 mt-4">
-                {demoDays.map(dd => (
-                  <div key={dd.id} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden' }}>
-                    <div className="flex items-center justify-between" style={{ padding: '14px 16px' }}>
-                      <h3 style={{ fontWeight: 600, fontSize: 14 }} className="text-foreground">{dd.title}</h3>
-                      <span className="text-muted-foreground" style={{ fontSize: 12 }}>{dd.date || '—'} · {students.length} students</span>
-                    </div>
-                    <ScoringRubric />
-                    <div className="overflow-x-auto" style={{ padding: '0 16px 14px' }}>
-                      <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                            <th className="text-left py-2 pr-3 font-medium text-muted-foreground" style={{ fontSize: 12, width: 140 }}>Criteria</th>
-                            {students.map(s => (
-                              <th key={s.id} className="text-center px-2 py-2 font-medium text-muted-foreground" style={{ fontSize: 12 }}>{s.name}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {CRITERIA.map(criterion => (
-                            <tr key={criterion} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                              <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>{criterion}</td>
-                              {students.map(s => {
-                                const score = getGridScore(dd.id, s.id, criterion);
-                                return (
-                                  <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, color: '#e8e8e8' }}>
-                                    {score || '—'}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                          <tr className="font-medium" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                            <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Total (/ 20)</td>
-                            {students.map(s => {
-                              const total = getGridTotal(dd.id, s.id);
-                              return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 700, color: getTotalColor(total) }}>{total}</td>;
-                            })}
-                          </tr>
-                          <tr>
-                            <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Individual feedback</td>
-                            {students.map(s => {
-                              const fb = gFeedback.find(f => f.demo_day_id === dd.id && f.student_id === s.id);
-                              return (
-                                <td key={s.id} className="text-center px-2 py-2">
-                                  {fb?.feedback ? (
-                                    <div style={{ fontSize: 11, color: '#888', maxWidth: 120, margin: '0 auto', textAlign: 'left', lineHeight: 1.4 }}>
-                                      {fb.feedback.slice(0, 80)}{fb.feedback.length > 80 ? '…' : ''}
-                                    </div>
-                                  ) : (
-                                    <span style={{ fontSize: 11, color: '#555', fontStyle: 'italic' }}>—</span>
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      <div className="min-h-screen bg-background">
+        {/* Admin chrome — Back button + Read-only badge */}
+        <div className="px-6 py-4 max-w-6xl mx-auto flex items-center justify-between">
+          <button
+            onClick={() => setGridViewBatch(null)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to moderators
+          </button>
+          <span
+            className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full"
+            style={{ background: '#1a2a3a', color: '#60a5fa', border: '1px solid #2a3a4a' }}
+          >
+            <Eye className="w-3.5 h-3.5" /> Read-only view
+          </span>
         </div>
 
-        {/* Student progress modal inside grid view — rendered via portal so it is never clipped */}
-        {progressModalData && createPortal(
-          <StudentProgressModal
-            student={progressModalData.student}
-            batchName={progressModalData.batchName}
-            modName={progressModalData.modName}
-            weekNumber={progressModalData.weekNumber}
-            startDate={progressModalData.startDate}
-            attendance={progressModalData.attendance}
-            demoDays={progressModalData.demoDays}
-            demoScores={progressModalData.demoScores}
-            demoFeedback={progressModalData.demoFeedback}
-            onClose={() => setProgressModalData(null)}
-          />,
-          document.body
-        )}
-
-        {/* Portal tooltip for absence notes */}
-        {gridTooltipCell && createPortal(
-          (() => {
-            const note = getGridAbsenceNote(gridTooltipCell.studentId, gridTooltipCell.sessionIndex);
-            const tooltipW = 220;
-            return (
-              <div style={{
-                position: 'fixed', zIndex: 9999,
-                top: gridTooltipCell.top - 8, left: gridTooltipCell.centerX,
-                transform: 'translate(-50%, -100%)',
-                background: '#252525', border: '1px solid #333', borderRadius: 9,
-                padding: '10px 13px', minWidth: 200, maxWidth: 280,
-                textAlign: 'left', whiteSpace: 'normal', pointerEvents: 'none',
-              }}>
-                <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Absence note</div>
-                {note ? (
-                  <div style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.4 }}>{note}</div>
-                ) : (
-                  <div style={{ fontSize: 13, color: '#555', fontStyle: 'italic' }}>No reason added yet</div>
-                )}
-                <div style={{
-                  position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
-                  width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
-                  borderTop: '6px solid #333',
-                }} />
-                <div style={{
-                  position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)',
-                  width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
-                  borderTop: '5px solid #252525',
-                }} />
-              </div>
-            );
-          })(),
-          document.body
-        )}
+        {/* Reused mod dashboard, in read-only mode.
+            Key forces a fresh mount when switching between batches so no stale data leaks. */}
+        <ModDashboard
+          key={gridViewBatch.batchId}
+          readOnly
+          hideTopNav
+          batchIdOverride={gridViewBatch.batchId}
+          modIdOverride={gridViewBatch.modId}
+        />
       </div>
     );
   }
@@ -1276,7 +911,7 @@ const AdminDashboard: React.FC = () => {
                                         {card.lastUpdated ? `Last updated ${timeAgo(card.lastUpdated)} by ${card.lastUpdatedBy}` : 'No activity'}
                                       </span>
                                     </div>
-                                    <button onClick={() => openGridView(card.id, card.name, mod.name || mod.email)}
+                                    <button onClick={() => openGridView(card.id, card.name, mod.name || mod.email, mod.id)}
                                       style={{ fontSize: 11, color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer' }}>
                                       View full grid →
                                     </button>
