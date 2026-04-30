@@ -362,6 +362,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   // Score values state: keyed by "demoDayId|studentId|criterion" → string value
   const [scoreValues, setScoreValues] = useState<Record<string, string>>({});
   const scoreDebounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const initializedBatchRef = useRef<string | null>(null);
 
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
