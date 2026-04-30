@@ -775,6 +775,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Mark all present/absent for a session
   const markAllForSession = async (sessionIndex: number, state: 'c' | 'x') => {
+    if (readOnly) return;
     if (!activeBatchId) return;
     for (const student of students) {
       const existing = attendance.find(a => a.student_id === student.id && a.session_index === sessionIndex);
