@@ -803,6 +803,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const openNoteModal = (studentId: string, sessionIndex: number) => {
+    if (readOnly) return;
     const student = students.find(s => s.id === studentId);
     const info = getSessionLabel(sessionIndex);
     const dateStr = getSessionDate(sessionIndex) || '';
