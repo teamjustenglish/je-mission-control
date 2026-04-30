@@ -1667,10 +1667,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   {allWeeksView ? <List className="w-3.5 h-3.5" /> : <Grid3X3 className="w-3.5 h-3.5" />}
                   {allWeeksView ? 'Week view' : 'All weeks'}
                 </button>
-                <button onClick={addStudent} className="flex items-center gap-1.5 text-xs"
-                  style={{ padding: '4px 12px', borderRadius: 7, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' }}>
-                  <Plus className="w-3.5 h-3.5" /> Add student
-                </button>
+                {!readOnly && (
+                  <button onClick={addStudent} className="flex items-center gap-1.5 text-xs"
+                    style={{ padding: '4px 12px', borderRadius: 7, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' }}>
+                    <Plus className="w-3.5 h-3.5" /> Add student
+                  </button>
+                )}
               </div>
             </div>
 
