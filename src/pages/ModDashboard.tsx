@@ -1037,6 +1037,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const openFeedbackModal = (demoDayId: string, studentId: string, dd: DemoDay) => {
+    if (readOnly) return;
     const student = students.find(s => s.id === studentId);
     const existing = getFeedback(demoDayId, studentId);
     const totalScore = getStudentDemoTotal(demoDayId, studentId);
