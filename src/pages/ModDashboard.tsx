@@ -1188,7 +1188,7 @@ const ModDashboard: React.FC = () => {
                 </div>
               );
             })}
-            <button onClick={() => setShowCreateBatch(true)} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
+            <button onClick={() => { const d = new Date(); const day = d.getDay(); const diff = day === 0 ? 1 : (day === 1 ? 7 : 8 - day); d.setDate(d.getDate() + diff); setNewBatchStartDate(d.toISOString().split('T')[0]); setShowCreateBatch(true); }} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-amber-bg text-amber-text">
@@ -1224,9 +1224,10 @@ const ModDashboard: React.FC = () => {
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1)</label>
+                <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1) <span className="text-red-500">*</span></label>
                 <input type="date" value={newBatchStartDate} onChange={(e) => setNewBatchStartDate(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
+                <p className="text-muted-foreground mt-1" style={{ fontSize: 11 }}>Required. This drives all week and day calculations.</p>
               </div>
               {newBatchLabel && (
                 <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[newBatchMonth - 1]} {newBatchYear} · {newBatchLabel}</strong></p>
@@ -1236,7 +1237,7 @@ const ModDashboard: React.FC = () => {
                   style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
-                <button onClick={createBatch} disabled={!newBatchLabel.trim()} className="flex-1 disabled:opacity-50"
+                <button onClick={createBatch} disabled={!newBatchLabel.trim() || !newBatchStartDate} className="flex-1 disabled:opacity-50"
                   style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Create</button>
@@ -1464,7 +1465,7 @@ const ModDashboard: React.FC = () => {
               style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2e2e2e'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >✏️ Rename batch</button>
+            >✏️ Edit details</button>
             <div style={{ height: 1, background: '#2e2e2e', margin: '3px 0' }} />
             <button
               type="button"
