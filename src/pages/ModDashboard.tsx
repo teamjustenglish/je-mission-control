@@ -466,33 +466,46 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Initial load: fetch batches, load first immediately, background-load rest
   useEffect(() => {
-    if (!user || initialLoadDone.current) return;
+    if (initialLoadDone.current) return;
+    const filterModId = modIdOverride ?? user?.id;
+    if (!filterModId) return;
     initialLoadDone.current = true;
     (async () => {
-      const { data } = await supabase.from('batches').select('*').eq('mod_id', user.id).order('created_at');
+      const { data } = await supabase.from('batches').select('*').eq('mod_id', filterModId).order('created_at');
       if (!data || data.length === 0) { setBatches(data || []); return; }
       setBatches(data);
-      // Load first batch immediately
-      const firstId = data[0].id;
+      // If a batchIdOverride is provided, force-select it (ignore other sources)
+      const overridden = batchIdOverride && data.find(b => b.id === batchIdOverride);
+      const firstId = overridden ? batchIdOverride : data[0].id;
       setActiveBatchId(firstId);
       const firstData = await fetchBatchData(firstId);
       batchCacheRef.current[firstId] = firstData;
       applyCacheToState(firstData);
       // Background-load remaining batches
-      for (let i = 1; i < data.length; i++) {
-        const bId = data[i].id;
-        const bData = await fetchBatchData(bId);
-        batchCacheRef.current[bId] = bData;
+      for (const b of data) {
+        if (b.id === firstId) continue;
+        const bData = await fetchBatchData(b.id);
+        batchCacheRef.current[b.id] = bData;
       }
     })();
-  }, [user, fetchBatchData, applyCacheToState]);
+  }, [user, modIdOverride, batchIdOverride, fetchBatchData, applyCacheToState]);
+
+  // If batchIdOverride changes after initial load, force-switch to it
+  useEffect(() => {
+    if (!batchIdOverride) return;
+    if (activeBatchId === batchIdOverride) return;
+    if (!batches.find(b => b.id === batchIdOverride)) return;
+    switchBatch(batchIdOverride);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchIdOverride, batches]);
 
   // Reload batches list (after creating a new batch)
   const loadBatches = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase.from('batches').select('*').eq('mod_id', user.id).order('created_at');
+    const filterModId = modIdOverride ?? user?.id;
+    if (!filterModId) return;
+    const { data } = await supabase.from('batches').select('*').eq('mod_id', filterModId).order('created_at');
     if (data) setBatches(data);
-  }, [user]);
+  }, [user, modIdOverride]);
 
   // Reload current batch data from Supabase (for error recovery)
   const loadBatchData = useCallback(async () => {
