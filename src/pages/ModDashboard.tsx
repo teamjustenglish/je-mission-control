@@ -1802,17 +1802,22 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               style={{ borderBottom: '1px solid hsl(var(--foreground))' }} autoFocus />
                           ) : (
                             <>
-                              <span className="cursor-pointer hover:underline" onClick={() => setEditingStudentId(student.id)}>
-                                {student.name || '(click to name)'}
+                              <span
+                                className={readOnly ? '' : 'cursor-pointer hover:underline'}
+                                onClick={readOnly ? undefined : () => setEditingStudentId(student.id)}
+                              >
+                                {student.name || (readOnly ? '(unnamed)' : '(click to name)')}
                               </span>
                               <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
                             </>
                           )}
                           {hoveredStudentId === student.id && (
                             <div className="flex items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
-                              <button onClick={() => confirmRemoveStudent(student)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'hsl(var(--danger-text))' }}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {!readOnly && (
+                                <button onClick={() => confirmRemoveStudent(student)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'hsl(var(--danger-text))' }}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button onClick={() => setReportStudent(student)}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 hover:text-foreground"
                                 style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
