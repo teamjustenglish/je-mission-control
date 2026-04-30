@@ -547,6 +547,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const createBatch = async () => {
+    if (readOnly) return;
     if (!user || !newBatchLabel.trim()) return;
     // BUG 4: check existing
     const monthName = MONTHS[newBatchMonth - 1];
