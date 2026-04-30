@@ -1892,7 +1892,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 }
               }
               const missingCount = missingNoteCells.length;
-              const showBanner = !allWeeksView && missingCount > 0 && !bannerDismissed;
+              const showBanner = !readOnly && !allWeeksView && missingCount > 0 && !bannerDismissed;
               const modFirstName = (profile?.name || 'Mod').split(' ')[0];
 
               return (
