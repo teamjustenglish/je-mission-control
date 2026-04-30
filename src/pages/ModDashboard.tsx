@@ -1742,7 +1742,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           const cell = (
                             <td key={i} className="text-center align-middle" style={{
                               minWidth: 60,
-                              padding: 10,
+                              padding: '5px 10px',
                               ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
                               ...(i % 4 === 0 && i > 0 ? { borderLeft: '2px solid #2e2e2e' } : {}),
                             }}>
@@ -1755,7 +1755,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               return (
                                 <React.Fragment key={i}>
                                   {cell}
-                                  <td key={`wed-${w}`} className="text-center align-middle" style={{ minWidth: 60, padding: 10, background: '#0d1a0d' }}>
+                                  <td key={`wed-${w}`} className="text-center align-middle" style={{ minWidth: 60, padding: '5px 10px', background: '#0d1a0d' }}>
                                     {renderWedCell(student.id, w)}
                                   </td>
                                 </React.Fragment>
@@ -1831,7 +1831,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         const info = getSessionLabel(si);
                         const rescheduled = isSessionRescheduled(si);
                         const cell = (
-                          <td key={si} className="text-center align-middle" style={{ padding: 10, ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
+                          <td key={si} className="text-center align-middle" style={{ padding: '5px 10px', ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
                             {renderCell(student.id, si, info.isDemo)}
                           </td>
                         );
@@ -1839,7 +1839,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           return (
                             <React.Fragment key={si}>
                               {cell}
-                              <td key={`wed-${selectedWeek}`} className="text-center align-middle" style={{ padding: 10, background: '#0d1a0d' }}>
+                              <td key={`wed-${selectedWeek}`} className="text-center align-middle" style={{ padding: '5px 10px', background: '#0d1a0d' }}>
                                 {renderWedCell(student.id, selectedWeek)}
                               </td>
                             </React.Fragment>
