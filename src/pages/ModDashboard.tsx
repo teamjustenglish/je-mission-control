@@ -1465,7 +1465,7 @@ const ModDashboard: React.FC = () => {
               style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2e2e2e'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-            >✏️ Rename batch</button>
+            >✏️ Edit details</button>
             <div style={{ height: 1, background: '#2e2e2e', margin: '3px 0' }} />
             <button
               type="button"
