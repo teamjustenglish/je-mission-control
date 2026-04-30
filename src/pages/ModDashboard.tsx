@@ -681,6 +681,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Optimistic attendance updates via upsert (uses unique (batch_id, student_id, session_index))
   const cycleAttendance = async (studentId: string, sessionIndex: number) => {
+    if (readOnly) return;
     if (!activeBatchId) return;
     const existing = attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex);
     let newState: string;
