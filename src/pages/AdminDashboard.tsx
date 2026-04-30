@@ -1135,8 +1135,8 @@ const AdminDashboard: React.FC = () => {
                   <div key={batch.id} className="p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                     <div className="flex items-center justify-between mb-1">
                       <div>
-                        <p className="text-sm font-medium text-foreground">{batch.name}</p>
-                        <p className="text-xs text-muted-foreground">{batch.modName} · {batch.studentCount} students · Currently in week {batch.weekNumber} of 6</p>
+                        <p className="text-sm" style={{ fontWeight: 500, color: '#e8e8e8' }}>{batch.modName}</p>
+                        <p className="text-xs" style={{ color: '#888' }}>{batch.name} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
                       </div>
                       <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {pct === null ? '—' : `${pct}%`}</span>
                     </div>
