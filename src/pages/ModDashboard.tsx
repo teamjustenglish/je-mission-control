@@ -229,7 +229,8 @@ const ColumnMenu: React.FC<{
 const ScoreInput: React.FC<{
   value: string;
   onChange: (val: string) => void;
-}> = ({ value, onChange }) => {
+  disabled?: boolean;
+}> = ({ value, onChange, disabled = false }) => {
   const [flash, setFlash] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -256,21 +257,50 @@ const ScoreInput: React.FC<{
   return (
     <input
       ref={inputRef} type="text" inputMode="decimal"
-      value={value} onChange={handleChange} onBlur={handleBlur}
-      onKeyDown={handleKeyPress}
+      value={value}
+      onChange={disabled ? undefined : handleChange}
+      onBlur={disabled ? undefined : handleBlur}
+      onKeyDown={disabled ? undefined : handleKeyPress}
+      readOnly={disabled}
+      tabIndex={disabled ? -1 : undefined}
       className="score-input"
       style={{
         width: 44, textAlign: 'center', fontSize: 12, padding: '3px 6px',
         border: flash ? '1.5px solid #f87171' : '1px solid hsl(var(--input-border))',
         borderRadius: 5, background: 'hsl(var(--input-bg))', color: 'hsl(var(--foreground))',
         MozAppearance: 'textfield', outline: 'none', transition: 'border-color 0.2s',
+        cursor: disabled ? 'default' : 'text',
+        opacity: disabled ? 0.85 : 1,
       }}
     />
   );
 };
 
-const ModDashboard: React.FC = () => {
+interface ModDashboardProps {
+  readOnly?: boolean;
+  batchIdOverride?: string;
+  modIdOverride?: string;
+  hideTopNav?: boolean;
+}
+
+const ModDashboard: React.FC<ModDashboardProps> = ({
+  readOnly = false,
+  batchIdOverride,
+  modIdOverride,
+  hideTopNav = false,
+}) => {
   const { user, profile, signOut } = useAuth();
+  // When viewing another mod's data (admin read-only), we may need to display
+  // that mod's name. Fetch it on demand and fall back to logged-in profile.
+  const [overrideModName, setOverrideModName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!modIdOverride) { setOverrideModName(null); return; }
+    let cancelled = false;
+    supabase.from('profiles').select('name').eq('id', modIdOverride).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setOverrideModName((data as any)?.name ?? null); });
+    return () => { cancelled = true; };
+  }, [modIdOverride]);
+  const displayModName = modIdOverride ? (overrideModName || '') : (profile?.name || '');
   const [batches, setBatches] = useState<Batch[]>([]);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
