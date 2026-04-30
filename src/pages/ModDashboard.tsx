@@ -928,6 +928,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const removeReschedule = async (id: string) => {
+    if (readOnly) return;
     await supabase.from('rescheduled_sessions').delete().eq('id', id);
     setRescheduledSessions(prev => prev.filter(r => r.id !== id));
     setRemoveRescheduleConfirm(null);
