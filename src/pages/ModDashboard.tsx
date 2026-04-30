@@ -1941,7 +1941,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                       <span style={emojiStyle}>⭐</span> Demo day attendance marked above · Scores tracked in Demo days section below
                     </div>
                   )}
-                  <button onClick={addStudent} className="mt-3 text-xs text-muted-foreground hover:text-foreground">+ Add student</button>
+                  {!readOnly && <button onClick={addStudent} className="mt-3 text-xs text-muted-foreground hover:text-foreground">+ Add student</button>}
                 </>
               );
             })()}
