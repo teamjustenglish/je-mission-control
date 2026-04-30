@@ -583,7 +583,7 @@ const AdminDashboard: React.FC = () => {
 
   const getActionBadge = (type: string) => {
     const map: Record<string, { bg: string; text: string; label: string }> = {
-      attendance_marked: { bg: '#1a3a1a', text: '#4ade80', label: 'attendance' },
+      attendance_marked: { bg: '#1a3a1a', text: '#4ade80', label: 'marked' },
       demo_score_added: { bg: '#2a2000', text: '#fbbf24', label: 'demo scores' },
       absence_note_added: { bg: '#2a1a3a', text: '#c084fc', label: 'absence note' },
       student_added: { bg: '#1a2a3a', text: '#60a5fa', label: 'new student' },
