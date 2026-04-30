@@ -1617,7 +1617,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
 
       {activeBatch ? (
-        <div className="p-6 max-w-6xl mx-auto" style={{ paddingTop: 64 }}>
+        <div className="p-6 max-w-6xl mx-auto" style={{ paddingTop: hideTopNav ? 24 : 64 }}>
+          {hideTopNav && (
+            <div style={{ marginBottom: 20 }}>
+              <h2 className="text-foreground" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{activeBatch.name}</h2>
+              <div className="text-muted-foreground" style={{ fontSize: 13, marginTop: 4 }}>
+                {displayModName ? `${displayModName} · ` : ''}{students.length} student{students.length === 1 ? '' : 's'}
+              </div>
+            </div>
+          )}
           {/* Stats row */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
