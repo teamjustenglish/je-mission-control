@@ -1058,6 +1058,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const saveFeedback = async () => {
+    if (readOnly) return;
     if (!feedbackModal) return;
     const existing = getFeedback(feedbackModal.demoDayId, feedbackModal.studentId);
     if (existing) {
