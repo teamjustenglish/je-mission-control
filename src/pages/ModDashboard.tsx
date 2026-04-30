@@ -315,7 +315,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [demoDaysExpanded, setDemoDaysExpanded] = useState(false);
   const [newBatchMonth, setNewBatchMonth] = useState(new Date().getMonth() + 1);
   const [newBatchYear, setNewBatchYear] = useState(new Date().getFullYear());
-  const [newBatchLabel, setNewBatchLabel] = useState('');
+  
   const [newBatchStartDate, setNewBatchStartDate] = useState('');
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [hoveredStudentId, setHoveredStudentId] = useState<string | null>(null);
