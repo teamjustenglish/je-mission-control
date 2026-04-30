@@ -704,8 +704,21 @@ const ModDashboard: React.FC = () => {
     }
     showSaved();
     if (user && activeBatch) {
-      const week = Math.floor(sessionIndex / 4) + 1;
-      logActivity(user.id, profile?.name || '', 'attendance_marked', `Marked Week ${week} attendance`, activeBatch.name);
+      let description = 'Marked attendance';
+      if (sessionIndex >= 1000) {
+        const toWeek = sessionIndex - 1000 + 1;
+        const r = rescheduledSessions.find(r => (r.to_week ?? null) === toWeek);
+        if (r) {
+          const week = r.from_week ?? r.week_number;
+          const day = r.from_day ?? r.day_name;
+          description = `Marked Week ${week}, ${day} (rescheduled) attendance`;
+        }
+      } else if (sessionIndex >= 0 && sessionIndex < 24) {
+        const week = Math.floor(sessionIndex / 4) + 1;
+        const day = ['Mon', 'Tue', 'Thu', 'Fri'][sessionIndex % 4];
+        description = `Marked Week ${week}, ${day} attendance`;
+      }
+      logActivity(user.id, profile?.name || '', 'attendance_marked', description, activeBatch.name);
     }
   };
 
