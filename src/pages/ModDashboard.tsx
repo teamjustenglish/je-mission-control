@@ -327,7 +327,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [editBatchId, setEditBatchId] = useState<string | null>(null);
   const [editBatchMonth, setEditBatchMonth] = useState(1);
   const [editBatchYear, setEditBatchYear] = useState(2026);
-  const [editBatchLabel, setEditBatchLabel] = useState('');
+  
   const [editBatchStartDate, setEditBatchStartDate] = useState('');
 
   // Delete batch state
