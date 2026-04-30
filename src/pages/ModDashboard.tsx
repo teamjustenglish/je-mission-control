@@ -1701,9 +1701,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 <span style={{ fontSize: 32, ...emojiStyle }} className="mb-3">👥</span>
                 <p className="text-sm text-muted-foreground mb-1">No students yet</p>
                 <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }} className="mb-4">Add your first student to get started</p>
-                <button onClick={addStudent} className="flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground" style={{ padding: '8px 16px', borderRadius: 7 }}>
-                  <Plus className="w-4 h-4" /> Add student
-                </button>
+                {!readOnly && (
+                  <button onClick={addStudent} className="flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground" style={{ padding: '8px 16px', borderRadius: 7 }}>
+                    <Plus className="w-4 h-4" /> Add student
+                  </button>
+                )}
               </div>
             ) : allWeeksView ? (
               <div className="overflow-x-auto">
