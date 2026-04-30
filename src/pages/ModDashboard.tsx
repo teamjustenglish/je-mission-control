@@ -1224,9 +1224,10 @@ const ModDashboard: React.FC = () => {
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1)</label>
+                <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1) <span className="text-red-500">*</span></label>
                 <input type="date" value={newBatchStartDate} onChange={(e) => setNewBatchStartDate(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
+                <p className="text-muted-foreground mt-1" style={{ fontSize: 11 }}>Required. This drives all week and day calculations.</p>
               </div>
               {newBatchLabel && (
                 <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[newBatchMonth - 1]} {newBatchYear} · {newBatchLabel}</strong></p>
@@ -1236,7 +1237,7 @@ const ModDashboard: React.FC = () => {
                   style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
-                <button onClick={createBatch} disabled={!newBatchLabel.trim()} className="flex-1 disabled:opacity-50"
+                <button onClick={createBatch} disabled={!newBatchLabel.trim() || !newBatchStartDate} className="flex-1 disabled:opacity-50"
                   style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Create</button>
