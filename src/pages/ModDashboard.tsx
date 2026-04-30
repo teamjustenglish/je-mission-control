@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
-interface Batch { id: string; name: string; mod_id: string; month: number; year: number; label: string; start_date?: string | null; }
+interface Batch { id: string; name: string; mod_id: string; month: number; year: number; start_date?: string | null; }
 interface Student { id: string; batch_id: string; name: string; }
 interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
@@ -315,7 +315,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [demoDaysExpanded, setDemoDaysExpanded] = useState(false);
   const [newBatchMonth, setNewBatchMonth] = useState(new Date().getMonth() + 1);
   const [newBatchYear, setNewBatchYear] = useState(new Date().getFullYear());
-  const [newBatchLabel, setNewBatchLabel] = useState('');
+  
   const [newBatchStartDate, setNewBatchStartDate] = useState('');
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [hoveredStudentId, setHoveredStudentId] = useState<string | null>(null);
@@ -327,7 +327,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [editBatchId, setEditBatchId] = useState<string | null>(null);
   const [editBatchMonth, setEditBatchMonth] = useState(1);
   const [editBatchYear, setEditBatchYear] = useState(2026);
-  const [editBatchLabel, setEditBatchLabel] = useState('');
+  
   const [editBatchStartDate, setEditBatchStartDate] = useState('');
 
   // Delete batch state
@@ -549,16 +549,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   const createBatch = async () => {
     if (readOnly) return;
-    if (!user || !newBatchLabel.trim()) return;
-    // BUG 4: check existing
+    if (!user || !newBatchStartDate) return;
     const monthName = MONTHS[newBatchMonth - 1];
-    const batchName = `${monthName} ${newBatchYear} · ${newBatchLabel.trim()}`;
+    const batchName = `${monthName} ${newBatchYear}`;
     const existing = batches.find(b => b.name === batchName);
     if (existing) { setActiveBatchId(existing.id); setShowCreateBatch(false); return; }
 
     const startDateValue = newBatchStartDate.trim() ? newBatchStartDate : null;
     const { data } = await supabase.from('batches').insert({
-      mod_id: user.id, name: batchName, month: newBatchMonth, year: newBatchYear, label: newBatchLabel.trim(), start_date: startDateValue,
+      mod_id: user.id, name: batchName, month: newBatchMonth, year: newBatchYear, start_date: startDateValue,
     }).select().single();
     if (data) {
       await supabase.from('demo_days').insert([
@@ -567,7 +566,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         { batch_id: data.id, title: 'Demo day 03', day_number: 3 },
       ]);
       await logActivity(user.id, profile?.name || '', 'batch_created', `Created batch ${batchName}`, batchName);
-      setShowCreateBatch(false); setNewBatchLabel(''); setNewBatchStartDate('');
+      setShowCreateBatch(false); setNewBatchStartDate('');
       // Fetch the new batch data into cache and switch to it
       const newData = await fetchBatchData(data.id);
       batchCacheRef.current[data.id] = newData;
@@ -583,20 +582,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     setEditBatchId(batch.id);
     setEditBatchMonth(batch.month);
     setEditBatchYear(batch.year);
-    setEditBatchLabel(batch.label);
     setEditBatchStartDate((batch as any).start_date || '');
   };
 
   const saveEditBatch = async () => {
     if (readOnly) return;
-    if (!editBatchId || !user || !editBatchLabel.trim()) return;
+    if (!editBatchId || !user) return;
     const monthName = MONTHS[editBatchMonth - 1];
-    const newName = `${monthName} ${editBatchYear} · ${editBatchLabel.trim()}`;
+    const newName = `${monthName} ${editBatchYear}`;
     const startDateValue = editBatchStartDate.trim() ? editBatchStartDate : null;
     await supabase.from('batches').update({
-      name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim(), start_date: startDateValue,
+      name: newName, month: editBatchMonth, year: editBatchYear, start_date: startDateValue,
     }).eq('id', editBatchId);
-    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim(), start_date: startDateValue } : b));
+    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, start_date: startDateValue } : b));
     setEditBatchId(null);
     showSaved();
   };
@@ -767,8 +765,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         }
       } else if (sessionIndex >= 0 && sessionIndex < 24) {
         const week = Math.floor(sessionIndex / 4) + 1;
+        const dayNumber = (sessionIndex % 4) + 1;
         const day = ['Mon', 'Tue', 'Thu', 'Fri'][sessionIndex % 4];
-        description = `Marked Week ${week}, ${day} attendance`;
+        description = `Marked Week ${week}, Day ${dayNumber} (${day}) attendance`;
       }
       logActivity(user.id, profile?.name || '', 'attendance_marked', description, activeBatch.name);
     }
@@ -1301,25 +1300,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">Label</label>
-                <input type="text" placeholder="e.g. Beginners" value={newBatchLabel} onChange={(e) => setNewBatchLabel(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
-              </div>
-              <div>
                 <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1) <span className="text-red-500">*</span></label>
                 <input type="date" value={newBatchStartDate} onChange={(e) => setNewBatchStartDate(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
                 <p className="text-muted-foreground mt-1" style={{ fontSize: 11 }}>Required. This drives all week and day calculations.</p>
               </div>
-              {newBatchLabel && (
-                <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[newBatchMonth - 1]} {newBatchYear} · {newBatchLabel}</strong></p>
-              )}
+              <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[newBatchMonth - 1]} {newBatchYear}</strong></p>
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setShowCreateBatch(false)} className="flex-1"
                   style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
-                <button onClick={createBatch} disabled={!newBatchLabel.trim() || !newBatchStartDate} className="flex-1 disabled:opacity-50"
+                <button onClick={createBatch} disabled={!newBatchStartDate} className="flex-1 disabled:opacity-50"
                   style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Create</button>
@@ -1601,24 +1593,17 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">Label</label>
-                <input type="text" placeholder="e.g. Beginners" value={editBatchLabel} onChange={(e) => setEditBatchLabel(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
-              </div>
-              <div>
                 <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1)</label>
                 <input type="date" value={editBatchStartDate} onChange={(e) => setEditBatchStartDate(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
               </div>
-              {editBatchLabel && (
-                <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[editBatchMonth - 1]} {editBatchYear} · {editBatchLabel}</strong></p>
-              )}
+              <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[editBatchMonth - 1]} {editBatchYear}</strong></p>
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setEditBatchId(null)} className="flex-1"
                   style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
-                <button onClick={() => { setEditBatchId(null); saveEditBatch(); }} disabled={!editBatchLabel.trim()} className="flex-1 disabled:opacity-50"
+                <button onClick={() => { setEditBatchId(null); saveEditBatch(); }} className="flex-1 disabled:opacity-50"
                   style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save changes</button>

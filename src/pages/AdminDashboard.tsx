@@ -55,7 +55,6 @@ interface BatchInfo {
 interface ModBatchCard {
   id: string;
   name: string;
-  label: string;
   month: number;
   year: number;
   start_date: string | null;
@@ -191,7 +190,7 @@ const AdminDashboard: React.FC = () => {
       const batchDDIds = batchDDs.map(d => d.id);
       return {
         student,
-        batch: batch || { name: 'Unknown', label: '' },
+        batch: batch || { name: 'Unknown' },
         mod: mod || { id: '', email: '', name: 'Unknown', role: 'moderator', created_at: '' } as Profile,
         weekNumber: weekNum,
         attendancePct: pct,
@@ -471,7 +470,7 @@ const AdminDashboard: React.FC = () => {
         const demoDaysDone = bDemoDays.filter(dd => bScores.some(s => s.demo_day_id === dd.id)).length;
 
         return {
-          id: batch.id, name: batch.name, label: batch.label,
+          id: batch.id, name: batch.name,
           month: batch.month, year: batch.year, start_date: batch.start_date || null,
           studentCount: bStudents.length, attendancePct: attPct,
           avgDemoScore: avgScore, demoDaysDone,
@@ -678,8 +677,8 @@ const AdminDashboard: React.FC = () => {
                       <div key={batch.id}>
                         <div className="flex items-center justify-between mb-1">
                           <div>
-                            <p className="text-sm font-medium text-foreground">{batch.name}</p>
-                            <p className="text-xs text-muted-foreground">{batch.modName} · Currently in week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
+                            <p className="text-sm" style={{ fontWeight: 500, color: '#e8e8e8' }}>{batch.modName}</p>
+                            <p className="text-xs" style={{ color: '#888' }}>{batch.name} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
                           </div>
                           <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {pct === null ? '—' : `${pct}%`}</span>
                         </div>
@@ -1136,8 +1135,8 @@ const AdminDashboard: React.FC = () => {
                   <div key={batch.id} className="p-4" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                     <div className="flex items-center justify-between mb-1">
                       <div>
-                        <p className="text-sm font-medium text-foreground">{batch.name}</p>
-                        <p className="text-xs text-muted-foreground">{batch.modName} · {batch.studentCount} students · Currently in week {batch.weekNumber} of 6</p>
+                        <p className="text-sm" style={{ fontWeight: 500, color: '#e8e8e8' }}>{batch.modName}</p>
+                        <p className="text-xs" style={{ color: '#888' }}>{batch.name} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
                       </div>
                       <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {pct === null ? '—' : `${pct}%`}</span>
                     </div>
