@@ -489,59 +489,10 @@ const AdminDashboard: React.FC = () => {
     setLoadingModBatches(false);
   };
 
-  // FEATURE 1: Open full grid view (uses cache)
-  const openGridView = async (batchId: string, batchName: string, modName: string) => {
-    const cached = adminBatchCacheRef.current[batchId];
-    if (cached) {
-      setGridViewBatch({
-        batchId, batchName, modName,
-        students: cached.students,
-        attendance: cached.attendance,
-        demoDays: cached.demoDays,
-        demoScores: cached.demoScores,
-        demoFeedback: cached.demoFeedback,
-        rescheduledSessions: cached.rescheduledSessions,
-        startDate: cached.startDate,
-      });
-      setGridSelectedWeek(1);
-      setGridAllWeeks(false);
-      setGridDemoDaysExpanded(false);
-      return;
-    }
-    // Fallback: fetch from DB
-    const [batchRes, studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
-      supabase.from('batches').select('*').eq('id', batchId).single(),
-      supabase.from('students').select('*').eq('batch_id', batchId).order('created_at'),
-      supabase.from('attendance').select('*').eq('batch_id', batchId),
-      supabase.from('demo_days').select('*').eq('batch_id', batchId).order('day_number'),
-      supabase.from('rescheduled_sessions').select('*').eq('batch_id', batchId),
-    ]);
-    const fetchedStudents = studentsRes.data || [];
-    const fetchedDemoDays = demoDaysRes.data || [];
-    let fetchedScores: DemoScore[] = [];
-    let fetchedFeedback: DemoFeedback[] = [];
-    const ddIds = fetchedDemoDays.map(d => d.id);
-    if (ddIds.length > 0) {
-      const [scoresRes, fbRes] = await Promise.all([
-        supabase.from('demo_scores').select('*').in('demo_day_id', ddIds),
-        supabase.from('demo_feedback').select('*').in('demo_day_id', ddIds),
-      ]);
-      fetchedScores = scoresRes.data || [];
-      fetchedFeedback = (fbRes.data || []) as DemoFeedback[];
-    }
-    setGridViewBatch({
-      batchId, batchName, modName,
-      students: fetchedStudents,
-      attendance: (attendanceRes.data || []) as AttendanceRecord[],
-      demoDays: fetchedDemoDays,
-      demoScores: fetchedScores,
-      demoFeedback: fetchedFeedback,
-      rescheduledSessions: (rescheduledRes.data || []) as RescheduledSession[],
-      startDate: batchRes.data?.start_date || null,
-    });
-    setGridSelectedWeek(1);
-    setGridAllWeeks(false);
-    setGridDemoDaysExpanded(false);
+  // FEATURE 1: Open full grid view — renders ModDashboard in read-only mode.
+  // Data fetching is handled by ModDashboard itself, so we just stash the identifiers.
+  const openGridView = (batchId: string, batchName: string, modName: string, modId: string) => {
+    setGridViewBatch({ batchId, batchName, modName, modId });
   };
 
   const timeAgo = (dateStr: string) => {
