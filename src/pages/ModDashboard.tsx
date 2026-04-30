@@ -865,6 +865,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const saveReschedule = async () => {
+    if (readOnly) return;
     setRescheduleError(null);
     if (!rescheduleModal || !activeBatchId || !user) {
       setRescheduleError('Something went wrong, please try again');
