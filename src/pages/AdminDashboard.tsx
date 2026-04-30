@@ -6,6 +6,7 @@ import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Tr
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
+import ModDashboard from './ModDashboard';
 
 interface Profile {
   id: string;
