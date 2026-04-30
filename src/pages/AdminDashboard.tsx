@@ -55,7 +55,6 @@ interface BatchInfo {
 interface ModBatchCard {
   id: string;
   name: string;
-  label: string;
   month: number;
   year: number;
   start_date: string | null;
