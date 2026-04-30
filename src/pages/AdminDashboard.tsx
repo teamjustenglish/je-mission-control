@@ -470,7 +470,7 @@ const AdminDashboard: React.FC = () => {
         const demoDaysDone = bDemoDays.filter(dd => bScores.some(s => s.demo_day_id === dd.id)).length;
 
         return {
-          id: batch.id, name: batch.name, label: batch.label,
+          id: batch.id, name: batch.name,
           month: batch.month, year: batch.year, start_date: batch.start_date || null,
           studentCount: bStudents.length, attendancePct: attPct,
           avgDemoScore: avgScore, demoDaysDone,
