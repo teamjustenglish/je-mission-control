@@ -549,16 +549,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   const createBatch = async () => {
     if (readOnly) return;
-    if (!user || !newBatchLabel.trim()) return;
-    // BUG 4: check existing
+    if (!user || !newBatchStartDate) return;
     const monthName = MONTHS[newBatchMonth - 1];
-    const batchName = `${monthName} ${newBatchYear} · ${newBatchLabel.trim()}`;
+    const batchName = `${monthName} ${newBatchYear}`;
     const existing = batches.find(b => b.name === batchName);
     if (existing) { setActiveBatchId(existing.id); setShowCreateBatch(false); return; }
 
     const startDateValue = newBatchStartDate.trim() ? newBatchStartDate : null;
     const { data } = await supabase.from('batches').insert({
-      mod_id: user.id, name: batchName, month: newBatchMonth, year: newBatchYear, label: newBatchLabel.trim(), start_date: startDateValue,
+      mod_id: user.id, name: batchName, month: newBatchMonth, year: newBatchYear, start_date: startDateValue,
     }).select().single();
     if (data) {
       await supabase.from('demo_days').insert([
@@ -567,7 +566,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         { batch_id: data.id, title: 'Demo day 03', day_number: 3 },
       ]);
       await logActivity(user.id, profile?.name || '', 'batch_created', `Created batch ${batchName}`, batchName);
-      setShowCreateBatch(false); setNewBatchLabel(''); setNewBatchStartDate('');
+      setShowCreateBatch(false); setNewBatchStartDate('');
       // Fetch the new batch data into cache and switch to it
       const newData = await fetchBatchData(data.id);
       batchCacheRef.current[data.id] = newData;
