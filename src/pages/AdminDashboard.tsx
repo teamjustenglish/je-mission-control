@@ -177,18 +177,8 @@ const AdminDashboard: React.FC = () => {
       allDemoScores = scoresRes.data || [];
       allDemoFeedback = (fbRes.data || []) as DemoFeedback[];
     }
-    // Cache per batch
-    for (const batch of allBatches) {
-      adminBatchCacheRef.current[batch.id] = {
-        students: allStudents.filter(s => s.batch_id === batch.id),
-        attendance: allAttendance.filter(a => a.batch_id === batch.id),
-        demoDays: allDemoDays.filter(d => d.batch_id === batch.id),
-        demoScores: allDemoScores.filter(s => allDemoDays.filter(d => d.batch_id === batch.id).map(d => d.id).includes(s.demo_day_id)),
-        demoFeedback: allDemoFeedback.filter(f => allDemoDays.filter(d => d.batch_id === batch.id).map(d => d.id).includes(f.demo_day_id)),
-        rescheduledSessions: allRescheduled.filter(r => r.batch_id === batch.id),
-        startDate: batch.start_date || null,
-      };
-    }
+    // (No per-batch cache needed; admin grid now uses ModDashboard which fetches its own data.)
+
     // Build students data for Students page
     const studentsPageData = allStudents.map(student => {
       const batch = allBatches.find(b => b.id === student.batch_id);
