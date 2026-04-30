@@ -912,7 +912,7 @@ const AdminDashboard: React.FC = () => {
                                         {card.lastUpdated ? `Last updated ${timeAgo(card.lastUpdated)} by ${card.lastUpdatedBy}` : 'No activity'}
                                       </span>
                                     </div>
-                                    <button onClick={() => openGridView(card.id, card.name, mod.name || mod.email)}
+                                    <button onClick={() => openGridView(card.id, card.name, mod.name || mod.email, mod.id)}
                                       style={{ fontSize: 11, color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer' }}>
                                       View full grid →
                                     </button>
