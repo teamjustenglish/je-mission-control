@@ -1110,16 +1110,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
           <span style={{ fontWeight: rescheduled ? 600 : undefined }}>
             {info.isDemo ? 'Demo day' : info.day}{rescheduled ? ' ↻' : ''}
           </span>
-          <ColumnMenu
-            sessionIndex={si}
-            isRescheduled={!!rescheduled}
-            onMarkAllPresent={() => markAllForSession(si, 'c')}
-            onMarkAllAbsent={() => markAllForSession(si, 'x')}
-            onReschedule={() => openRescheduleModal(si)}
-            onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
-            onRemoveReschedule={() => rescheduled && setRemoveRescheduleConfirm(rescheduled)}
-            rescheduleDisabled={!rescheduled && reschedulesRemaining <= 0}
-          />
+          {!readOnly && (
+            <ColumnMenu
+              sessionIndex={si}
+              isRescheduled={!!rescheduled}
+              onMarkAllPresent={() => markAllForSession(si, 'c')}
+              onMarkAllAbsent={() => markAllForSession(si, 'x')}
+              onReschedule={() => openRescheduleModal(si)}
+              onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
+              onRemoveReschedule={() => rescheduled && setRemoveRescheduleConfirm(rescheduled)}
+              rescheduleDisabled={!rescheduled && reschedulesRemaining <= 0}
+            />
+          )}
         </div>
         {rescheduled ? (
           <div style={{ fontSize: 9, color: '#9a6000' }}>
