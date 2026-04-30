@@ -10,7 +10,7 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, user, profile, signOut } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,6 +177,11 @@ const LoginPage: React.FC = () => {
             <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
               className="text-sm text-muted-foreground hover:text-foreground">
               ← Back to login
+            </button>
+          )}
+          {user && (
+            <button onClick={signOut} className="block text-sm text-muted-foreground hover:text-foreground">
+              You're signed in as {profile?.email || 'another user'} — sign out
             </button>
           )}
         </div>

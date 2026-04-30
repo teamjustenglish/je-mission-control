@@ -13,7 +13,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { user, role, loading } = useAuth();
+  const { user, role, loading, roleLoading } = useAuth();
 
   if (loading) {
     return (
@@ -23,31 +23,34 @@ const AppRoutes = () => {
     );
   }
 
+  // While we have a user but the role is still being fetched, show a loading
+  // state instead of falling through to a login page.
+  if (user && roleLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground text-sm">Loading…</p>
+      </div>
+    );
+  }
+
   return (
     <Routes>
-      {/* Admin login page */}
+      {/* /admin/login — admin login form, OR admin dashboard if already signed in as admin */}
       <Route path="/admin/login" element={
-        user && role === 'admin' ? <Navigate to="/admin/dashboard" replace /> :
-        user && role === 'moderator' ? <Navigate to="/" replace /> :
-        <AdminLoginPage />
+        user && role === 'admin' ? <Navigate to="/admin/dashboard" replace /> : <AdminLoginPage />
       } />
 
-      {/* Admin app — admins only */}
+      {/* /admin/* — admin dashboard if signed in as admin, otherwise the admin login form (no redirect) */}
       <Route path="/admin/*" element={
-        !user ? <Navigate to="/admin/login" replace /> :
-        role === 'moderator' ? <Navigate to="/admin/login" replace /> :
-        role === 'admin' ? <AdminDashboard /> :
-        <Navigate to="/admin/login" replace />
+        user && role === 'admin' ? <AdminDashboard /> : <AdminLoginPage />
       } />
 
-      {/* Mod / root route */}
+      {/* / — mod dashboard if signed in as moderator, otherwise the mod login form */}
       <Route path="/" element={
-        !user ? <LoginPage /> :
-        role === 'admin' ? <Navigate to="/admin/dashboard" replace /> :
-        role === 'moderator' ? <ModDashboard /> :
-        <LoginPage />
+        user && role === 'moderator' ? <ModDashboard /> : <LoginPage />
       } />
 
+      {/* Anything else → / */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

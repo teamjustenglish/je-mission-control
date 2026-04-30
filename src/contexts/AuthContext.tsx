@@ -9,7 +9,8 @@ interface AuthContextType {
   session: Session | null;
   profile: { id: string; email: string; name: string; role: string } | null;
   role: UserRole;
-  loading: boolean;
+  loading: boolean;        // initial session check
+  roleLoading: boolean;    // profile/role fetch in progress
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -23,42 +24,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<AuthContextType['profile']>(null);
   const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(false);
 
   const fetchProfile = async (userId: string) => {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    setRoleLoading(true);
+    try {
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (profileData) {
-      setProfile(profileData);
-      setRole(profileData.role as UserRole);
-      // Update last_sign_in
-      await supabase.from('profiles').update({ last_sign_in: new Date().toISOString() } as any).eq('id', userId);
+      if (error) {
+        console.error('fetchProfile error', error);
+        setProfile(null);
+        setRole(null);
+      } else if (profileData) {
+        setProfile(profileData);
+        setRole(profileData.role as UserRole);
+        // Fire-and-forget last_sign_in update — do not block on it
+        supabase
+          .from('profiles')
+          .update({ last_sign_in: new Date().toISOString() } as any)
+          .eq('id', userId)
+          .then(({ error: updErr }) => {
+            if (updErr) console.error('last_sign_in update failed', updErr);
+          });
+      } else {
+        setProfile(null);
+        setRole(null);
+      }
+    } catch (e) {
+      console.error('fetchProfile threw', e);
+      setProfile(null);
+      setRole(null);
+    } finally {
+      setRoleLoading(false);
     }
   };
 
   useEffect(() => {
+    // 1. Subscribe to auth state changes. CRITICAL: do not await any DB call
+    //    inside this callback — it can deadlock the supabase client.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
+      (_event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+
+        if (newSession?.user) {
+          setRoleLoading(true);
+          // Defer the profile fetch so it does not run inside the auth callback
+          setTimeout(() => {
+            fetchProfile(newSession.user.id);
+          }, 0);
         } else {
           setProfile(null);
           setRole(null);
+          setRoleLoading(false);
         }
-        setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
+    // 2. Initial session check on mount.
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      setSession(existingSession);
+      setUser(existingSession?.user ?? null);
+      if (existingSession?.user) {
+        setRoleLoading(true);
+        fetchProfile(existingSession.user.id);
       }
       setLoading(false);
     });
@@ -90,18 +123,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setProfile(null);
     setRole(null);
+    setRoleLoading(false);
     try {
-      // Clear any cached supabase auth tokens
       Object.keys(localStorage).forEach((k) => {
         if (k.startsWith('sb-') || k.includes('supabase')) localStorage.removeItem(k);
       });
     } catch {}
-    // Hard redirect to mod login
     window.location.href = '/';
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, role, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, role, loading, roleLoading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
