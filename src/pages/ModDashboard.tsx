@@ -968,6 +968,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   }, [activeBatchId]);
 
   const updateScoreValue = (demoDayId: string, studentId: string, criterion: string, rawVal: string) => {
+    if (readOnly) return;
     const key = `${demoDayId}|${studentId}|${criterion}`;
     setScoreValues(prev => ({ ...prev, [key]: rawVal }));
 
