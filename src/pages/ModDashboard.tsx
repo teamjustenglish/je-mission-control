@@ -1181,9 +1181,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             <ColumnMenu
               sessionIndex={wedSessionIndex(week)}
               isRescheduled={true}
+              isRescheduledTarget={true}
               onReschedule={() => {}}
               onEditReschedule={() => openRescheduleModal((((r.from_week ?? r.week_number) - 1) * 4) + (['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) >= 0 ? ['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) : 0), r.id)}
               onRemoveReschedule={() => setRemoveRescheduleConfirm(r)}
+              onMarkAllPresent={() => markAllForSession(wedSessionIndex(week), 'c')}
+              onMarkAllAbsent={() => markAllForSession(wedSessionIndex(week), 'x')}
             />
           )}
         </div>
