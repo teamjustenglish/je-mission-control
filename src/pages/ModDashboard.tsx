@@ -1188,7 +1188,7 @@ const ModDashboard: React.FC = () => {
                 </div>
               );
             })}
-            <button onClick={() => setShowCreateBatch(true)} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
+            <button onClick={() => { const d = new Date(); const day = d.getDay(); const diff = day === 0 ? 1 : (day === 1 ? 7 : 8 - day); d.setDate(d.getDate() + diff); setNewBatchStartDate(d.toISOString().split('T')[0]); setShowCreateBatch(true); }} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-amber-bg text-amber-text">
