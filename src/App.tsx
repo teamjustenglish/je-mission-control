@@ -25,22 +25,29 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      {/* Admin routes */}
+      {/* Admin login page */}
       <Route path="/admin/login" element={
-        user && role === 'admin' ? <Navigate to="/admin/dashboard" replace /> : <AdminLoginPage />
-      } />
-      <Route path="/admin/*" element={
-        !user ? <Navigate to="/admin/login" replace /> :
-        role !== 'admin' ? <Navigate to="/" replace /> :
-        <AdminDashboard />
+        user && role === 'admin' ? <Navigate to="/admin/dashboard" replace /> :
+        user && role === 'moderator' ? <Navigate to="/" replace /> :
+        <AdminLoginPage />
       } />
 
-      {/* Mod / root routes */}
+      {/* Admin app — admins only */}
+      <Route path="/admin/*" element={
+        !user ? <Navigate to="/admin/login" replace /> :
+        role === 'moderator' ? <Navigate to="/admin/login" replace /> :
+        role === 'admin' ? <AdminDashboard /> :
+        <Navigate to="/admin/login" replace />
+      } />
+
+      {/* Mod / root route */}
       <Route path="/" element={
         !user ? <LoginPage /> :
         role === 'admin' ? <Navigate to="/admin/dashboard" replace /> :
-        <ModDashboard />
+        role === 'moderator' ? <ModDashboard /> :
+        <LoginPage />
       } />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
