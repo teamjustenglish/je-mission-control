@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
-interface Batch { id: string; name: string; mod_id: string; month: number; year: number; label: string; start_date?: string | null; }
+interface Batch { id: string; name: string; mod_id: string; month: number; year: number; start_date?: string | null; }
 interface Student { id: string; batch_id: string; name: string; }
 interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
