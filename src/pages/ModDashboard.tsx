@@ -139,6 +139,7 @@ const AttendanceCell: React.FC<{
 const ColumnMenu: React.FC<{
   sessionIndex: number;
   isRescheduled: boolean;
+  isRescheduledTarget?: boolean;
   onMarkAllPresent?: () => void;
   onMarkAllAbsent?: () => void;
   onReschedule: () => void;
@@ -146,7 +147,7 @@ const ColumnMenu: React.FC<{
   onRemoveReschedule?: () => void;
   rescheduleDisabled?: boolean;
   hideMarkAll?: boolean;
-}> = ({ isRescheduled, onMarkAllPresent, onMarkAllAbsent, onReschedule, onEditReschedule, onRemoveReschedule, rescheduleDisabled, hideMarkAll }) => {
+}> = ({ isRescheduled, isRescheduledTarget, onMarkAllPresent, onMarkAllAbsent, onReschedule, onEditReschedule, onRemoveReschedule, rescheduleDisabled, hideMarkAll }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -191,6 +192,23 @@ const ColumnMenu: React.FC<{
                 onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
                 onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
               >✕ Remove reschedule</button>
+              {isRescheduledTarget && !hideMarkAll && (
+                <>
+                  <div style={{ height: 1, background: '#333', margin: '4px 0' }} />
+                  <button
+                    onClick={() => { setOpen(false); onMarkAllPresent?.(); }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                  >✓ Mark all present</button>
+                  <button
+                    onClick={() => { setOpen(false); onMarkAllAbsent?.(); }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
+                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                  >✗ Mark all absent</button>
+                </>
+              )}
             </>
           ) : (
             <>
@@ -1163,9 +1181,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             <ColumnMenu
               sessionIndex={wedSessionIndex(week)}
               isRescheduled={true}
+              isRescheduledTarget={true}
               onReschedule={() => {}}
               onEditReschedule={() => openRescheduleModal((((r.from_week ?? r.week_number) - 1) * 4) + (['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) >= 0 ? ['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) : 0), r.id)}
               onRemoveReschedule={() => setRemoveRescheduleConfirm(r)}
+              onMarkAllPresent={() => markAllForSession(wedSessionIndex(week), 'c')}
+              onMarkAllAbsent={() => markAllForSession(wedSessionIndex(week), 'x')}
             />
           )}
         </div>
