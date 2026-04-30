@@ -582,20 +582,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     setEditBatchId(batch.id);
     setEditBatchMonth(batch.month);
     setEditBatchYear(batch.year);
-    setEditBatchLabel(batch.label);
     setEditBatchStartDate((batch as any).start_date || '');
   };
 
   const saveEditBatch = async () => {
     if (readOnly) return;
-    if (!editBatchId || !user || !editBatchLabel.trim()) return;
+    if (!editBatchId || !user) return;
     const monthName = MONTHS[editBatchMonth - 1];
-    const newName = `${monthName} ${editBatchYear} · ${editBatchLabel.trim()}`;
+    const newName = `${monthName} ${editBatchYear}`;
     const startDateValue = editBatchStartDate.trim() ? editBatchStartDate : null;
     await supabase.from('batches').update({
-      name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim(), start_date: startDateValue,
+      name: newName, month: editBatchMonth, year: editBatchYear, start_date: startDateValue,
     }).eq('id', editBatchId);
-    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, label: editBatchLabel.trim(), start_date: startDateValue } : b));
+    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, start_date: startDateValue } : b));
     setEditBatchId(null);
     showSaved();
   };
