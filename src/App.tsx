@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+
 const AppRoutes = () => {
   const { user, role, loading, roleLoading } = useAuth();
 
