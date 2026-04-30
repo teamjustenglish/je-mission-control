@@ -6,7 +6,7 @@ const AdminLoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, user, profile, signOut } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +45,14 @@ const AdminLoginPage: React.FC = () => {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        {user && (
+          <div className="mt-4">
+            <button onClick={signOut} className="block text-sm text-muted-foreground hover:text-foreground">
+              You're signed in as {profile?.email || 'another user'} — sign out
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
