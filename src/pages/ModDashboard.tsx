@@ -362,6 +362,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   // Score values state: keyed by "demoDayId|studentId|criterion" → string value
   const [scoreValues, setScoreValues] = useState<Record<string, string>>({});
   const scoreDebounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const initializedBatchRef = useRef<string | null>(null);
 
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
@@ -955,17 +956,29 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return loggedSessions.size;
   })();
 
-  // Initialize scoreValues from demoScores ONLY when switching batches.
-  // Do NOT depend on demoScores — our own upsert mutates it and would wipe in-progress typing.
+  // Initialize scoreValues from demoScores when:
+  //  1. The active batch changed (new batch loaded), OR
+  //  2. We haven't initialized this batch yet AND demoScores now has data
+  //     (async fetch completed after the initial mount).
+  // The "scoreValues empty" gate prevents wiping in-progress typing on
+  // subsequent demoScores updates (e.g. after a debounced upsert).
   useEffect(() => {
+    const shouldInit =
+      initializedBatchRef.current !== activeBatchId ||
+      (initializedBatchRef.current === activeBatchId &&
+        Object.keys(scoreValues).length === 0 &&
+        demoScores.length > 0);
+    if (!shouldInit) return;
+
     const vals: Record<string, string> = {};
     for (const s of demoScores) {
       const key = `${s.demo_day_id}|${s.student_id}|${s.criterion}`;
       if (Number(s.score) !== 0) vals[key] = String(s.score);
     }
     setScoreValues(vals);
+    initializedBatchRef.current = activeBatchId;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBatchId]);
+  }, [activeBatchId, demoScores]);
 
   const updateScoreValue = (demoDayId: string, studentId: string, criterion: string, rawVal: string) => {
     if (readOnly) return;
