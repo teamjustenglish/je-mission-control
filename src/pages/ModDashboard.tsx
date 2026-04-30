@@ -854,6 +854,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Reschedule handlers — open modal for a specific original session
   const openRescheduleModal = (sessionIndex: number, existingId?: string) => {
+    if (readOnly) return;
     if (!existingId && reschedulesRemaining <= 0) return;
     const info = getSessionLabel(sessionIndex);
     const weekNum = Math.floor(sessionIndex / 4) + 1;
