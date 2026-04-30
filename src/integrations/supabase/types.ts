@@ -93,7 +93,6 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          label: string
           mod_id: string
           month: number
           name: string
@@ -103,7 +102,6 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          label: string
           mod_id: string
           month: number
           name: string
@@ -113,7 +111,6 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          label?: string
           mod_id?: string
           month?: number
           name?: string
