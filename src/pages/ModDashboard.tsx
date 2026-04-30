@@ -578,6 +578,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Double-click tab → open edit modal
   const openEditBatch = (batch: Batch) => {
+    if (readOnly) return;
     setEditBatchId(batch.id);
     setEditBatchMonth(batch.month);
     setEditBatchYear(batch.year);
