@@ -655,6 +655,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const updateStudentName = async (studentId: string, name: string) => {
+    if (readOnly) return;
     await supabase.from('students').update({ name }).eq('id', studentId);
     setStudents(prev => prev.map(s => s.id === studentId ? { ...s, name } : s));
     if (name && user && activeBatch) {
