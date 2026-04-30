@@ -602,6 +602,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Right-click tab → delete batch
   const deleteBatch = async (batch: Batch) => {
+    if (readOnly) return;
     // Cascade delete: demo_scores → demo_days, attendance, rescheduled_sessions, students, then batch
     const dds = (await supabase.from('demo_days').select('id').eq('batch_id', batch.id)).data || [];
     if (dds.length > 0) {
