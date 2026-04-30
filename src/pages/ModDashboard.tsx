@@ -664,7 +664,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     setEditingStudentId(null);
   };
 
-  const confirmRemoveStudent = (student: Student) => setDeleteConfirm(student);
+  const confirmRemoveStudent = (student: Student) => { if (readOnly) return; setDeleteConfirm(student); };
 
   const removeStudent = async (student: Student) => {
     await supabase.from('attendance').delete().eq('student_id', student.id);
