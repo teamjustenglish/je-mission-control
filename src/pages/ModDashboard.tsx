@@ -645,6 +645,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
 
     const addStudent = async () => {
+    if (readOnly) return;
     const { data } = await supabase.from('students').insert({ batch_id: activeBatchId, name: '' }).select().single();
     if (data) {
       setStudents(prev => [...prev, data]);
