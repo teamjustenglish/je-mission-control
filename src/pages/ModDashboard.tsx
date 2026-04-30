@@ -1987,7 +1987,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>{criterion}</td>
                               {students.map(s => (
                                 <td key={s.id} className="text-center px-2 py-2">
-                                  <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} />
+                                  <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} disabled={readOnly} />
                                 </td>
                               ))}
                             </tr>
