@@ -818,6 +818,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const saveAbsenceNote = async () => {
+    if (readOnly) return;
     if (!noteModal) return;
     const rec = attendance.find(a => a.student_id === noteModal.studentId && a.session_index === noteModal.sessionIndex);
     if (rec) {
