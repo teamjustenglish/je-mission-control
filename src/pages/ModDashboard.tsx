@@ -1147,13 +1147,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Wed</span>
-          <ColumnMenu
-            sessionIndex={wedSessionIndex(week)}
-            isRescheduled={true}
-            onReschedule={() => {}}
-            onEditReschedule={() => openRescheduleModal((((r.from_week ?? r.week_number) - 1) * 4) + (['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) >= 0 ? ['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) : 0), r.id)}
-            onRemoveReschedule={() => setRemoveRescheduleConfirm(r)}
-          />
+          {!readOnly && (
+            <ColumnMenu
+              sessionIndex={wedSessionIndex(week)}
+              isRescheduled={true}
+              onReschedule={() => {}}
+              onEditReschedule={() => openRescheduleModal((((r.from_week ?? r.week_number) - 1) * 4) + (['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) >= 0 ? ['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) : 0), r.id)}
+              onRemoveReschedule={() => setRemoveRescheduleConfirm(r)}
+            />
+          )}
         </div>
         <div style={{ fontSize: 9, color: '#4ade80', opacity: 0.7 }}>
           ↻ from W{r.from_week ?? r.week_number} {r.from_day ?? r.day_name}
