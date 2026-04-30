@@ -1216,6 +1216,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   return (
     <div className="min-h-screen bg-background">
       {/* Top nav */}
+      {!hideTopNav && (
       <div className="px-6" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: 'hsl(var(--nav-bg))', borderBottom: '1px solid hsl(var(--nav-border))' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
@@ -1224,6 +1225,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               return (
                 <div key={batch.id} className="flex items-center" style={{ maxWidth: 220 }}
                   onContextMenu={(e) => {
+                    if (readOnly) return;
                     e.preventDefault();
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                     setBatchContextMenu({ batchId: batch.id, x: rect.left, y: rect.bottom + 4 });
@@ -1238,7 +1240,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                     }`}
                     style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}
                   >{batch.name}</button>
-                  {isActive && (
+                  {isActive && !readOnly && (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setDeleteBatchConfirm(batch); }}
@@ -1252,7 +1254,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 </div>
               );
             })}
-            <button onClick={() => { const d = new Date(); const day = d.getDay(); const diff = day === 0 ? 1 : (day === 1 ? 7 : 8 - day); d.setDate(d.getDate() + diff); setNewBatchStartDate(d.toISOString().split('T')[0]); setShowCreateBatch(true); }} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
+            {!readOnly && (
+              <button onClick={() => { const d = new Date(); const day = d.getDay(); const diff = day === 0 ? 1 : (day === 1 ? 7 : 8 - day); d.setDate(d.getDate() + diff); setNewBatchStartDate(d.toISOString().split('T')[0]); setShowCreateBatch(true); }} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-amber-bg text-amber-text">
@@ -1263,6 +1267,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* Create batch modal */}
       {showCreateBatch && (
