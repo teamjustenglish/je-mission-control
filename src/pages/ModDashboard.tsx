@@ -229,7 +229,8 @@ const ColumnMenu: React.FC<{
 const ScoreInput: React.FC<{
   value: string;
   onChange: (val: string) => void;
-}> = ({ value, onChange }) => {
+  disabled?: boolean;
+}> = ({ value, onChange, disabled = false }) => {
   const [flash, setFlash] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -256,21 +257,50 @@ const ScoreInput: React.FC<{
   return (
     <input
       ref={inputRef} type="text" inputMode="decimal"
-      value={value} onChange={handleChange} onBlur={handleBlur}
-      onKeyDown={handleKeyPress}
+      value={value}
+      onChange={disabled ? undefined : handleChange}
+      onBlur={disabled ? undefined : handleBlur}
+      onKeyDown={disabled ? undefined : handleKeyPress}
+      readOnly={disabled}
+      tabIndex={disabled ? -1 : undefined}
       className="score-input"
       style={{
         width: 44, textAlign: 'center', fontSize: 12, padding: '3px 6px',
         border: flash ? '1.5px solid #f87171' : '1px solid hsl(var(--input-border))',
         borderRadius: 5, background: 'hsl(var(--input-bg))', color: 'hsl(var(--foreground))',
         MozAppearance: 'textfield', outline: 'none', transition: 'border-color 0.2s',
+        cursor: disabled ? 'default' : 'text',
+        opacity: disabled ? 0.85 : 1,
       }}
     />
   );
 };
 
-const ModDashboard: React.FC = () => {
+interface ModDashboardProps {
+  readOnly?: boolean;
+  batchIdOverride?: string;
+  modIdOverride?: string;
+  hideTopNav?: boolean;
+}
+
+const ModDashboard: React.FC<ModDashboardProps> = ({
+  readOnly = false,
+  batchIdOverride,
+  modIdOverride,
+  hideTopNav = false,
+}) => {
   const { user, profile, signOut } = useAuth();
+  // When viewing another mod's data (admin read-only), we may need to display
+  // that mod's name. Fetch it on demand and fall back to logged-in profile.
+  const [overrideModName, setOverrideModName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!modIdOverride) { setOverrideModName(null); return; }
+    let cancelled = false;
+    supabase.from('profiles').select('name').eq('id', modIdOverride).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setOverrideModName((data as any)?.name ?? null); });
+    return () => { cancelled = true; };
+  }, [modIdOverride]);
+  const displayModName = modIdOverride ? (overrideModName || '') : (profile?.name || '');
   const [batches, setBatches] = useState<Batch[]>([]);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
@@ -436,33 +466,46 @@ const ModDashboard: React.FC = () => {
 
   // Initial load: fetch batches, load first immediately, background-load rest
   useEffect(() => {
-    if (!user || initialLoadDone.current) return;
+    if (initialLoadDone.current) return;
+    const filterModId = modIdOverride ?? user?.id;
+    if (!filterModId) return;
     initialLoadDone.current = true;
     (async () => {
-      const { data } = await supabase.from('batches').select('*').eq('mod_id', user.id).order('created_at');
+      const { data } = await supabase.from('batches').select('*').eq('mod_id', filterModId).order('created_at');
       if (!data || data.length === 0) { setBatches(data || []); return; }
       setBatches(data);
-      // Load first batch immediately
-      const firstId = data[0].id;
+      // If a batchIdOverride is provided, force-select it (ignore other sources)
+      const overridden = batchIdOverride && data.find(b => b.id === batchIdOverride);
+      const firstId = overridden ? batchIdOverride : data[0].id;
       setActiveBatchId(firstId);
       const firstData = await fetchBatchData(firstId);
       batchCacheRef.current[firstId] = firstData;
       applyCacheToState(firstData);
       // Background-load remaining batches
-      for (let i = 1; i < data.length; i++) {
-        const bId = data[i].id;
-        const bData = await fetchBatchData(bId);
-        batchCacheRef.current[bId] = bData;
+      for (const b of data) {
+        if (b.id === firstId) continue;
+        const bData = await fetchBatchData(b.id);
+        batchCacheRef.current[b.id] = bData;
       }
     })();
-  }, [user, fetchBatchData, applyCacheToState]);
+  }, [user, modIdOverride, batchIdOverride, fetchBatchData, applyCacheToState]);
+
+  // If batchIdOverride changes after initial load, force-switch to it
+  useEffect(() => {
+    if (!batchIdOverride) return;
+    if (activeBatchId === batchIdOverride) return;
+    if (!batches.find(b => b.id === batchIdOverride)) return;
+    switchBatch(batchIdOverride);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchIdOverride, batches]);
 
   // Reload batches list (after creating a new batch)
   const loadBatches = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase.from('batches').select('*').eq('mod_id', user.id).order('created_at');
+    const filterModId = modIdOverride ?? user?.id;
+    if (!filterModId) return;
+    const { data } = await supabase.from('batches').select('*').eq('mod_id', filterModId).order('created_at');
     if (data) setBatches(data);
-  }, [user]);
+  }, [user, modIdOverride]);
 
   // Reload current batch data from Supabase (for error recovery)
   const loadBatchData = useCallback(async () => {
@@ -504,6 +547,7 @@ const ModDashboard: React.FC = () => {
   };
 
   const createBatch = async () => {
+    if (readOnly) return;
     if (!user || !newBatchLabel.trim()) return;
     // BUG 4: check existing
     const monthName = MONTHS[newBatchMonth - 1];
@@ -534,6 +578,7 @@ const ModDashboard: React.FC = () => {
 
   // Double-click tab → open edit modal
   const openEditBatch = (batch: Batch) => {
+    if (readOnly) return;
     setEditBatchId(batch.id);
     setEditBatchMonth(batch.month);
     setEditBatchYear(batch.year);
@@ -542,6 +587,7 @@ const ModDashboard: React.FC = () => {
   };
 
   const saveEditBatch = async () => {
+    if (readOnly) return;
     if (!editBatchId || !user || !editBatchLabel.trim()) return;
     const monthName = MONTHS[editBatchMonth - 1];
     const newName = `${monthName} ${editBatchYear} · ${editBatchLabel.trim()}`;
@@ -556,6 +602,7 @@ const ModDashboard: React.FC = () => {
 
   // Right-click tab → delete batch
   const deleteBatch = async (batch: Batch) => {
+    if (readOnly) return;
     // Cascade delete: demo_scores → demo_days, attendance, rescheduled_sessions, students, then batch
     const dds = (await supabase.from('demo_days').select('id').eq('batch_id', batch.id)).data || [];
     if (dds.length > 0) {
@@ -598,6 +645,7 @@ const ModDashboard: React.FC = () => {
 
 
     const addStudent = async () => {
+    if (readOnly) return;
     const { data } = await supabase.from('students').insert({ batch_id: activeBatchId, name: '' }).select().single();
     if (data) {
       setStudents(prev => [...prev, data]);
@@ -607,6 +655,7 @@ const ModDashboard: React.FC = () => {
   };
 
   const updateStudentName = async (studentId: string, name: string) => {
+    if (readOnly) return;
     await supabase.from('students').update({ name }).eq('id', studentId);
     setStudents(prev => prev.map(s => s.id === studentId ? { ...s, name } : s));
     if (name && user && activeBatch) {
@@ -615,9 +664,10 @@ const ModDashboard: React.FC = () => {
     setEditingStudentId(null);
   };
 
-  const confirmRemoveStudent = (student: Student) => setDeleteConfirm(student);
+  const confirmRemoveStudent = (student: Student) => { if (readOnly) return; setDeleteConfirm(student); };
 
   const removeStudent = async (student: Student) => {
+    if (readOnly) return;
     await supabase.from('attendance').delete().eq('student_id', student.id);
     await supabase.from('demo_feedback').delete().eq('student_id', student.id);
     await supabase.from('demo_scores').delete().eq('student_id', student.id);
@@ -631,6 +681,7 @@ const ModDashboard: React.FC = () => {
 
   // Optimistic attendance updates via upsert (uses unique (batch_id, student_id, session_index))
   const cycleAttendance = async (studentId: string, sessionIndex: number) => {
+    if (readOnly) return;
     if (!activeBatchId) return;
     const existing = attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex);
     let newState: string;
@@ -724,6 +775,7 @@ const ModDashboard: React.FC = () => {
 
   // Mark all present/absent for a session
   const markAllForSession = async (sessionIndex: number, state: 'c' | 'x') => {
+    if (readOnly) return;
     if (!activeBatchId) return;
     for (const student of students) {
       const existing = attendance.find(a => a.student_id === student.id && a.session_index === sessionIndex);
@@ -751,6 +803,7 @@ const ModDashboard: React.FC = () => {
   };
 
   const openNoteModal = (studentId: string, sessionIndex: number) => {
+    if (readOnly) return;
     const student = students.find(s => s.id === studentId);
     const info = getSessionLabel(sessionIndex);
     const dateStr = getSessionDate(sessionIndex) || '';
@@ -765,6 +818,7 @@ const ModDashboard: React.FC = () => {
   };
 
   const saveAbsenceNote = async () => {
+    if (readOnly) return;
     if (!noteModal) return;
     const rec = attendance.find(a => a.student_id === noteModal.studentId && a.session_index === noteModal.sessionIndex);
     if (rec) {
@@ -800,6 +854,7 @@ const ModDashboard: React.FC = () => {
 
   // Reschedule handlers — open modal for a specific original session
   const openRescheduleModal = (sessionIndex: number, existingId?: string) => {
+    if (readOnly) return;
     if (!existingId && reschedulesRemaining <= 0) return;
     const info = getSessionLabel(sessionIndex);
     const weekNum = Math.floor(sessionIndex / 4) + 1;
@@ -810,6 +865,7 @@ const ModDashboard: React.FC = () => {
   };
 
   const saveReschedule = async () => {
+    if (readOnly) return;
     setRescheduleError(null);
     if (!rescheduleModal || !activeBatchId || !user) {
       setRescheduleError('Something went wrong, please try again');
@@ -872,6 +928,7 @@ const ModDashboard: React.FC = () => {
   };
 
   const removeReschedule = async (id: string) => {
+    if (readOnly) return;
     await supabase.from('rescheduled_sessions').delete().eq('id', id);
     setRescheduledSessions(prev => prev.filter(r => r.id !== id));
     setRemoveRescheduleConfirm(null);
@@ -911,6 +968,7 @@ const ModDashboard: React.FC = () => {
   }, [activeBatchId]);
 
   const updateScoreValue = (demoDayId: string, studentId: string, criterion: string, rawVal: string) => {
+    if (readOnly) return;
     const key = `${demoDayId}|${studentId}|${criterion}`;
     setScoreValues(prev => ({ ...prev, [key]: rawVal }));
 
@@ -979,6 +1037,7 @@ const ModDashboard: React.FC = () => {
   };
 
   const openFeedbackModal = (demoDayId: string, studentId: string, dd: DemoDay) => {
+    if (readOnly) return;
     const student = students.find(s => s.id === studentId);
     const existing = getFeedback(demoDayId, studentId);
     const totalScore = getStudentDemoTotal(demoDayId, studentId);
@@ -999,6 +1058,7 @@ const ModDashboard: React.FC = () => {
   };
 
   const saveFeedback = async () => {
+    if (readOnly) return;
     if (!feedbackModal) return;
     const existing = getFeedback(feedbackModal.demoDayId, feedbackModal.studentId);
     if (existing) {
@@ -1050,16 +1110,18 @@ const ModDashboard: React.FC = () => {
           <span style={{ fontWeight: rescheduled ? 600 : undefined }}>
             {info.isDemo ? 'Demo day' : info.day}{rescheduled ? ' ↻' : ''}
           </span>
-          <ColumnMenu
-            sessionIndex={si}
-            isRescheduled={!!rescheduled}
-            onMarkAllPresent={() => markAllForSession(si, 'c')}
-            onMarkAllAbsent={() => markAllForSession(si, 'x')}
-            onReschedule={() => openRescheduleModal(si)}
-            onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
-            onRemoveReschedule={() => rescheduled && setRemoveRescheduleConfirm(rescheduled)}
-            rescheduleDisabled={!rescheduled && reschedulesRemaining <= 0}
-          />
+          {!readOnly && (
+            <ColumnMenu
+              sessionIndex={si}
+              isRescheduled={!!rescheduled}
+              onMarkAllPresent={() => markAllForSession(si, 'c')}
+              onMarkAllAbsent={() => markAllForSession(si, 'x')}
+              onReschedule={() => openRescheduleModal(si)}
+              onEditReschedule={() => openRescheduleModal(si, rescheduled?.id)}
+              onRemoveReschedule={() => rescheduled && setRemoveRescheduleConfirm(rescheduled)}
+              rescheduleDisabled={!rescheduled && reschedulesRemaining <= 0}
+            />
+          )}
         </div>
         {rescheduled ? (
           <div style={{ fontSize: 9, color: '#9a6000' }}>
@@ -1085,13 +1147,15 @@ const ModDashboard: React.FC = () => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Wed</span>
-          <ColumnMenu
-            sessionIndex={wedSessionIndex(week)}
-            isRescheduled={true}
-            onReschedule={() => {}}
-            onEditReschedule={() => openRescheduleModal((((r.from_week ?? r.week_number) - 1) * 4) + (['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) >= 0 ? ['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) : 0), r.id)}
-            onRemoveReschedule={() => setRemoveRescheduleConfirm(r)}
-          />
+          {!readOnly && (
+            <ColumnMenu
+              sessionIndex={wedSessionIndex(week)}
+              isRescheduled={true}
+              onReschedule={() => {}}
+              onEditReschedule={() => openRescheduleModal((((r.from_week ?? r.week_number) - 1) * 4) + (['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) >= 0 ? ['Mon','Tue','Thu','Fri'].indexOf(r.from_day ?? r.day_name) : 0), r.id)}
+              onRemoveReschedule={() => setRemoveRescheduleConfirm(r)}
+            />
+          )}
         </div>
         <div style={{ fontSize: 9, color: '#4ade80', opacity: 0.7 }}>
           ↻ from W{r.from_week ?? r.week_number} {r.from_day ?? r.day_name}
@@ -1152,6 +1216,7 @@ const ModDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Top nav */}
+      {!hideTopNav && (
       <div className="px-6" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: 'hsl(var(--nav-bg))', borderBottom: '1px solid hsl(var(--nav-border))' }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0">
@@ -1160,6 +1225,7 @@ const ModDashboard: React.FC = () => {
               return (
                 <div key={batch.id} className="flex items-center" style={{ maxWidth: 220 }}
                   onContextMenu={(e) => {
+                    if (readOnly) return;
                     e.preventDefault();
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                     setBatchContextMenu({ batchId: batch.id, x: rect.left, y: rect.bottom + 4 });
@@ -1174,7 +1240,7 @@ const ModDashboard: React.FC = () => {
                     }`}
                     style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}
                   >{batch.name}</button>
-                  {isActive && (
+                  {isActive && !readOnly && (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setDeleteBatchConfirm(batch); }}
@@ -1188,7 +1254,9 @@ const ModDashboard: React.FC = () => {
                 </div>
               );
             })}
-            <button onClick={() => { const d = new Date(); const day = d.getDay(); const diff = day === 0 ? 1 : (day === 1 ? 7 : 8 - day); d.setDate(d.getDate() + diff); setNewBatchStartDate(d.toISOString().split('T')[0]); setShowCreateBatch(true); }} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
+            {!readOnly && (
+              <button onClick={() => { const d = new Date(); const day = d.getDay(); const diff = day === 0 ? 1 : (day === 1 ? 7 : 8 - day); d.setDate(d.getDate() + diff); setNewBatchStartDate(d.toISOString().split('T')[0]); setShowCreateBatch(true); }} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-amber-bg text-amber-text">
@@ -1199,6 +1267,7 @@ const ModDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Create batch modal */}
       {showCreateBatch && (
@@ -1548,7 +1617,15 @@ const ModDashboard: React.FC = () => {
 
 
       {activeBatch ? (
-        <div className="p-6 max-w-6xl mx-auto" style={{ paddingTop: 64 }}>
+        <div className="p-6 max-w-6xl mx-auto" style={{ paddingTop: hideTopNav ? 24 : 64 }}>
+          {hideTopNav && (
+            <div style={{ marginBottom: 20 }}>
+              <h2 className="text-foreground" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{activeBatch.name}</h2>
+              <div className="text-muted-foreground" style={{ fontSize: 13, marginTop: 4 }}>
+                {displayModName ? `${displayModName} · ` : ''}{students.length} student{students.length === 1 ? '' : 's'}
+              </div>
+            </div>
+          )}
           {/* Stats row */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
@@ -1590,10 +1667,12 @@ const ModDashboard: React.FC = () => {
                   {allWeeksView ? <List className="w-3.5 h-3.5" /> : <Grid3X3 className="w-3.5 h-3.5" />}
                   {allWeeksView ? 'Week view' : 'All weeks'}
                 </button>
-                <button onClick={addStudent} className="flex items-center gap-1.5 text-xs"
-                  style={{ padding: '4px 12px', borderRadius: 7, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' }}>
-                  <Plus className="w-3.5 h-3.5" /> Add student
-                </button>
+                {!readOnly && (
+                  <button onClick={addStudent} className="flex items-center gap-1.5 text-xs"
+                    style={{ padding: '4px 12px', borderRadius: 7, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' }}>
+                    <Plus className="w-3.5 h-3.5" /> Add student
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1622,9 +1701,11 @@ const ModDashboard: React.FC = () => {
                 <span style={{ fontSize: 32, ...emojiStyle }} className="mb-3">👥</span>
                 <p className="text-sm text-muted-foreground mb-1">No students yet</p>
                 <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }} className="mb-4">Add your first student to get started</p>
-                <button onClick={addStudent} className="flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground" style={{ padding: '8px 16px', borderRadius: 7 }}>
-                  <Plus className="w-4 h-4" /> Add student
-                </button>
+                {!readOnly && (
+                  <button onClick={addStudent} className="flex items-center gap-1.5 text-sm font-medium bg-primary text-primary-foreground" style={{ padding: '8px 16px', borderRadius: 7 }}>
+                    <Plus className="w-4 h-4" /> Add student
+                  </button>
+                )}
               </div>
             ) : allWeeksView ? (
               <div className="overflow-x-auto">
@@ -1721,17 +1802,22 @@ const ModDashboard: React.FC = () => {
                               style={{ borderBottom: '1px solid hsl(var(--foreground))' }} autoFocus />
                           ) : (
                             <>
-                              <span className="cursor-pointer hover:underline" onClick={() => setEditingStudentId(student.id)}>
-                                {student.name || '(click to name)'}
+                              <span
+                                className={readOnly ? '' : 'cursor-pointer hover:underline'}
+                                onClick={readOnly ? undefined : () => setEditingStudentId(student.id)}
+                              >
+                                {student.name || (readOnly ? '(unnamed)' : '(click to name)')}
                               </span>
                               <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
                             </>
                           )}
                           {hoveredStudentId === student.id && (
                             <div className="flex items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
-                              <button onClick={() => confirmRemoveStudent(student)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'hsl(var(--danger-text))' }}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {!readOnly && (
+                                <button onClick={() => confirmRemoveStudent(student)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'hsl(var(--danger-text))' }}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button onClick={() => setReportStudent(student)}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 hover:text-foreground"
                                 style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
@@ -1806,7 +1892,7 @@ const ModDashboard: React.FC = () => {
                 }
               }
               const missingCount = missingNoteCells.length;
-              const showBanner = !allWeeksView && missingCount > 0 && !bannerDismissed;
+              const showBanner = !readOnly && !allWeeksView && missingCount > 0 && !bannerDismissed;
               const modFirstName = (profile?.name || 'Mod').split(' ')[0];
 
               return (
@@ -1855,7 +1941,7 @@ const ModDashboard: React.FC = () => {
                       <span style={emojiStyle}>⭐</span> Demo day attendance marked above · Scores tracked in Demo days section below
                     </div>
                   )}
-                  <button onClick={addStudent} className="mt-3 text-xs text-muted-foreground hover:text-foreground">+ Add student</button>
+                  {!readOnly && <button onClick={addStudent} className="mt-3 text-xs text-muted-foreground hover:text-foreground">+ Add student</button>}
                 </>
               );
             })()}
@@ -1901,7 +1987,7 @@ const ModDashboard: React.FC = () => {
                               <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>{criterion}</td>
                               {students.map(s => (
                                 <td key={s.id} className="text-center px-2 py-2">
-                                  <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} />
+                                  <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} disabled={readOnly} />
                                 </td>
                               ))}
                             </tr>
@@ -1918,10 +2004,10 @@ const ModDashboard: React.FC = () => {
                             {students.map(s => {
                               const fb = getFeedback(dd.id, s.id);
                               return (
-                                <td key={s.id} className="text-center px-2 py-2" style={{ cursor: 'pointer' }} onClick={() => openFeedbackModal(dd.id, s.id, dd)}>
+                                <td key={s.id} className="text-center px-2 py-2" style={{ cursor: readOnly ? 'default' : 'pointer' }} onClick={readOnly ? undefined : () => openFeedbackModal(dd.id, s.id, dd)}>
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                                     <span style={{ fontSize: 20, fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' }}>{fb?.feedback ? '📝' : '📄'}</span>
-                                    <span style={{ fontSize: 10, color: '#555', fontStyle: 'italic' }}>{fb?.feedback ? 'click to edit' : 'click to add'}</span>
+                                    {!readOnly && <span style={{ fontSize: 10, color: '#555', fontStyle: 'italic' }}>{fb?.feedback ? 'click to edit' : 'click to add'}</span>}
                                   </div>
                                 </td>
                               );
