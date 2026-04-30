@@ -47,9 +47,12 @@ const AdminLoginPage: React.FC = () => {
         </form>
 
         {user && (
-          <div className="mt-4">
-            <button onClick={signOut} className="block text-sm text-muted-foreground hover:text-foreground">
-              You're signed in as {profile?.email || 'another user'} — sign out
+          <div className="mt-4 flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+            <span>Signed in as</span>
+            <span className="truncate min-w-0 max-w-[180px]">{profile?.email || 'another user'}</span>
+            <span>.</span>
+            <button onClick={signOut} className="underline hover:text-foreground shrink-0">
+              Sign out
             </button>
           </div>
         )}
