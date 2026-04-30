@@ -123,24 +123,11 @@ const AdminDashboard: React.FC = () => {
   const [modBatchCards, setModBatchCards] = useState<ModBatchCard[]>([]);
   const [loadingModBatches, setLoadingModBatches] = useState(false);
 
-  // FEATURE 1: Full grid view
+  // FEATURE 1: Full grid view (renders ModDashboard in read-only mode)
   const [gridViewBatch, setGridViewBatch] = useState<{
-    batchId: string; batchName: string; modName: string;
-    students: Student[]; attendance: AttendanceRecord[]; demoDays: DemoDay[];
-    demoScores: DemoScore[]; demoFeedback: DemoFeedback[]; rescheduledSessions: RescheduledSession[];
-    startDate: string | null;
+    batchId: string; batchName: string; modName: string; modId: string;
   } | null>(null);
-  const [gridSelectedWeek, setGridSelectedWeek] = useState(1);
-  const [gridAllWeeks, setGridAllWeeks] = useState(false);
-  const [gridDemoDaysExpanded, setGridDemoDaysExpanded] = useState(false);
-  const [gridTooltipCell, setGridTooltipCell] = useState<{ studentId: string; sessionIndex: number; top: number; left: number; centerX: number } | null>(null);
 
-  // Batch data cache for quick grid view loading
-  const adminBatchCacheRef = useRef<Record<string, {
-    students: Student[]; attendance: AttendanceRecord[]; demoDays: DemoDay[];
-    demoScores: DemoScore[]; demoFeedback: DemoFeedback[]; rescheduledSessions: RescheduledSession[];
-    startDate: string | null;
-  }>>({});
 
   // FEATURE 2: Reset access modal
   const [resetAccessModal, setResetAccessModal] = useState<{ mod: Profile; code?: string; loading?: boolean; error?: string } | null>(null);
