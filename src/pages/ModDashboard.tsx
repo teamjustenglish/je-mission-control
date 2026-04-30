@@ -765,8 +765,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         }
       } else if (sessionIndex >= 0 && sessionIndex < 24) {
         const week = Math.floor(sessionIndex / 4) + 1;
+        const dayNumber = (sessionIndex % 4) + 1;
         const day = ['Mon', 'Tue', 'Thu', 'Fri'][sessionIndex % 4];
-        description = `Marked Week ${week}, ${day} attendance`;
+        description = `Marked Week ${week}, Day ${dayNumber} (${day}) attendance`;
       }
       logActivity(user.id, profile?.name || '', 'attendance_marked', description, activeBatch.name);
     }
