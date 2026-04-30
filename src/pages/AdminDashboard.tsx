@@ -190,7 +190,7 @@ const AdminDashboard: React.FC = () => {
       const batchDDIds = batchDDs.map(d => d.id);
       return {
         student,
-        batch: batch || { name: 'Unknown', label: '' },
+        batch: batch || { name: 'Unknown' },
         mod: mod || { id: '', email: '', name: 'Unknown', role: 'moderator', created_at: '' } as Profile,
         weekNumber: weekNum,
         attendancePct: pct,
