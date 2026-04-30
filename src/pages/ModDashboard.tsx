@@ -587,6 +587,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const saveEditBatch = async () => {
+    if (readOnly) return;
     if (!editBatchId || !user || !editBatchLabel.trim()) return;
     const monthName = MONTHS[editBatchMonth - 1];
     const newName = `${monthName} ${editBatchYear} · ${editBatchLabel.trim()}`;
