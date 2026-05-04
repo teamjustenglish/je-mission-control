@@ -24,12 +24,37 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
 
   const handleExport = async () => {
     if (!cardRef.current) return;
+
+    const card = cardRef.current;
+    const scrollContainer = card.querySelector('[data-scroll-container="true"]') as HTMLElement | null;
+
+    const originalCardMaxHeight = card.style.maxHeight;
+    const originalCardHeight = card.style.height;
+    const originalScrollOverflow = scrollContainer?.style.overflowY ?? '';
+    const originalScrollHeight = scrollContainer?.style.height ?? '';
+    const originalScrollTop = scrollContainer?.scrollTop ?? 0;
+
     try {
-      const canvas = await html2canvas(cardRef.current, {
+      card.style.maxHeight = 'none';
+      card.style.height = 'auto';
+      if (scrollContainer) {
+        scrollContainer.style.overflowY = 'visible';
+        scrollContainer.style.height = 'auto';
+        scrollContainer.scrollTop = 0;
+      }
+
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+
+      const canvas = await html2canvas(card, {
         backgroundColor: '#1e1e1e',
         scale: 2,
         useCORS: true,
+        scrollY: 0,
+        windowHeight: card.scrollHeight,
+        height: card.scrollHeight,
+        width: card.scrollWidth,
       });
+
       const link = document.createElement('a');
       const safeName = (student.name || 'student').replace(/[^a-z0-9]+/gi, '_');
       const safeBatch = (batchName || 'batch').replace(/[^a-z0-9]+/gi, '_');
@@ -39,6 +64,14 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
     } catch (e) {
       console.error('Export failed, falling back to print', e);
       window.print();
+    } finally {
+      card.style.maxHeight = originalCardMaxHeight;
+      card.style.height = originalCardHeight;
+      if (scrollContainer) {
+        scrollContainer.style.overflowY = originalScrollOverflow;
+        scrollContainer.style.height = originalScrollHeight;
+        scrollContainer.scrollTop = originalScrollTop;
+      }
     }
   };
 
@@ -134,7 +167,7 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
           </div>
 
           {/* Scrollable body */}
-          <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 }}>
+          <div data-scroll-container="true" style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 }}>
             {/* Stats row */}
             <div style={{ padding: '16px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div style={{ background: '#242424', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
