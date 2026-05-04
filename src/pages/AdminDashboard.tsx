@@ -376,12 +376,27 @@ const AdminDashboard: React.FC = () => {
       const { data, error } = await supabase.functions.invoke('admin-manage-moderator', {
         body: { action: 'create', email: newModEmail.trim(), name: newModName.trim() },
       });
-      if (error) throw error;
-      const result = typeof data === 'string' ? JSON.parse(data) : data;
-      if (result.error) throw new Error(result.error);
-      setGeneratedCode(result.code);
-      setGeneratedModName(result.name || newModName.trim());
-      loadData();
+      if (error) {
+        // Try to extract the actual error message from the response body
+        let message = 'Failed to create moderator';
+        try {
+          const ctx = (error as any).context;
+          if (ctx?.body) {
+            const text = typeof ctx.body === 'string' ? ctx.body : typeof ctx.body?.text === 'function' ? await ctx.body.text() : null;
+            if (text) {
+              const parsed = JSON.parse(text);
+              if (parsed?.error) message = parsed.error;
+            }
+          }
+        } catch {}
+        setAddModError(message);
+      } else {
+        const result = typeof data === 'string' ? JSON.parse(data) : data;
+        if (result.error) throw new Error(result.error);
+        setGeneratedCode(result.code);
+        setGeneratedModName(result.name || newModName.trim());
+        loadData();
+      }
     } catch (err: any) {
       setAddModError(err.message || 'Failed to create moderator');
     }
