@@ -17,7 +17,13 @@ Deno.serve(async (req) => {
     )
 
     // Verify caller is admin
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Not authenticated. Please refresh and log in again.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
     const token = authHeader.replace('Bearer ', '')
     const { data: { user: caller } } = await supabaseAdmin.auth.getUser(token)
     if (!caller) throw new Error('Unauthorized')
@@ -31,6 +37,22 @@ Deno.serve(async (req) => {
     if (action === 'create') {
       const { email, name } = body
       if (!email || !name) throw new Error('Email and name are required')
+
+      // Check if email already exists
+      const { data: existingProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('id, name, email')
+        .eq('email', email)
+        .maybeSingle()
+
+      if (existingProfile) {
+        return new Response(
+          JSON.stringify({
+            error: `A moderator with email ${email} already exists${existingProfile.name ? ` (${existingProfile.name})` : ''}. If you want to reset their access, use the credentials icon on their row.`
+          }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
 
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
       let code = 'BT-'
