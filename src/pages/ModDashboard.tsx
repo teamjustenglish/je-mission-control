@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
@@ -6,6 +6,8 @@ import { Plus, Trash2, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-r
 import StudentReport from '@/components/StudentReport';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
+import ToDoSidebar, { AdminSummaryPanel } from '@/components/ToDoSidebar';
+import type { Task } from '@/components/ToDoSidebar';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -327,6 +329,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [demoScores, setDemoScores] = useState<DemoScore[]>([]);
   const [demoFeedback, setDemoFeedback] = useState<DemoFeedback[]>([]);
   const [rescheduledSessions, setRescheduledSessions] = useState<RescheduledSession[]>([]);
+  const [weekStatuses, setWeekStatuses] = useState<{ id: string; batch_id: string; week_number: number; status: string }[]>([]);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [allWeeksView, setAllWeeksView] = useState(false);
   const [showCreateBatch, setShowCreateBatch] = useState(false);
@@ -366,6 +369,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     demoScores: DemoScore[];
     demoFeedback: DemoFeedback[];
     rescheduledSessions: RescheduledSession[];
+    weekStatuses: { id: string; batch_id: string; week_number: number; status: string }[];
   }
   const batchCacheRef = useRef<Record<string, BatchCacheEntry>>({});
   const initialLoadDone = useRef(false);
@@ -420,7 +424,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   // Save current state back to cache
   const saveToCacheFromState = useCallback(() => {
     if (!activeBatchId) return;
-    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions };
+    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions, weekStatuses };
   }, [activeBatchId, students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions]);
 
   // Keep cache in sync with state changes
@@ -428,16 +432,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Fetch a single batch's data from Supabase
   const fetchBatchData = useCallback(async (batchId: string): Promise<BatchCacheEntry> => {
-    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
+    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes, weekStatusRes] = await Promise.all([
       supabase.from('students').select('*').eq('batch_id', batchId).order('created_at'),
       supabase.from('attendance').select('*').eq('batch_id', batchId),
       supabase.from('demo_days').select('*').eq('batch_id', batchId).order('day_number'),
       supabase.from('rescheduled_sessions').select('*').eq('batch_id', batchId),
+      supabase.from('week_status').select('id,batch_id,week_number,status').eq('batch_id', batchId),
     ]);
     const fetchedStudents = studentsRes.data || [];
     const fetchedAttendance = (attendanceRes.data || []) as AttendanceRecord[];
     const fetchedDemoDays = demoDaysRes.data || [];
     const fetchedRescheduled = (rescheduledRes.data || []) as RescheduledSession[];
+    const fetchedWeekStatuses = (weekStatusRes.data || []) as { id: string; batch_id: string; week_number: number; status: string }[];
     let fetchedDemoScores: DemoScore[] = [];
     let fetchedDemoFeedback: DemoFeedback[] = [];
     const ddIds = fetchedDemoDays.map(d => d.id);
@@ -449,7 +455,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       if (scoresRes.data) fetchedDemoScores = scoresRes.data;
       if (feedbackRes.data) fetchedDemoFeedback = feedbackRes.data as DemoFeedback[];
     }
-    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, demoFeedback: fetchedDemoFeedback, rescheduledSessions: fetchedRescheduled };
+    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, demoFeedback: fetchedDemoFeedback, rescheduledSessions: fetchedRescheduled, weekStatuses: fetchedWeekStatuses };
   }, []);
 
   // Apply cached data to active state
@@ -460,6 +466,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     setDemoScores(entry.demoScores);
     setDemoFeedback(entry.demoFeedback);
     setRescheduledSessions(entry.rescheduledSessions);
+    setWeekStatuses(entry.weekStatuses);
   }, []);
 
   // Switch batch tab — instant from cache, no fetch
@@ -1177,6 +1184,185 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const weekSessions = getWeekSessions(selectedWeek);
   const attendanceColor = avgAttendance === null ? 'hsl(var(--muted-foreground))' : avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
 
+  // --- Task detection for ToDoSidebar ---
+  const computedCurrentWeek = getCurrentWeek(activeBatch?.start_date) ?? 1;
+  const currentWeekStatus = weekStatuses.find(ws => ws.week_number === computedCurrentWeek)?.status || 'open';
+
+  const detectedTasks: Task[] = useMemo(() => {
+    if (!activeBatch || students.length === 0) return [];
+    const tasks: Task[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cw = computedCurrentWeek;
+    const cwStart = (cw - 1) * 4;
+    const dayNames = ['Monday', 'Tuesday', 'Thursday', 'Friday'];
+
+    // 1. Untouched sessions in the past
+    for (let i = 0; i < 4; i++) {
+      const si = cwStart + i;
+      const sessionDate = getSessionDateObj(si);
+      if (!sessionDate || sessionDate > today) continue;
+      // Check if any attendance rows exist for this session
+      const hasAny = attendance.some(a => a.session_index === si);
+      if (!hasAny) {
+        tasks.push({
+          id: `untouched-${si}`,
+          type: 'untouched_session',
+          severity: 'urgent',
+          title: `Mark ${dayNames[i]} attendance`,
+          meta: `Was due ${dayNames[i]}`,
+          targetSessionIndex: si,
+        });
+      }
+    }
+
+    // 2. Absences without reason (all sessions in batch, grouped by session_index)
+    const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
+    for (const a of attendance) {
+      if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '')) {
+        if (!absencesBySession[a.session_index]) absencesBySession[a.session_index] = [];
+        const student = students.find(s => s.id === a.student_id);
+        absencesBySession[a.session_index].push({ studentId: a.student_id, name: student?.name?.split(' ')[0] || 'Student' });
+      }
+    }
+    for (const [siStr, items] of Object.entries(absencesBySession)) {
+      const si = parseInt(siStr);
+      // Only for current week sessions
+      if (si < cwStart || si >= cwStart + 4) continue;
+      const n = items.length;
+      const names = items.slice(0, 3).map(i => i.name);
+      const extra = n > 3 ? ` + ${n - 3} more` : '';
+      tasks.push({
+        id: `absence-note-${si}`,
+        type: 'absence_no_reason',
+        severity: 'warn',
+        title: `Add reason${n > 1 ? 's' : ''} for ${n} absence${n > 1 ? 's' : ''}`,
+        meta: names.join(', ') + extra,
+        targetSessionIndex: si,
+      });
+    }
+
+    // 3. Demo day scores missing (past demo days only)
+    for (const dd of demoDays) {
+      if (!dd.date) continue;
+      const ddDate = new Date(dd.date + 'T00:00:00');
+      if (ddDate > today) continue;
+      let missing = 0;
+      for (const s of students) {
+        if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
+        const hasScores = CRITERIA.some(c => {
+          const key = `${dd.id}|${s.id}|${c}`;
+          return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
+        });
+        if (!hasScores) missing++;
+      }
+      if (missing > 0) {
+        tasks.push({
+          id: `demo-scores-${dd.id}`,
+          type: 'demo_scores_missing',
+          severity: 'warn',
+          title: `Demo Day ${dd.day_number} scores`,
+          meta: `${missing} student${missing > 1 ? 's' : ''} remaining`,
+          targetDemoDayId: dd.id,
+        });
+      }
+    }
+
+    // 4. Demo day feedback missing (past demo days only)
+    for (const dd of demoDays) {
+      if (!dd.date) continue;
+      const ddDate = new Date(dd.date + 'T00:00:00');
+      if (ddDate > today) continue;
+      let missing = 0;
+      for (const s of students) {
+        if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
+        // Must have at least one score
+        const hasScores = CRITERIA.some(c => {
+          const key = `${dd.id}|${s.id}|${c}`;
+          return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
+        });
+        if (!hasScores) continue;
+        const fb = demoFeedback.find(f => f.demo_day_id === dd.id && f.student_id === s.id);
+        if (!fb || !fb.feedback || fb.feedback.trim() === '') missing++;
+      }
+      if (missing > 0) {
+        tasks.push({
+          id: `demo-feedback-${dd.id}`,
+          type: 'demo_feedback_missing',
+          severity: 'warn',
+          title: `Demo Day ${dd.day_number} feedback`,
+          meta: `${missing} student${missing > 1 ? 's' : ''} remaining`,
+          targetDemoDayId: dd.id,
+        });
+      }
+    }
+
+    // Sort: urgent first, warn next
+    tasks.sort((a, b) => {
+      const order = { urgent: 0, warn: 1, default: 2 };
+      return (order[a.severity] ?? 2) - (order[b.severity] ?? 2);
+    });
+
+    // 5. Finalise task (always last)
+    if (currentWeekStatus === 'open') {
+      tasks.push({
+        id: 'finalise',
+        type: 'finalise',
+        severity: 'default',
+        title: 'Finalise this week',
+        meta: `Confirms your data for Week ${cw}`,
+      });
+    }
+
+    return tasks;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, currentWeekStatus, rescheduledSessions]);
+
+  // Click handler for tasks — scroll + pulse
+  const handleTaskClick = (task: Task) => {
+    if (task.type === 'finalise') return;
+    let el: HTMLElement | null = null;
+    if (task.targetSessionIndex !== undefined) {
+      el = document.getElementById(`session-col-${task.targetSessionIndex}`);
+      // Also switch to the correct week view
+      const taskWeek = Math.floor(task.targetSessionIndex / 4) + 1;
+      if (taskWeek !== selectedWeek && !allWeeksView) setSelectedWeek(taskWeek);
+    }
+    if (task.targetDemoDayId) {
+      el = document.getElementById(`demo-day-${task.targetDemoDayId}`);
+      if (!demoDaysExpanded) setDemoDaysExpanded(true);
+    }
+    // Scroll after a small delay to allow state updates (week switch, expand)
+    setTimeout(() => {
+      const target = task.targetSessionIndex !== undefined
+        ? document.getElementById(`session-col-${task.targetSessionIndex}`)
+        : task.targetDemoDayId
+          ? document.getElementById(`demo-day-${task.targetDemoDayId}`)
+          : null;
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('mc-pulse');
+        setTimeout(() => target.classList.remove('mc-pulse'), 3000);
+      }
+    }, 150);
+  };
+
+  const handleFinaliseClick = () => {
+    toast('(this would finalise the week — coming next)');
+  };
+
+  // Compute completion pct for admin summary
+  const completionPct = useMemo(() => {
+    const nonFinalise = detectedTasks.filter(t => t.type !== 'finalise');
+    // Estimate total possible tasks = nonFinalise.length + completed (we can only see current)
+    // Simple: 0 tasks = 100%, otherwise (maxTasks - current) / maxTasks
+    // Since we don't know max, just use: tasks=0 → 100%, else rough estimate
+    if (nonFinalise.length === 0) return 100;
+    // Use a reasonable max of 10 for normalisation
+    const maxEstimate = Math.max(nonFinalise.length, 5);
+    return Math.round(((maxEstimate - nonFinalise.length) / maxEstimate) * 100);
+  }, [detectedTasks]);
+
   // Wednesday helpers — synthetic session_index = 1000 + (week-1) for the optional Wed column
   const WED_BASE = 1000;
   const wedSessionIndex = (week: number) => WED_BASE + (week - 1);
@@ -1189,7 +1375,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const rescheduled = isSessionRescheduled(si);
 
     return (
-      <th key={si} className="text-center py-2 font-medium" style={{
+      <th key={si} id={`session-col-${si}`} className="text-center py-2 font-medium" style={{
         fontSize: 12, position: 'relative',
         background: rescheduled ? '#1e1800' : (info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))'),
         color: rescheduled ? '#d4920a' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
@@ -1694,7 +1880,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
 
       {activeBatch ? (
-        <div className="p-6 max-w-6xl mx-auto" style={{ paddingTop: hideTopNav ? 24 : 64 }}>
+        <div style={{ display: 'flex', paddingTop: hideTopNav ? 0 : 48 }}>
+        <div className="p-6 mx-auto" style={{ flex: 1, minWidth: 0, maxWidth: 1152, paddingTop: hideTopNav ? 24 : 16 }}>
           {hideTopNav && (
             <div style={{ marginBottom: 20 }}>
               <h2 className="text-foreground" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{activeBatch.name}</h2>
@@ -2046,7 +2233,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             {demoDaysExpanded && (
               <div style={{ padding: '0 16px 16px' }} className="space-y-4 mt-4">
                 {demoDays.map(dd => (
-                  <div key={dd.id} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden' }}>
+                  <div key={dd.id} id={`demo-day-${dd.id}`} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden' }}>
                     <div className="flex items-center justify-between" style={{ padding: '14px 16px' }}>
                       <h3 style={{ fontWeight: 600, fontSize: 14 }} className="text-foreground">{dd.title}</h3>
                       <span className="text-muted-foreground" style={{ fontSize: 12 }}>{dd.date || '—'} · {students.length} students</span>
@@ -2139,6 +2326,24 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               </div>
             )}
           </div>
+        </div>
+        {/* Right sidebar */}
+        {readOnly && hideTopNav ? (
+          <AdminSummaryPanel
+            modName={displayModName}
+            weekNumber={computedCurrentWeek}
+            taskCount={detectedTasks.filter(t => t.type !== 'finalise').length}
+            weekCompletionPct={completionPct}
+          />
+        ) : !readOnly ? (
+          <ToDoSidebar
+            tasks={detectedTasks}
+            weekNumber={computedCurrentWeek}
+            weekStatus={currentWeekStatus}
+            onTaskClick={handleTaskClick}
+            onFinaliseClick={handleFinaliseClick}
+          />
+        ) : null}
         </div>
       ) : (
         <div className="flex items-center justify-center h-96 text-muted-foreground" style={{ paddingTop: 48 }}>

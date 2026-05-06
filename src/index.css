@@ -142,3 +142,14 @@ input[type="number"] {
   animation: amber-glow-fade 1.5s ease-out forwards;
 }
 
+/* Task sidebar pulse animation */
+.mc-pulse {
+  animation: mc-pulse-anim 1.5s ease-out 2;
+  border-radius: 5px;
+}
+@keyframes mc-pulse-anim {
+  0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+}
+
