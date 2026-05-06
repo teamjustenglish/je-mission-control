@@ -583,6 +583,14 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         { batch_id: data.id, title: 'Demo day 02', day_number: 2 },
         { batch_id: data.id, title: 'Demo day 03', day_number: 3 },
       ]);
+      // Seed week_status rows (6 weeks, all open) for the new batch
+      const weekRows = [1, 2, 3, 4, 5, 6].map(week => ({
+        batch_id: data.id,
+        week_number: week,
+        status: 'open' as const,
+      }));
+      const { error: wsErr } = await supabase.from('week_status').insert(weekRows);
+      if (wsErr) console.error('Failed to create week_status rows', wsErr);
       await logActivity(user.id, profile?.name || '', 'batch_created', `Created batch ${batchName}`, batchName);
       setShowCreateBatch(false); setNewBatchStartDate('');
       // Fetch the new batch data into cache and switch to it
