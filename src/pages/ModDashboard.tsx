@@ -369,6 +369,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     demoScores: DemoScore[];
     demoFeedback: DemoFeedback[];
     rescheduledSessions: RescheduledSession[];
+    weekStatuses: { id: string; batch_id: string; week_number: number; status: string }[];
   }
   const batchCacheRef = useRef<Record<string, BatchCacheEntry>>({});
   const initialLoadDone = useRef(false);
