@@ -424,7 +424,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   // Save current state back to cache
   const saveToCacheFromState = useCallback(() => {
     if (!activeBatchId) return;
-    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions };
+    batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions, weekStatuses };
   }, [activeBatchId, students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions]);
 
   // Keep cache in sync with state changes
