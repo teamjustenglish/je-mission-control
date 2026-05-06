@@ -2373,6 +2373,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         ) : !readOnly ? (
           <ToDoSidebar
             tasks={detectedTasks}
+            overdueTasks={overdueTasks}
             weekNumber={computedCurrentWeek}
             weekStatus={currentWeekStatus}
             onTaskClick={handleTaskClick}
