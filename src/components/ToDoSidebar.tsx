@@ -71,9 +71,9 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
 
   return (
     <div style={{
-      width: 280, minWidth: 280, position: 'sticky', top: 0, height: '100vh',
-      background: '#161616', borderLeft: '1px solid #2a2a2a',
-      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      width: 280, minWidth: 280, position: 'sticky', top: 16, height: 'calc(100vh - 32px)',
+      maxHeight: 'calc(100vh - 32px)', background: '#161616', borderLeft: '1px solid #2a2a2a',
+      borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
       {/* Tabs */}
       <div style={{ flexShrink: 0, display: 'flex', borderBottom: '1px solid #2a2a2a', padding: '0 12px' }}>
