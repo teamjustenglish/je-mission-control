@@ -2327,6 +2327,24 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             )}
           </div>
         </div>
+        {/* Right sidebar */}
+        {readOnly && hideTopNav ? (
+          <AdminSummaryPanel
+            modName={displayModName}
+            weekNumber={computedCurrentWeek}
+            taskCount={detectedTasks.filter(t => t.type !== 'finalise').length}
+            weekCompletionPct={completionPct}
+          />
+        ) : !readOnly ? (
+          <ToDoSidebar
+            tasks={detectedTasks}
+            weekNumber={computedCurrentWeek}
+            weekStatus={currentWeekStatus}
+            onTaskClick={handleTaskClick}
+            onFinaliseClick={handleFinaliseClick}
+          />
+        ) : null}
+        </div>
       ) : (
         <div className="flex items-center justify-center h-96 text-muted-foreground" style={{ paddingTop: 48 }}>
           <p>No batches yet. Click "+" to create your first batch.</p>
