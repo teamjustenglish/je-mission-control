@@ -432,16 +432,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Fetch a single batch's data from Supabase
   const fetchBatchData = useCallback(async (batchId: string): Promise<BatchCacheEntry> => {
-    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes] = await Promise.all([
+    const [studentsRes, attendanceRes, demoDaysRes, rescheduledRes, weekStatusRes] = await Promise.all([
       supabase.from('students').select('*').eq('batch_id', batchId).order('created_at'),
       supabase.from('attendance').select('*').eq('batch_id', batchId),
       supabase.from('demo_days').select('*').eq('batch_id', batchId).order('day_number'),
       supabase.from('rescheduled_sessions').select('*').eq('batch_id', batchId),
+      supabase.from('week_status').select('id,batch_id,week_number,status').eq('batch_id', batchId),
     ]);
     const fetchedStudents = studentsRes.data || [];
     const fetchedAttendance = (attendanceRes.data || []) as AttendanceRecord[];
     const fetchedDemoDays = demoDaysRes.data || [];
     const fetchedRescheduled = (rescheduledRes.data || []) as RescheduledSession[];
+    const fetchedWeekStatuses = (weekStatusRes.data || []) as { id: string; batch_id: string; week_number: number; status: string }[];
     let fetchedDemoScores: DemoScore[] = [];
     let fetchedDemoFeedback: DemoFeedback[] = [];
     const ddIds = fetchedDemoDays.map(d => d.id);
@@ -453,7 +455,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       if (scoresRes.data) fetchedDemoScores = scoresRes.data;
       if (feedbackRes.data) fetchedDemoFeedback = feedbackRes.data as DemoFeedback[];
     }
-    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, demoFeedback: fetchedDemoFeedback, rescheduledSessions: fetchedRescheduled };
+    return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, demoFeedback: fetchedDemoFeedback, rescheduledSessions: fetchedRescheduled, weekStatuses: fetchedWeekStatuses };
   }, []);
 
   // Apply cached data to active state
