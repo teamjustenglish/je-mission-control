@@ -1184,6 +1184,185 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const weekSessions = getWeekSessions(selectedWeek);
   const attendanceColor = avgAttendance === null ? 'hsl(var(--muted-foreground))' : avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
 
+  // --- Task detection for ToDoSidebar ---
+  const computedCurrentWeek = getCurrentWeek(activeBatch?.start_date) ?? 1;
+  const currentWeekStatus = weekStatuses.find(ws => ws.week_number === computedCurrentWeek)?.status || 'open';
+
+  const detectedTasks: Task[] = useMemo(() => {
+    if (!activeBatch || students.length === 0) return [];
+    const tasks: Task[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cw = computedCurrentWeek;
+    const cwStart = (cw - 1) * 4;
+    const dayNames = ['Monday', 'Tuesday', 'Thursday', 'Friday'];
+
+    // 1. Untouched sessions in the past
+    for (let i = 0; i < 4; i++) {
+      const si = cwStart + i;
+      const sessionDate = getSessionDateObj(si);
+      if (!sessionDate || sessionDate > today) continue;
+      // Check if any attendance rows exist for this session
+      const hasAny = attendance.some(a => a.session_index === si);
+      if (!hasAny) {
+        tasks.push({
+          id: `untouched-${si}`,
+          type: 'untouched_session',
+          severity: 'urgent',
+          title: `Mark ${dayNames[i]} attendance`,
+          meta: `Was due ${dayNames[i]}`,
+          targetSessionIndex: si,
+        });
+      }
+    }
+
+    // 2. Absences without reason (all sessions in batch, grouped by session_index)
+    const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
+    for (const a of attendance) {
+      if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '')) {
+        if (!absencesBySession[a.session_index]) absencesBySession[a.session_index] = [];
+        const student = students.find(s => s.id === a.student_id);
+        absencesBySession[a.session_index].push({ studentId: a.student_id, name: student?.name?.split(' ')[0] || 'Student' });
+      }
+    }
+    for (const [siStr, items] of Object.entries(absencesBySession)) {
+      const si = parseInt(siStr);
+      // Only for current week sessions
+      if (si < cwStart || si >= cwStart + 4) continue;
+      const n = items.length;
+      const names = items.slice(0, 3).map(i => i.name);
+      const extra = n > 3 ? ` + ${n - 3} more` : '';
+      tasks.push({
+        id: `absence-note-${si}`,
+        type: 'absence_no_reason',
+        severity: 'warn',
+        title: `Add reason${n > 1 ? 's' : ''} for ${n} absence${n > 1 ? 's' : ''}`,
+        meta: names.join(', ') + extra,
+        targetSessionIndex: si,
+      });
+    }
+
+    // 3. Demo day scores missing (past demo days only)
+    for (const dd of demoDays) {
+      if (!dd.date) continue;
+      const ddDate = new Date(dd.date + 'T00:00:00');
+      if (ddDate > today) continue;
+      let missing = 0;
+      for (const s of students) {
+        if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
+        const hasScores = CRITERIA.some(c => {
+          const key = `${dd.id}|${s.id}|${c}`;
+          return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
+        });
+        if (!hasScores) missing++;
+      }
+      if (missing > 0) {
+        tasks.push({
+          id: `demo-scores-${dd.id}`,
+          type: 'demo_scores_missing',
+          severity: 'warn',
+          title: `Demo Day ${dd.day_number} scores`,
+          meta: `${missing} student${missing > 1 ? 's' : ''} remaining`,
+          targetDemoDayId: dd.id,
+        });
+      }
+    }
+
+    // 4. Demo day feedback missing (past demo days only)
+    for (const dd of demoDays) {
+      if (!dd.date) continue;
+      const ddDate = new Date(dd.date + 'T00:00:00');
+      if (ddDate > today) continue;
+      let missing = 0;
+      for (const s of students) {
+        if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
+        // Must have at least one score
+        const hasScores = CRITERIA.some(c => {
+          const key = `${dd.id}|${s.id}|${c}`;
+          return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
+        });
+        if (!hasScores) continue;
+        const fb = demoFeedback.find(f => f.demo_day_id === dd.id && f.student_id === s.id);
+        if (!fb || !fb.feedback || fb.feedback.trim() === '') missing++;
+      }
+      if (missing > 0) {
+        tasks.push({
+          id: `demo-feedback-${dd.id}`,
+          type: 'demo_feedback_missing',
+          severity: 'warn',
+          title: `Demo Day ${dd.day_number} feedback`,
+          meta: `${missing} student${missing > 1 ? 's' : ''} remaining`,
+          targetDemoDayId: dd.id,
+        });
+      }
+    }
+
+    // Sort: urgent first, warn next
+    tasks.sort((a, b) => {
+      const order = { urgent: 0, warn: 1, default: 2 };
+      return (order[a.severity] ?? 2) - (order[b.severity] ?? 2);
+    });
+
+    // 5. Finalise task (always last)
+    if (currentWeekStatus === 'open') {
+      tasks.push({
+        id: 'finalise',
+        type: 'finalise',
+        severity: 'default',
+        title: 'Finalise this week',
+        meta: `Confirms your data for Week ${cw}`,
+      });
+    }
+
+    return tasks;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, currentWeekStatus, rescheduledSessions]);
+
+  // Click handler for tasks — scroll + pulse
+  const handleTaskClick = (task: Task) => {
+    if (task.type === 'finalise') return;
+    let el: HTMLElement | null = null;
+    if (task.targetSessionIndex !== undefined) {
+      el = document.getElementById(`session-col-${task.targetSessionIndex}`);
+      // Also switch to the correct week view
+      const taskWeek = Math.floor(task.targetSessionIndex / 4) + 1;
+      if (taskWeek !== selectedWeek && !allWeeksView) setSelectedWeek(taskWeek);
+    }
+    if (task.targetDemoDayId) {
+      el = document.getElementById(`demo-day-${task.targetDemoDayId}`);
+      if (!demoDaysExpanded) setDemoDaysExpanded(true);
+    }
+    // Scroll after a small delay to allow state updates (week switch, expand)
+    setTimeout(() => {
+      const target = task.targetSessionIndex !== undefined
+        ? document.getElementById(`session-col-${task.targetSessionIndex}`)
+        : task.targetDemoDayId
+          ? document.getElementById(`demo-day-${task.targetDemoDayId}`)
+          : null;
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('mc-pulse');
+        setTimeout(() => target.classList.remove('mc-pulse'), 3000);
+      }
+    }, 150);
+  };
+
+  const handleFinaliseClick = () => {
+    toast('(this would finalise the week — coming next)');
+  };
+
+  // Compute completion pct for admin summary
+  const completionPct = useMemo(() => {
+    const nonFinalise = detectedTasks.filter(t => t.type !== 'finalise');
+    // Estimate total possible tasks = nonFinalise.length + completed (we can only see current)
+    // Simple: 0 tasks = 100%, otherwise (maxTasks - current) / maxTasks
+    // Since we don't know max, just use: tasks=0 → 100%, else rough estimate
+    if (nonFinalise.length === 0) return 100;
+    // Use a reasonable max of 10 for normalisation
+    const maxEstimate = Math.max(nonFinalise.length, 5);
+    return Math.round(((maxEstimate - nonFinalise.length) / maxEstimate) * 100);
+  }, [detectedTasks]);
+
   // Wednesday helpers — synthetic session_index = 1000 + (week-1) for the optional Wed column
   const WED_BASE = 1000;
   const wedSessionIndex = (week: number) => WED_BASE + (week - 1);
