@@ -2232,7 +2232,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             {demoDaysExpanded && (
               <div style={{ padding: '0 16px 16px' }} className="space-y-4 mt-4">
                 {demoDays.map(dd => (
-                  <div key={dd.id} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden' }}>
+                  <div key={dd.id} id={`demo-day-${dd.id}`} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden' }}>
                     <div className="flex items-center justify-between" style={{ padding: '14px 16px' }}>
                       <h3 style={{ fontWeight: 600, fontSize: 14 }} className="text-foreground">{dd.title}</h3>
                       <span className="text-muted-foreground" style={{ fontSize: 12 }}>{dd.date || '—'} · {students.length} students</span>
