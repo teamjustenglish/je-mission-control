@@ -820,6 +820,38 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex)?.absence_note || null;
   };
 
+  // Demo day absence detection
+  // Demo days happen on Friday of weeks 2, 4, 6 → session_index = (week-1)*4+3
+  const getDemoDaySessionIndex = (dayNumber: number): number | null => {
+    if (dayNumber < 1 || dayNumber > 3) return null;
+    const week = dayNumber * 2;
+    return (week - 1) * 4 + 3; // Fri of that week
+  };
+
+  const isStudentAbsentOnDemoDay = (studentId: string, dayNumber: number): boolean => {
+    const baseIdx = getDemoDaySessionIndex(dayNumber);
+    if (baseIdx === null) return false;
+    // Check if this Friday was rescheduled
+    const week = dayNumber * 2;
+    const reschedule = rescheduledSessions.find(r =>
+      ((r.from_week ?? r.week_number) === week) &&
+      ((r.from_day ?? r.day_name) === 'Fri')
+    );
+    if (reschedule) {
+      // Demo happened on rescheduled day — check the Wed synthetic index
+      const wedIdx = 1000 + (week - 1); // WED_BASE + (week - 1)
+      const rescheduledAtt = attendance.find(a =>
+        a.student_id === studentId && a.session_index === wedIdx && a.batch_id === activeBatchId
+      );
+      if (rescheduledAtt) return rescheduledAtt.state === 'x';
+      // No attendance record for rescheduled day — treat as not absent (session may not have happened yet)
+      return false;
+    }
+    // Check original Friday slot
+    const original = attendance.find(a => a.student_id === studentId && a.session_index === baseIdx);
+    return original?.state === 'x';
+  };
+
   const openNoteModal = (studentId: string, sessionIndex: number) => {
     if (readOnly) return;
     const student = students.find(s => s.id === studentId);
@@ -962,11 +994,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const present = attendance.filter(a => a.state === 'c').length;
     return computeAttendancePct(present, students.length, sessionsOccurred);
   })();
-  const avgDemoScore = (() => {
-    if (demoScores.length === 0) return 0;
-    const avg = demoScores.reduce((sum, s) => sum + Number(s.score), 0) / demoScores.length;
-    return Math.round(avg * 10) / 10;
-  })();
+  // avgDemoScore computed below after getStudentDemoTotal is defined
   const sessionsLogged = (() => {
     const loggedSessions = new Set<number>();
     attendance.forEach(a => { if (a.state !== 'e') loggedSessions.add(a.session_index); });
@@ -1061,6 +1089,28 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     if (val >= 12) return '#fbbf24';
     return '#f87171';
   };
+
+  const { avgDemoScore, absentDemoCount } = (() => {
+    if (demoDays.length === 0 || students.length === 0) return { avgDemoScore: 0, absentDemoCount: 0 };
+    let totalScore = 0;
+    let studentDayCount = 0;
+    let absentCount = 0;
+    for (const dd of demoDays) {
+      for (const s of students) {
+        if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
+          absentCount++;
+          continue;
+        }
+        const t = getStudentDemoTotal(dd.id, s.id);
+        if (t !== '—') {
+          totalScore += parseFloat(t);
+          studentDayCount++;
+        }
+      }
+    }
+    const avg = studentDayCount > 0 ? Math.round((totalScore / studentDayCount) * 10) / 10 : 0;
+    return { avgDemoScore: avg, absentDemoCount: absentCount };
+  })();
 
   const getFeedback = (demoDayId: string, studentId: string): DemoFeedback | undefined => {
     return demoFeedback.find(f => f.demo_day_id === demoDayId && f.student_id === studentId);
@@ -1658,6 +1708,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500, color: 'hsl(var(--score-amber))' }}>{avgDemoScore || '—'}</div>
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Avg demo score</div>
+              {absentDemoCount > 0 && (
+                <div style={{ fontSize: 9, color: '#888', marginTop: 2, fontStyle: 'italic' }}>
+                  {absentDemoCount} absent (excluded)
+                </div>
+              )}
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{sessionsLogged} / {totalSessions}</div>
@@ -1996,7 +2051,17 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                             <th className="text-left py-2 pr-3 font-medium text-muted-foreground" style={{ fontSize: 12, width: 140 }}>Criteria</th>
                             {students.map(s => (
-                              <th key={s.id} className="text-center px-2 py-2 font-medium text-muted-foreground" style={{ fontSize: 12 }}>{s.name}</th>
+                              <th key={s.id} className="text-center px-2 py-2 font-medium text-muted-foreground" style={{ fontSize: 12 }}>
+                                {s.name}
+                                {isStudentAbsentOnDemoDay(s.id, dd.day_number) && (
+                                  <span style={{
+                                    display: 'inline-block', marginLeft: 5, fontSize: 9,
+                                    padding: '1px 5px', borderRadius: 99,
+                                    background: '#2a1414', color: '#f87171',
+                                    border: '1px solid #4a2424', fontWeight: 500, verticalAlign: 'middle',
+                                  }}>absent</span>
+                                )}
+                              </th>
                             ))}
                           </tr>
                         </thead>
@@ -2006,7 +2071,20 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>{criterion}</td>
                               {students.map(s => (
                                 <td key={s.id} className="text-center px-2 py-2">
-                                  <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} disabled={readOnly} />
+                                  {isStudentAbsentOnDemoDay(s.id, dd.day_number) ? (
+                                    <div
+                                      title="Student was absent on this demo day. Mark them as present on the attendance grid to score them."
+                                      style={{
+                                        width: 44, height: 26, background: '#161616',
+                                        border: '1px dashed #2a2a2a', borderRadius: 5,
+                                        color: '#555', textAlign: 'center', lineHeight: '24px',
+                                        fontSize: 12, cursor: 'not-allowed', userSelect: 'none',
+                                        margin: '0 auto',
+                                      }}
+                                    >—</div>
+                                  ) : (
+                                    <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} disabled={readOnly} />
+                                  )}
                                 </td>
                               ))}
                             </tr>
@@ -2014,6 +2092,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           <tr className="font-medium" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                             <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Total (/ 20)</td>
                             {students.map(s => {
+                              if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
+                                return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: '#f87171' }}>Absent</td>;
+                              }
                               const total = getStudentDemoTotal(dd.id, s.id);
                               return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 700, color: getTotalColor(total) }}>{total}</td>;
                             })}
