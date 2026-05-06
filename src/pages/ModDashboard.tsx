@@ -1880,7 +1880,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
 
       {activeBatch ? (
-        <div className="p-6 max-w-6xl mx-auto" style={{ paddingTop: hideTopNav ? 24 : 64 }}>
+        <div style={{ display: 'flex', paddingTop: hideTopNav ? 0 : 48 }}>
+        <div className="p-6 mx-auto" style={{ flex: 1, minWidth: 0, maxWidth: 1152, paddingTop: hideTopNav ? 24 : 16 }}>
           {hideTopNav && (
             <div style={{ marginBottom: 20 }}>
               <h2 className="text-foreground" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>{activeBatch.name}</h2>
