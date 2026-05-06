@@ -329,6 +329,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [demoScores, setDemoScores] = useState<DemoScore[]>([]);
   const [demoFeedback, setDemoFeedback] = useState<DemoFeedback[]>([]);
   const [rescheduledSessions, setRescheduledSessions] = useState<RescheduledSession[]>([]);
+  const [weekStatuses, setWeekStatuses] = useState<{ id: string; batch_id: string; week_number: number; status: string }[]>([]);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [allWeeksView, setAllWeeksView] = useState(false);
   const [showCreateBatch, setShowCreateBatch] = useState(false);
