@@ -2102,16 +2102,26 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           <tr>
                             <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Individual feedback</td>
                             {students.map(s => {
-                              const fb = getFeedback(dd.id, s.id);
-                              return (
-                                <td key={s.id} className="text-center px-2 py-2" style={{ cursor: readOnly ? 'default' : 'pointer' }} onClick={readOnly ? undefined : () => openFeedbackModal(dd.id, s.id, dd)}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                                    <span style={{ fontSize: 20, fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' }}>{fb?.feedback ? '📝' : '📄'}</span>
-                                    {!readOnly && <span style={{ fontSize: 10, color: '#555', fontStyle: 'italic' }}>{fb?.feedback ? 'click to edit' : 'click to add'}</span>}
-                                  </div>
-                                </td>
-                              );
-                            })}
+                               if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
+                                 return (
+                                   <td key={s.id} className="text-center px-2 py-2">
+                                     <div title="Student was absent on this demo day." style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'not-allowed', userSelect: 'none', opacity: 0.5 }}>
+                                       <div style={{ width: 22, height: 22, background: '#161616', border: '1px dashed #2a2a2a', borderRadius: 4, color: '#555', textAlign: 'center', lineHeight: '20px', fontSize: 12 }}>—</div>
+                                       <span style={{ fontSize: 9, color: '#555', fontStyle: 'italic' }}>absent</span>
+                                     </div>
+                                   </td>
+                                 );
+                               }
+                               const fb = getFeedback(dd.id, s.id);
+                               return (
+                                 <td key={s.id} className="text-center px-2 py-2" style={{ cursor: readOnly ? 'default' : 'pointer' }} onClick={readOnly ? undefined : () => openFeedbackModal(dd.id, s.id, dd)}>
+                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                     <span style={{ fontSize: 20, fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' }}>{fb?.feedback ? '📝' : '📄'}</span>
+                                     {!readOnly && <span style={{ fontSize: 10, color: '#555', fontStyle: 'italic' }}>{fb?.feedback ? 'click to edit' : 'click to add'}</span>}
+                                   </div>
+                                 </td>
+                               );
+                             })}
                           </tr>
                         </tbody>
                       </table>
