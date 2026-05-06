@@ -466,6 +466,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     setDemoScores(entry.demoScores);
     setDemoFeedback(entry.demoFeedback);
     setRescheduledSessions(entry.rescheduledSessions);
+    setWeekStatuses(entry.weekStatuses);
   }, []);
 
   // Switch batch tab — instant from cache, no fetch
