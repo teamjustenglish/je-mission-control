@@ -1188,38 +1188,40 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const computedCurrentWeek = getCurrentWeek(activeBatch?.start_date) ?? 1;
   const currentWeekStatus = weekStatuses.find(ws => ws.week_number === computedCurrentWeek)?.status || 'open';
 
-  const detectedTasks: Task[] = useMemo(() => {
+  // Helper: generate tasks for a given week
+  const generateTasksForWeek = (weekNum: number, isOverdue: boolean): Task[] => {
     if (!activeBatch || students.length === 0) return [];
     const tasks: Task[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const cw = computedCurrentWeek;
-    const cwStart = (cw - 1) * 4;
+    const wStart = (weekNum - 1) * 4;
     const dayNames = ['Monday', 'Tuesday', 'Thursday', 'Friday'];
 
-    // 1. Untouched sessions in the past
+    // 1. Untouched sessions
     for (let i = 0; i < 4; i++) {
-      const si = cwStart + i;
+      const si = wStart + i;
       const sessionDate = getSessionDateObj(si);
       if (!sessionDate || sessionDate > today) continue;
-      // Check if any attendance rows exist for this session
       const hasAny = attendance.some(a => a.session_index === si);
       if (!hasAny) {
         tasks.push({
           id: `untouched-${si}`,
           type: 'untouched_session',
-          severity: 'urgent',
-          title: `Mark ${dayNames[i]} attendance`,
-          meta: `Was due ${dayNames[i]}`,
+          severity: isOverdue ? 'default' : 'urgent',
+          title: `Week ${weekNum}, ${dayNames[i]} attendance`,
+          meta: isOverdue ? 'missed' : `Was due ${dayNames[i]}`,
           targetSessionIndex: si,
+          isOverdue,
+          weekNumber: weekNum,
         });
       }
     }
 
-    // 2. Absences without reason (all sessions in batch, grouped by session_index)
+    // 2. Absences without reason
     const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
     for (const a of attendance) {
       if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '')) {
+        if (a.session_index < wStart || a.session_index >= wStart + 4) continue;
         if (!absencesBySession[a.session_index]) absencesBySession[a.session_index] = [];
         const student = students.find(s => s.id === a.student_id);
         absencesBySession[a.session_index].push({ studentId: a.student_id, name: student?.name?.split(' ')[0] || 'Student' });
@@ -1227,23 +1229,26 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     }
     for (const [siStr, items] of Object.entries(absencesBySession)) {
       const si = parseInt(siStr);
-      // Only for current week sessions
-      if (si < cwStart || si >= cwStart + 4) continue;
+      const dayIdx = si % 4;
       const n = items.length;
-      const names = items.slice(0, 3).map(i => i.name);
+      const names = items.slice(0, 3).map(ii => ii.name);
       const extra = n > 3 ? ` + ${n - 3} more` : '';
       tasks.push({
         id: `absence-note-${si}`,
         type: 'absence_no_reason',
-        severity: 'warn',
-        title: `Add reason${n > 1 ? 's' : ''} for ${n} absence${n > 1 ? 's' : ''}`,
-        meta: names.join(', ') + extra,
+        severity: isOverdue ? 'default' : 'warn',
+        title: `Week ${weekNum}, ${dayNames[dayIdx]} absence reasons`,
+        meta: isOverdue ? 'missed' : names.join(', ') + extra,
         targetSessionIndex: si,
+        isOverdue,
+        weekNumber: weekNum,
       });
     }
 
-    // 3. Demo day scores missing (past demo days only)
+    // 3. Demo day scores missing
     for (const dd of demoDays) {
+      const ddWeek = dd.day_number * 2;
+      if (ddWeek !== weekNum) continue;
       if (!dd.date) continue;
       const ddDate = new Date(dd.date + 'T00:00:00');
       if (ddDate > today) continue;
@@ -1260,23 +1265,26 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         tasks.push({
           id: `demo-scores-${dd.id}`,
           type: 'demo_scores_missing',
-          severity: 'warn',
-          title: `Demo Day ${dd.day_number} scores`,
-          meta: `${missing} student${missing > 1 ? 's' : ''} remaining`,
+          severity: isOverdue ? 'default' : 'warn',
+          title: `Week ${weekNum}, Demo Day ${dd.day_number} scores`,
+          meta: isOverdue ? 'missed' : `${missing} student${missing > 1 ? 's' : ''} remaining`,
           targetDemoDayId: dd.id,
+          isOverdue,
+          weekNumber: weekNum,
         });
       }
     }
 
-    // 4. Demo day feedback missing (past demo days only)
+    // 4. Demo day feedback missing
     for (const dd of demoDays) {
+      const ddWeek = dd.day_number * 2;
+      if (ddWeek !== weekNum) continue;
       if (!dd.date) continue;
       const ddDate = new Date(dd.date + 'T00:00:00');
       if (ddDate > today) continue;
       let missing = 0;
       for (const s of students) {
         if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
-        // Must have at least one score
         const hasScores = CRITERIA.some(c => {
           const key = `${dd.id}|${s.id}|${c}`;
           return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
@@ -1289,62 +1297,94 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         tasks.push({
           id: `demo-feedback-${dd.id}`,
           type: 'demo_feedback_missing',
-          severity: 'warn',
-          title: `Demo Day ${dd.day_number} feedback`,
-          meta: `${missing} student${missing > 1 ? 's' : ''} remaining`,
+          severity: isOverdue ? 'default' : 'warn',
+          title: `Week ${weekNum}, Demo Day ${dd.day_number} feedback`,
+          meta: isOverdue ? 'missed' : `${missing} student${missing > 1 ? 's' : ''} remaining`,
           targetDemoDayId: dd.id,
+          isOverdue,
+          weekNumber: weekNum,
         });
       }
     }
 
-    // Sort: urgent first, warn next
+    return tasks;
+  };
+
+  // Current week tasks
+  const detectedTasks: Task[] = useMemo(() => {
+    if (!activeBatch || students.length === 0) return [];
+    const cw = computedCurrentWeek;
+    const tasks = generateTasksForWeek(cw, false);
     tasks.sort((a, b) => {
       const order = { urgent: 0, warn: 1, default: 2 };
       return (order[a.severity] ?? 2) - (order[b.severity] ?? 2);
     });
-
-    // 5. Finalise task (always last)
     if (currentWeekStatus === 'open') {
       tasks.push({
         id: 'finalise',
         type: 'finalise',
         severity: 'default',
-        title: 'Finalise this week',
+        title: `Finalise Week ${cw}`,
         meta: `Confirms your data for Week ${cw}`,
       });
     }
-
     return tasks;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, currentWeekStatus, rescheduledSessions]);
 
-  // Click handler for tasks — scroll + pulse
+  // Overdue tasks (previous weeks that are 'open' or 'closed' — not 'finalised' or 'reopened')
+  const overdueTasks: Task[] = useMemo(() => {
+    if (!activeBatch || students.length === 0) return [];
+    const cw = computedCurrentWeek;
+    const allOverdue: Task[] = [];
+    for (let w = 1; w < cw; w++) {
+      const ws = weekStatuses.find(s => s.week_number === w);
+      const status = ws?.status || 'open';
+      if (status === 'finalised' || status === 'reopened') continue;
+      const weekTasks = generateTasksForWeek(w, true);
+      allOverdue.push(...weekTasks);
+    }
+    return allOverdue;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, weekStatuses, rescheduledSessions]);
+
+  // Click handler for tasks — switch week, scroll + pulse
   const handleTaskClick = (task: Task) => {
-    if (task.type === 'finalise') return;
-    let el: HTMLElement | null = null;
+    if (task.type === 'finalise' || task.isOverdue) return;
+
+    let targetWeek: number | null = null;
     if (task.targetSessionIndex !== undefined) {
-      el = document.getElementById(`session-col-${task.targetSessionIndex}`);
-      // Also switch to the correct week view
-      const taskWeek = Math.floor(task.targetSessionIndex / 4) + 1;
-      if (taskWeek !== selectedWeek && !allWeeksView) setSelectedWeek(taskWeek);
+      targetWeek = Math.floor(task.targetSessionIndex / 4) + 1;
+    } else if (task.targetDemoDayId) {
+      const dd = demoDays.find(d => d.id === task.targetDemoDayId);
+      if (dd) targetWeek = dd.day_number * 2;
     }
-    if (task.targetDemoDayId) {
-      el = document.getElementById(`demo-day-${task.targetDemoDayId}`);
-      if (!demoDaysExpanded) setDemoDaysExpanded(true);
+
+    if (targetWeek !== null) {
+      if (allWeeksView) setAllWeeksView(false);
+      if (targetWeek !== selectedWeek) setSelectedWeek(targetWeek);
     }
-    // Scroll after a small delay to allow state updates (week switch, expand)
-    setTimeout(() => {
-      const target = task.targetSessionIndex !== undefined
-        ? document.getElementById(`session-col-${task.targetSessionIndex}`)
-        : task.targetDemoDayId
-          ? document.getElementById(`demo-day-${task.targetDemoDayId}`)
-          : null;
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        target.classList.add('mc-pulse');
-        setTimeout(() => target.classList.remove('mc-pulse'), 3000);
-      }
-    }, 150);
+
+    if (task.targetDemoDayId && !demoDaysExpanded) {
+      setDemoDaysExpanded(true);
+    }
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const targetId = task.targetSessionIndex !== undefined
+          ? `session-col-${task.targetSessionIndex}`
+          : task.targetDemoDayId
+            ? `demo-day-${task.targetDemoDayId}`
+            : null;
+        if (!targetId) return;
+        const target = document.getElementById(targetId);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.classList.add('mc-pulse');
+          setTimeout(() => target.classList.remove('mc-pulse'), 2400);
+        }
+      }, 100);
+    });
   };
 
   const handleFinaliseClick = () => {
@@ -1354,15 +1394,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   // Compute completion pct for admin summary
   const completionPct = useMemo(() => {
     const nonFinalise = detectedTasks.filter(t => t.type !== 'finalise');
-    // Estimate total possible tasks = nonFinalise.length + completed (we can only see current)
-    // Simple: 0 tasks = 100%, otherwise (maxTasks - current) / maxTasks
-    // Since we don't know max, just use: tasks=0 → 100%, else rough estimate
     if (nonFinalise.length === 0) return 100;
-    // Use a reasonable max of 10 for normalisation
     const maxEstimate = Math.max(nonFinalise.length, 5);
     return Math.round(((maxEstimate - nonFinalise.length) / maxEstimate) * 100);
   }, [detectedTasks]);
-
   // Wednesday helpers — synthetic session_index = 1000 + (week-1) for the optional Wed column
   const WED_BASE = 1000;
   const wedSessionIndex = (week: number) => WED_BASE + (week - 1);
