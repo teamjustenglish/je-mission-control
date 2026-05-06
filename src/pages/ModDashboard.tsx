@@ -839,7 +839,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     );
     if (reschedule) {
       // Demo happened on rescheduled day — check the Wed synthetic index
-      const wedIdx = WED_BASE + (week - 1);
+      const wedIdx = 1000 + (week - 1); // WED_BASE + (week - 1)
       const rescheduledAtt = attendance.find(a =>
         a.student_id === studentId && a.session_index === wedIdx && a.batch_id === activeBatchId
       );
