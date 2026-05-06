@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from 'react';
 
 interface Task {
   id: string;
@@ -10,12 +9,15 @@ interface Task {
   targetSessionIndex?: number;
   targetDemoDayId?: string;
   targetStudentId?: string;
+  isOverdue?: boolean;
+  weekNumber?: number;
 }
 
 interface ToDoSidebarProps {
   tasks: Task[];
+  overdueTasks: Task[];
   weekNumber: number;
-  weekStatus: string; // 'open' | 'finalised' | 'closed' | 'reopened'
+  weekStatus: string;
   onTaskClick: (task: Task) => void;
   onFinaliseClick: () => void;
 }
@@ -47,8 +49,9 @@ const formatCountdown = (deadline: Date): string => {
   return `${hours}h left`;
 };
 
-const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, weekNumber, weekStatus, onTaskClick, onFinaliseClick }) => {
+const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumber, weekStatus, onTaskClick, onFinaliseClick }) => {
   const [countdown, setCountdown] = useState(() => formatCountdown(getThisWeeksFriday()));
+  const [activeTab, setActiveTab] = useState<'current' | 'overdue'>('current');
 
   useEffect(() => {
     const iv = setInterval(() => setCountdown(formatCountdown(getThisWeeksFriday())), 60000);
@@ -58,6 +61,7 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, weekNumber, weekStatus
   const nonFinaliseTasks = tasks.filter(t => t.type !== 'finalise');
   const finaliseTask = tasks.find(t => t.type === 'finalise');
   const canFinalise = nonFinaliseTasks.length === 0 && !!finaliseTask;
+  const hasOverdue = overdueTasks.length > 0;
 
   const severityColors: Record<string, { text: string; border: string }> = {
     urgent: { text: '#f87171', border: '#f87171' },
@@ -68,102 +72,154 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, weekNumber, weekStatus
   return (
     <div style={{
       width: 280, minWidth: 280, position: 'sticky', top: 0, height: '100vh',
-      background: '#161616', borderLeft: '1px solid #2a2a2a', padding: '14px 12px',
+      background: '#161616', borderLeft: '1px solid #2a2a2a',
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: '#e8e8e8' }}>📋 To do</span>
-        <span style={{
-          fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 99,
-          background: nonFinaliseTasks.length > 0 ? '#2a1f00' : '#0d2a0d',
-          color: nonFinaliseTasks.length > 0 ? '#fbbf24' : '#4ade80',
-        }}>{nonFinaliseTasks.length}</span>
+      {/* Tabs */}
+      <div style={{ flexShrink: 0, display: 'flex', borderBottom: '1px solid #2a2a2a', padding: '0 12px' }}>
+        <button
+          onClick={() => setActiveTab('current')}
+          style={{
+            fontSize: 11, padding: '7px 11px', background: 'none', border: 'none', cursor: 'pointer',
+            color: activeTab === 'current' ? '#e8e8e8' : '#888',
+            fontWeight: activeTab === 'current' ? 500 : 400,
+            borderBottom: activeTab === 'current' ? '2px solid #e8e8e8' : '2px solid transparent',
+            marginBottom: -1,
+          }}
+        >
+          Current week
+        </button>
+        {hasOverdue && (
+          <button
+            onClick={() => setActiveTab('overdue')}
+            style={{
+              fontSize: 11, padding: '7px 11px', background: 'none', border: 'none', cursor: 'pointer',
+              color: activeTab === 'overdue' ? '#e8e8e8' : '#888',
+              fontWeight: activeTab === 'overdue' ? 500 : 400,
+              borderBottom: activeTab === 'overdue' ? '2px solid #e8e8e8' : '2px solid transparent',
+              marginBottom: -1,
+            }}
+          >
+            Overdue ({overdueTasks.length})
+          </button>
+        )}
       </div>
 
-      {/* Deadline pill */}
-      <div style={{
-        background: '#1e1800', border: '1px solid #5a4a00', color: '#fbbf24',
-        fontSize: 10, padding: '6px 9px', borderRadius: 5, marginBottom: 12, lineHeight: 1.4,
-      }}>
-        Closes Friday 11:59 PM · {countdown}
-      </div>
+      {activeTab === 'current' ? (
+        <>
+          {/* Deadline pill */}
+          <div style={{
+            flexShrink: 0,
+            background: '#1e1800', border: '1px solid #5a4a00', color: '#fbbf24',
+            fontSize: 10, padding: '6px 9px', borderRadius: 5, margin: '12px 12px 0', lineHeight: 1.4,
+          }}>
+            Closes Friday 11:59 PM · {countdown}
+          </div>
 
-      {/* Task list */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {nonFinaliseTasks.length === 0 && !finaliseTask ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-            <span style={{ fontSize: 28 }}>☕</span>
-            <span style={{ fontSize: 13, color: '#e8e8e8', fontWeight: 500 }}>All caught up</span>
-            <span style={{ fontSize: 11, color: '#888', textAlign: 'center' }}>Nothing to do this week. Go take a break.</span>
+          {/* Task list — scrollable */}
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 12px 6px' }}>
+            {nonFinaliseTasks.length === 0 ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <span style={{ fontSize: 28 }}>☕</span>
+                <span style={{ fontSize: 13, color: '#e8e8e8', fontWeight: 500 }}>All caught up</span>
+                <span style={{ fontSize: 11, color: '#888', textAlign: 'center' }}>
+                  {finaliseTask ? 'Ready to finalise this week.' : 'Nothing to do this week. Go take a break.'}
+                </span>
+              </div>
+            ) : (
+              nonFinaliseTasks.map(task => {
+                const colors = severityColors[task.severity] || severityColors.default;
+                return (
+                  <div
+                    key={task.id}
+                    onClick={() => onTaskClick(task)}
+                    style={{
+                      background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6,
+                      padding: '8px 10px', cursor: 'pointer', transition: 'border-color 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#3a3a3a'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2a2a'; }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{
+                        width: 12, height: 12, borderRadius: 2, flexShrink: 0,
+                        border: `1.5px solid ${colors.border}`, background: 'transparent',
+                      }} />
+                      <span style={{ fontSize: 11, color: colors.text, fontWeight: 500 }}>{task.title}</span>
+                    </div>
+                    {task.meta && (
+                      <div style={{ fontSize: 10, color: '#888', marginTop: 3, marginLeft: 18 }}>{task.meta}</div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
-        ) : nonFinaliseTasks.length === 0 ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-            <span style={{ fontSize: 28 }}>☕</span>
-            <span style={{ fontSize: 13, color: '#e8e8e8', fontWeight: 500 }}>All caught up</span>
-            <span style={{ fontSize: 11, color: '#888', textAlign: 'center' }}>Ready to finalise this week.</span>
+
+          {/* Finalise button — sticky bottom */}
+          {finaliseTask && (
+            <div style={{ flexShrink: 0, padding: '10px 12px 14px', borderTop: '1px solid #2a2a2a' }}>
+              {canFinalise ? (
+                <button
+                  onClick={onFinaliseClick}
+                  style={{
+                    width: '100%', padding: '10px 0', borderRadius: 7, fontSize: 12, fontWeight: 600,
+                    background: '#fff', color: '#111', border: 'none', cursor: 'pointer',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#e8e8e8'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+                >
+                  ✓ Finalise Week {weekNumber}
+                </button>
+              ) : (
+                <div style={{ textAlign: 'center' }}>
+                  <button
+                    disabled
+                    style={{
+                      width: '100%', padding: '10px 0', borderRadius: 7, fontSize: 12, fontWeight: 600,
+                      background: '#222', color: '#555', border: '1px solid #2a2a2a', cursor: 'not-allowed',
+                    }}
+                  >
+                    ✓ Finalise Week {weekNumber}
+                  </button>
+                  <div style={{ fontSize: 9, color: '#555', marginTop: 4 }}>Complete tasks above first</div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        /* Overdue tab */
+        <>
+          <div style={{ flexShrink: 0, padding: '10px 12px 6px' }}>
+            <p style={{ fontSize: 10, color: '#888', fontStyle: 'italic', lineHeight: 1.4 }}>
+              Ask your admin to reopen these weeks if you need to edit.
+            </p>
           </div>
-        ) : (
-          nonFinaliseTasks.map(task => {
-            const colors = severityColors[task.severity] || severityColors.default;
-            return (
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 12px 14px' }}>
+            {overdueTasks.map(task => (
               <div
                 key={task.id}
-                onClick={() => onTaskClick(task)}
                 style={{
                   background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6,
-                  padding: '8px 10px', cursor: 'pointer', transition: 'border-color 0.15s',
+                  padding: '8px 10px', cursor: 'not-allowed', opacity: 0.65,
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#3a3a3a'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2a2a'; }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{
                     width: 12, height: 12, borderRadius: 2, flexShrink: 0,
-                    border: `1.5px solid ${colors.border}`, background: 'transparent',
+                    border: '1.5px solid #555', background: 'transparent',
                   }} />
-                  <span style={{ fontSize: 11, color: colors.text, fontWeight: 500 }}>{task.title}</span>
+                  <span style={{ fontSize: 11, color: '#555', fontWeight: 500 }}>{task.title}</span>
                 </div>
                 {task.meta && (
-                  <div style={{ fontSize: 10, color: '#888', marginTop: 3, marginLeft: 18 }}>{task.meta}</div>
+                  <div style={{ fontSize: 10, color: '#555', marginTop: 3, marginLeft: 18 }}>{task.meta}</div>
                 )}
               </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Finalise button at bottom */}
-      {finaliseTask && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2a2a2a' }}>
-          {canFinalise ? (
-            <button
-              onClick={onFinaliseClick}
-              style={{
-                width: '100%', padding: '10px 0', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                background: '#fff', color: '#111', border: 'none', cursor: 'pointer',
-                transition: 'background 0.1s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#e8e8e8'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
-            >
-              ✓ Finalise this week
-            </button>
-          ) : (
-            <div style={{ textAlign: 'center' }}>
-              <button
-                disabled
-                style={{
-                  width: '100%', padding: '10px 0', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                  background: '#222', color: '#555', border: '1px solid #2a2a2a', cursor: 'not-allowed',
-                }}
-              >
-                ✓ Finalise this week
-              </button>
-              <div style={{ fontSize: 9, color: '#555', marginTop: 4 }}>Complete tasks above first</div>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -181,7 +237,6 @@ export const AdminSummaryPanel: React.FC<{
     <div style={{
       width: 280, minWidth: 280, position: 'sticky', top: 0, height: 'fit-content',
       background: '#161616', borderLeft: '1px solid #2a2a2a', padding: '20px 16px',
-      borderRadius: '0 0 0 0',
     }}>
       <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#555', fontWeight: 600, marginBottom: 12 }}>
         Mod progress
