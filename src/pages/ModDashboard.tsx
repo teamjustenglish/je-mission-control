@@ -1201,14 +1201,21 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
      const formatShortDate = (d: Date): string => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 
      // 1. Attendance missing — flag if ANY student lacks attendance for that session
+     // For current-week (non-overdue): only show if session is in the past OR mod has started marking it.
+     // For overdue weeks: all past sessions are shown regardless.
      for (let i = 0; i < 4; i++) {
        const si = wStart + i;
        const sessionDate = getSessionDateObj(si);
-       if (!sessionDate || sessionDate > today) continue;
+       if (!sessionDate) continue;
        const studentsWithAttendance = attendance.filter(a =>
          a.session_index === si && a.batch_id === activeBatch.id && a.state !== 'e'
        ).length;
        const totalStudents = students.length;
+       const isPastSession = sessionDate < today;
+       const hasStarted = studentsWithAttendance > 0;
+       // Overdue tabs are always past weeks, so show all. Current week: only past or started.
+       if (!isOverdue && !isPastSession && !hasStarted) continue;
+       if (isOverdue && !isPastSession) continue;
        if (studentsWithAttendance < totalStudents) {
          const remaining = totalStudents - studentsWithAttendance;
          const dateStr = formatShortDate(sessionDate);
