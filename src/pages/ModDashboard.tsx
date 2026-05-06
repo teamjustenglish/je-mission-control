@@ -1189,126 +1189,138 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const currentWeekStatus = weekStatuses.find(ws => ws.week_number === computedCurrentWeek)?.status || 'open';
 
   // Helper: generate tasks for a given week
-  const generateTasksForWeek = (weekNum: number, isOverdue: boolean): Task[] => {
-    if (!activeBatch || students.length === 0) return [];
-    const tasks: Task[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const wStart = (weekNum - 1) * 4;
-    const dayNames = ['Monday', 'Tuesday', 'Thursday', 'Friday'];
+   const generateTasksForWeek = (weekNum: number, isOverdue: boolean): Task[] => {
+     if (!activeBatch || students.length === 0) return [];
+     const tasks: Task[] = [];
+     const today = new Date();
+     today.setHours(0, 0, 0, 0);
+     const wStart = (weekNum - 1) * 4;
+     const shortDayNames = ['Mon', 'Tue', 'Thu', 'Fri'];
+     const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-    // 1. Untouched sessions
-    for (let i = 0; i < 4; i++) {
-      const si = wStart + i;
-      const sessionDate = getSessionDateObj(si);
-      if (!sessionDate || sessionDate > today) continue;
-      const hasAny = attendance.some(a => a.session_index === si);
-      if (!hasAny) {
-        tasks.push({
-          id: `untouched-${si}`,
-          type: 'untouched_session',
-          severity: isOverdue ? 'default' : 'urgent',
-          title: `Week ${weekNum}, ${dayNames[i]} attendance`,
-          meta: isOverdue ? 'missed' : `Was due ${dayNames[i]}`,
-          targetSessionIndex: si,
-          isOverdue,
-          weekNumber: weekNum,
-        });
-      }
-    }
+     const formatShortDate = (d: Date): string => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 
-    // 2. Absences without reason
-    const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
-    for (const a of attendance) {
-      if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '')) {
-        if (a.session_index < wStart || a.session_index >= wStart + 4) continue;
-        if (!absencesBySession[a.session_index]) absencesBySession[a.session_index] = [];
-        const student = students.find(s => s.id === a.student_id);
-        absencesBySession[a.session_index].push({ studentId: a.student_id, name: student?.name?.split(' ')[0] || 'Student' });
-      }
-    }
-    for (const [siStr, items] of Object.entries(absencesBySession)) {
-      const si = parseInt(siStr);
-      const dayIdx = si % 4;
-      const n = items.length;
-      const names = items.slice(0, 3).map(ii => ii.name);
-      const extra = n > 3 ? ` + ${n - 3} more` : '';
-      tasks.push({
-        id: `absence-note-${si}`,
-        type: 'absence_no_reason',
-        severity: isOverdue ? 'default' : 'warn',
-        title: `Week ${weekNum}, ${dayNames[dayIdx]} absence reasons`,
-        meta: isOverdue ? 'missed' : names.join(', ') + extra,
-        targetSessionIndex: si,
-        isOverdue,
-        weekNumber: weekNum,
-      });
-    }
+     // 1. Attendance missing — flag if ANY student lacks attendance for that session
+     for (let i = 0; i < 4; i++) {
+       const si = wStart + i;
+       const sessionDate = getSessionDateObj(si);
+       if (!sessionDate || sessionDate > today) continue;
+       const studentsWithAttendance = attendance.filter(a =>
+         a.session_index === si && a.batch_id === activeBatch.id && a.state !== 'e'
+       ).length;
+       const totalStudents = students.length;
+       if (studentsWithAttendance < totalStudents) {
+         const remaining = totalStudents - studentsWithAttendance;
+         const dateStr = formatShortDate(sessionDate);
+         tasks.push({
+           id: `untouched-${si}`,
+           type: 'untouched_session',
+           severity: isOverdue ? 'default' : 'urgent',
+           title: `Mark ${shortDayNames[i]} ${dateStr} attendance`,
+           meta: `${remaining} of ${totalStudents} students missing`,
+           targetSessionIndex: si,
+           isOverdue,
+           weekNumber: weekNum,
+         });
+       }
+     }
 
-    // 3. Demo day scores missing
-    for (const dd of demoDays) {
-      const ddWeek = dd.day_number * 2;
-      if (ddWeek !== weekNum) continue;
-      if (!dd.date) continue;
-      const ddDate = new Date(dd.date + 'T00:00:00');
-      if (ddDate > today) continue;
-      let missing = 0;
-      for (const s of students) {
-        if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
-        const hasScores = CRITERIA.some(c => {
-          const key = `${dd.id}|${s.id}|${c}`;
-          return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
-        });
-        if (!hasScores) missing++;
-      }
-      if (missing > 0) {
-        tasks.push({
-          id: `demo-scores-${dd.id}`,
-          type: 'demo_scores_missing',
-          severity: isOverdue ? 'default' : 'warn',
-          title: `Week ${weekNum}, Demo Day ${dd.day_number} scores`,
-          meta: isOverdue ? 'missed' : `${missing} student${missing > 1 ? 's' : ''} remaining`,
-          targetDemoDayId: dd.id,
-          isOverdue,
-          weekNumber: weekNum,
-        });
-      }
-    }
+     // 2. Absences without reason
+     const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
+     for (const a of attendance) {
+       if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '')) {
+         if (a.session_index < wStart || a.session_index >= wStart + 4) continue;
+         if (!absencesBySession[a.session_index]) absencesBySession[a.session_index] = [];
+         const student = students.find(s => s.id === a.student_id);
+         absencesBySession[a.session_index].push({ studentId: a.student_id, name: student?.name?.split(' ')[0] || 'Student' });
+       }
+     }
+     for (const [siStr, items] of Object.entries(absencesBySession)) {
+       const si = parseInt(siStr);
+       const dayIdx = si % 4;
+       const sessionDate = getSessionDateObj(si);
+       const dateStr = sessionDate ? ` ${formatShortDate(sessionDate)}` : '';
+       const n = items.length;
+       const names = items.slice(0, 3).map(ii => ii.name);
+       const extra = n > 3 ? ` + ${n - 3} more` : '';
+       tasks.push({
+         id: `absence-note-${si}`,
+         type: 'absence_no_reason',
+         severity: isOverdue ? 'default' : 'warn',
+         title: `${shortDayNames[dayIdx]}${dateStr} absence reasons`,
+         meta: names.join(', ') + extra,
+         targetSessionIndex: si,
+         isOverdue,
+         weekNumber: weekNum,
+       });
+     }
 
-    // 4. Demo day feedback missing
-    for (const dd of demoDays) {
-      const ddWeek = dd.day_number * 2;
-      if (ddWeek !== weekNum) continue;
-      if (!dd.date) continue;
-      const ddDate = new Date(dd.date + 'T00:00:00');
-      if (ddDate > today) continue;
-      let missing = 0;
-      for (const s of students) {
-        if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
-        const hasScores = CRITERIA.some(c => {
-          const key = `${dd.id}|${s.id}|${c}`;
-          return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
-        });
-        if (!hasScores) continue;
-        const fb = demoFeedback.find(f => f.demo_day_id === dd.id && f.student_id === s.id);
-        if (!fb || !fb.feedback || fb.feedback.trim() === '') missing++;
-      }
-      if (missing > 0) {
-        tasks.push({
-          id: `demo-feedback-${dd.id}`,
-          type: 'demo_feedback_missing',
-          severity: isOverdue ? 'default' : 'warn',
-          title: `Week ${weekNum}, Demo Day ${dd.day_number} feedback`,
-          meta: isOverdue ? 'missed' : `${missing} student${missing > 1 ? 's' : ''} remaining`,
-          targetDemoDayId: dd.id,
-          isOverdue,
-          weekNumber: weekNum,
-        });
-      }
-    }
+     // 3. Demo day scores missing
+     for (const dd of demoDays) {
+       const ddWeek = dd.day_number * 2;
+       if (ddWeek !== weekNum) continue;
+       if (!dd.date) continue;
+       const ddDate = new Date(dd.date + 'T00:00:00');
+       if (ddDate > today) continue;
+       const dateStr = formatShortDate(ddDate);
+       let missing = 0;
+       for (const s of students) {
+         if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
+         const hasScores = CRITERIA.some(c => {
+           const key = `${dd.id}|${s.id}|${c}`;
+           return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
+         });
+         if (!hasScores) missing++;
+       }
+       if (missing > 0) {
+         tasks.push({
+           id: `demo-scores-${dd.id}`,
+           type: 'demo_scores_missing',
+           severity: isOverdue ? 'default' : 'warn',
+           title: `Demo Day ${dd.day_number} scores · ${dateStr}`,
+           meta: `${missing} student${missing > 1 ? 's' : ''} remaining`,
+           targetDemoDayId: dd.id,
+           isOverdue,
+           weekNumber: weekNum,
+         });
+       }
+     }
 
-    return tasks;
-  };
+     // 4. Demo day feedback missing
+     for (const dd of demoDays) {
+       const ddWeek = dd.day_number * 2;
+       if (ddWeek !== weekNum) continue;
+       if (!dd.date) continue;
+       const ddDate = new Date(dd.date + 'T00:00:00');
+       if (ddDate > today) continue;
+       const dateStr = formatShortDate(ddDate);
+       let missing = 0;
+       for (const s of students) {
+         if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
+         const hasScores = CRITERIA.some(c => {
+           const key = `${dd.id}|${s.id}|${c}`;
+           return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
+         });
+         if (!hasScores) continue;
+         const fb = demoFeedback.find(f => f.demo_day_id === dd.id && f.student_id === s.id);
+         if (!fb || !fb.feedback || fb.feedback.trim() === '') missing++;
+       }
+       if (missing > 0) {
+         tasks.push({
+           id: `demo-feedback-${dd.id}`,
+           type: 'demo_feedback_missing',
+           severity: isOverdue ? 'default' : 'warn',
+           title: `Demo Day ${dd.day_number} feedback · ${dateStr}`,
+           meta: `${missing} student${missing > 1 ? 's' : ''} remaining`,
+           targetDemoDayId: dd.id,
+           isOverdue,
+           weekNumber: weekNum,
+         });
+       }
+     }
+
+     return tasks;
+   };
 
   // Current week tasks
   const detectedTasks: Task[] = useMemo(() => {
