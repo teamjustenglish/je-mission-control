@@ -1375,7 +1375,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const rescheduled = isSessionRescheduled(si);
 
     return (
-      <th key={si} className="text-center py-2 font-medium" style={{
+      <th key={si} id={`session-col-${si}`} className="text-center py-2 font-medium" style={{
         fontSize: 12, position: 'relative',
         background: rescheduled ? '#1e1800' : (info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))'),
         color: rescheduled ? '#d4920a' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
