@@ -1112,6 +1112,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return { avgDemoScore: avg, absentDemoCount: absentCount };
   })();
 
+  const getFeedback = (demoDayId: string, studentId: string): DemoFeedback | undefined => {
     return demoFeedback.find(f => f.demo_day_id === demoDayId && f.student_id === studentId);
   };
 
