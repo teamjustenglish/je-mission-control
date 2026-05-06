@@ -410,6 +410,70 @@ export type Database = {
         }
         Relationships: []
       }
+      week_status: {
+        Row: {
+          batch_id: string
+          closed_at: string | null
+          created_at: string
+          finalised_at: string | null
+          finalised_by: string | null
+          id: string
+          reopened_at: string | null
+          reopened_by: string | null
+          status: string
+          updated_at: string
+          week_number: number
+        }
+        Insert: {
+          batch_id: string
+          closed_at?: string | null
+          created_at?: string
+          finalised_at?: string | null
+          finalised_by?: string | null
+          id?: string
+          reopened_at?: string | null
+          reopened_by?: string | null
+          status?: string
+          updated_at?: string
+          week_number: number
+        }
+        Update: {
+          batch_id?: string
+          closed_at?: string | null
+          created_at?: string
+          finalised_at?: string | null
+          finalised_by?: string | null
+          id?: string
+          reopened_at?: string | null
+          reopened_by?: string | null
+          status?: string
+          updated_at?: string
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "week_status_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "week_status_finalised_by_fkey"
+            columns: ["finalised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "week_status_reopened_by_fkey"
+            columns: ["reopened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
