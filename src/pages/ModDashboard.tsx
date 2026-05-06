@@ -994,27 +994,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const present = attendance.filter(a => a.state === 'c').length;
     return computeAttendancePct(present, students.length, sessionsOccurred);
   })();
-  const { avgDemoScore, absentDemoCount } = (() => {
-    if (demoDays.length === 0 || students.length === 0) return { avgDemoScore: 0, absentDemoCount: 0 };
-    let totalScore = 0;
-    let studentDayCount = 0;
-    let absentCount = 0;
-    for (const dd of demoDays) {
-      for (const s of students) {
-        if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
-          absentCount++;
-          continue;
-        }
-        const t = getStudentDemoTotal(dd.id, s.id);
-        if (t !== '—') {
-          totalScore += parseFloat(t);
-          studentDayCount++;
-        }
-      }
-    }
-    const avg = studentDayCount > 0 ? Math.round((totalScore / studentDayCount) * 10) / 10 : 0;
-    return { avgDemoScore: avg, absentDemoCount: absentCount };
-  })();
+  // avgDemoScore computed below after getStudentDemoTotal is defined
   const sessionsLogged = (() => {
     const loggedSessions = new Set<number>();
     attendance.forEach(a => { if (a.state !== 'e') loggedSessions.add(a.session_index); });
@@ -1110,7 +1090,28 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return '#f87171';
   };
 
-  const getFeedback = (demoDayId: string, studentId: string): DemoFeedback | undefined => {
+  const { avgDemoScore, absentDemoCount } = (() => {
+    if (demoDays.length === 0 || students.length === 0) return { avgDemoScore: 0, absentDemoCount: 0 };
+    let totalScore = 0;
+    let studentDayCount = 0;
+    let absentCount = 0;
+    for (const dd of demoDays) {
+      for (const s of students) {
+        if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
+          absentCount++;
+          continue;
+        }
+        const t = getStudentDemoTotal(dd.id, s.id);
+        if (t !== '—') {
+          totalScore += parseFloat(t);
+          studentDayCount++;
+        }
+      }
+    }
+    const avg = studentDayCount > 0 ? Math.round((totalScore / studentDayCount) * 10) / 10 : 0;
+    return { avgDemoScore: avg, absentDemoCount: absentCount };
+  })();
+
     return demoFeedback.find(f => f.demo_day_id === demoDayId && f.student_id === studentId);
   };
 
