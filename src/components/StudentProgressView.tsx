@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getSessionLabel, isDemoWeek, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
+import { getSessionLabel, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
 
 export interface StudentProgressViewProps {
   student: { id: string; name: string };
@@ -14,6 +14,7 @@ export interface StudentProgressViewProps {
   rescheduledSessions?: { from_week?: number; from_day?: string; week_number?: number; day_name?: string }[];
   showLiveBanner?: boolean;
   lastUpdatedAt?: Date;
+  hideHeader?: boolean;
 }
 
 const scoreColor = (n: number) => n >= 14 ? '#4ade80' : n >= 9 ? '#fbbf24' : '#f87171';
@@ -22,7 +23,7 @@ const cellScoreColor = (n: number) => n >= 4 ? '#4ade80' : n >= 2.5 ? '#fbbf24' 
 const StudentProgressView: React.FC<StudentProgressViewProps> = ({
   student, batchName, modName, weekNumber, startDate,
   attendance, demoDays, demoScores, demoFeedback,
-  showLiveBanner, lastUpdatedAt,
+  showLiveBanner, lastUpdatedAt, hideHeader,
 }) => {
   // Time ago ticker
   const [, setTick] = useState(0);
@@ -97,30 +98,32 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
       )}
 
       {/* Header */}
-      <div style={{ padding: '20px 0 16px' }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{student.name}</div>
-        <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
-          {batchName} · Moderator: {modName} · Week {weekNumber} of 6
+      {!hideHeader && (
+        <div style={{ padding: '20px 0 16px' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{student.name}</div>
+          <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
+            {batchName} · Moderator: {modName} · Week {weekNumber} of 6
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>
         <div style={{ background: '#1a1a1a', borderRadius: 10, padding: '14px 12px', textAlign: 'center', border: '1px solid #222' }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: attColor }}>{overallPct === null ? '—' : `${overallPct}%`}</div>
-          <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>Attendance</div>
+          <div style={{ fontSize: 10, color: '#888', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: 2 }}>Attendance</div>
           <div style={{ fontSize: 10, color: '#555' }}>{present} of {sessionsOccurred} sessions</div>
         </div>
         <div style={{ background: '#1a1a1a', borderRadius: 10, padding: '14px 12px', textAlign: 'center', border: '1px solid #222' }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#e8e8e8' }}>{demoDaysCompleted} / 3</div>
-          <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>Demo days</div>
+          <div style={{ fontSize: 10, color: '#888', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: 2 }}>Demo days</div>
           <div style={{ fontSize: 10, color: '#555' }}>completed so far</div>
         </div>
         <div style={{ background: '#1a1a1a', borderRadius: 10, padding: '14px 12px', textAlign: 'center', border: '1px solid #222' }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: lastDemoScore !== null ? scoreColor(lastDemoScore) : '#555' }}>
             {lastDemoScore !== null ? `${lastDemoScore} / 20` : '—'}
           </div>
-          <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>Last demo</div>
+          <div style={{ fontSize: 10, color: '#888', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: 2 }}>Last demo</div>
           <div style={{ fontSize: 10, color: '#555' }}>{lastDemoNumber !== null ? `Demo Day ${lastDemoNumber}` : '—'}</div>
         </div>
       </div>
@@ -133,38 +136,41 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
             const days = getWeekAttendance(w);
             const isFuture = w > currentWeek;
             const presentCount = days.filter(d => d.state === 'c').length;
-            const totalInWeek = isFuture ? 0 : Math.min(4, sessionsOccurred - (w - 1) * 4);
+            const totalInWeek = isFuture ? 4 : Math.min(4, sessionsOccurred - (w - 1) * 4);
             return (
-              <div key={w} style={{ background: '#1a1a1a', borderRadius: 8, padding: '10px 6px 8px', textAlign: 'center', border: '1px solid #222', opacity: isFuture ? 0.4 : 1 }}>
-                <div style={{ fontSize: 10, color: w === currentWeek ? '#4ade80' : '#666', fontWeight: 600, marginBottom: 6 }}>W{w}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 6 }}>
+              <div key={w} style={{ background: '#161616', borderRadius: 6, padding: '9px 7px', textAlign: 'center', border: '1px solid #2a2a2a', opacity: isFuture ? 0.4 : 1 }}>
+                <div style={{ fontSize: 10, color: w === currentWeek ? '#4ade80' : '#888', fontWeight: 500, marginBottom: 6 }}>W{w}</div>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 6 }}>
                   {days.map(d => {
-                    const sessionOccurred = d.idx < sessionsOccurred;
-                    const bg = d.state === 'c' ? '#14532d' : d.state === 'x' ? '#450a0a' : sessionOccurred ? '#242424' : '#151515';
-                    const border = d.state === 'c' ? '#166534' : d.state === 'x' ? '#7f1d1d' : sessionOccurred ? '#333' : '#2a2a2a';
-                    const borderStyle = (!sessionOccurred && d.state === 'e') ? 'dashed' : 'solid';
-                    return (
-                      <div key={d.idx} style={{
-                        width: '100%', aspectRatio: '1', borderRadius: 4,
-                        background: bg, border: `1px ${borderStyle} ${border}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <span style={{ fontSize: 10 }}>
-                          {d.state === 'c' ? '✅' : d.state === 'x' ? '❌' : sessionOccurred ? '·' : ''}
-                        </span>
-                      </div>
-                    );
+                    if (d.state === 'c') {
+                      return <div key={d.idx} style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }} />;
+                    } else if (d.state === 'x') {
+                      return <div key={d.idx} style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171' }} />;
+                    } else {
+                      return <div key={d.idx} style={{ width: 8, height: 8, borderRadius: '50%', background: 'transparent', border: '1px dashed #444' }} />;
+                    }
                   })}
                 </div>
-                <div style={{ fontSize: 10, color: '#666' }}>
-                  {isFuture ? '—' : `${presentCount} / ${Math.max(totalInWeek, 0)}`}
+                <div style={{ fontSize: 11, color: isFuture ? '#555' : '#e8e8e8', fontWeight: 500, marginTop: 7 }}>
+                  {isFuture ? '— / 4' : `${presentCount} / ${Math.max(totalInWeek, 0)}`}
                 </div>
               </div>
             );
           })}
         </div>
-        <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 10, color: '#555' }}>
-          <span>✅ Present</span><span>❌ Absent</span><span style={{ color: '#444' }}>· Not marked</span>
+        <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 10, color: '#555', alignItems: 'center' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />
+            Present
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171', display: 'inline-block' }} />
+            Absent
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'transparent', border: '1px dashed #444', display: 'inline-block' }} />
+            Not marked
+          </span>
         </div>
       </div>
 
