@@ -8,6 +8,7 @@ import LoginPage from "./pages/LoginPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import ModDashboard from "./pages/ModDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import StudentShare from "./pages/StudentShare";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
