@@ -25,9 +25,9 @@ const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Sego
 
 const btnPress = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = 'scale(0.98)'; };
 const btnRelease = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = ''; };
-const cancelBtnStyle: React.CSSProperties = { background: '#2a2a2a', border: '1px solid #444', color: '#ccc', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
-const primaryBtnStyle: React.CSSProperties = { background: '#fff', border: '1px solid #fff', color: '#111', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
-const destructBtnStyle: React.CSSProperties = { background: '#7f1d1d', border: '1px solid #991b1b', color: '#fca5a5', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const cancelBtnStyle: React.CSSProperties = { background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input))', color: 'hsl(var(--foreground))', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const primaryBtnStyle: React.CSSProperties = { background: 'hsl(var(--foreground))', border: '1px solid hsl(var(--foreground))', color: 'hsl(var(--primary-foreground))', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const destructBtnStyle: React.CSSProperties = { background: 'hsl(var(--destructive))', border: '1px solid hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
 
 // Attendance cell with tooltip for ❌ states — BUG FIXES: yellow dot position, hover bridge, no ⋮
 const AttendanceCell: React.FC<{
@@ -65,16 +65,16 @@ const AttendanceCell: React.FC<{
               <span style={{
                 position: 'absolute', top: -3, right: -3,
                 width: 7, height: 7, borderRadius: '50%',
-                background: '#4ade80',
-                border: '2px solid #1e1e1e',
+                background: 'hsl(var(--score-green))',
+                border: '2px solid hsl(var(--card))',
                 zIndex: 10,
               }} />
             ) : (
               <span className="pulse-dot" style={{
                 position: 'absolute', top: -3, right: -3,
                 width: 7, height: 7, borderRadius: '50%',
-                background: '#FBBF24',
-                border: '2px solid #1e1e1e',
+                background: 'hsl(var(--score-amber))',
+                border: '2px solid hsl(var(--card))',
                 zIndex: 10,
               }} />
             )}
@@ -91,23 +91,23 @@ const AttendanceCell: React.FC<{
               }}
             >
               <div style={{
-                background: '#252525', border: '1px solid #333', borderRadius: 9,
-                padding: '10px 13px', minWidth: 185, maxWidth: 220,
+                background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: 8,
+                padding: '12px 12px', minWidth: 185, maxWidth: 220,
               }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>Absence note</div>
+                <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.08em' }}>Absence note</div>
                 {absenceNote ? (
                   <>
-                    <div style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.4, marginBottom: 6 }}>{absenceNote}</div>
-                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: '#FBBF24', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    <div style={{ fontSize: 13, color: 'hsl(var(--foreground))', lineHeight: 1.4, marginBottom: 8 }}>{absenceNote}</div>
+                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: 'hsl(var(--score-amber))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                       <span style={emojiStyle}>✏️</span> Edit note
                     </button>
                   </>
                 ) : (
                   <>
-                    <div style={{ fontSize: 13, color: '#555', fontStyle: 'italic', marginBottom: 6 }}>No reason added yet</div>
-                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: '#FBBF24', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic', marginBottom: 8 }}>No reason added yet</div>
+                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: 'hsl(var(--score-amber))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                       <span style={emojiStyle}>✏️</span> Add note
                     </button>
                   </>
@@ -117,7 +117,7 @@ const AttendanceCell: React.FC<{
                   position: 'absolute', bottom: 9, left: '50%', transform: 'translateX(-50%)',
                   width: 0, height: 0,
                   borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
-                  borderTop: '5px solid #252525',
+                  borderTop: '5px solid hsl(var(--secondary))',
                 }} />
               </div>
             </div>
@@ -166,48 +166,48 @@ const ColumnMenu: React.FC<{
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
         style={{
           width: 20, height: 20, borderRadius: 4, border: '1px solid #333',
-          color: '#555', background: '#222', cursor: 'pointer', fontSize: 12,
+          color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--secondary))', cursor: 'pointer', fontSize: 12,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           lineHeight: 1,
           transition: 'all 0.15s',
         }}
-        onMouseEnter={(e) => { const t = e.currentTarget; t.style.background = '#2e2e2e'; t.style.color = '#fff'; t.style.borderColor = '#555'; }}
-        onMouseLeave={(e) => { const t = e.currentTarget; t.style.background = '#222'; t.style.color = '#555'; t.style.borderColor = '#333'; }}
+        onMouseEnter={(e) => { const t = e.currentTarget; t.style.background = 'hsl(var(--border))'; t.style.color = 'hsl(var(--foreground))'; t.style.borderColor = 'hsl(var(--muted-foreground))'; }}
+        onMouseLeave={(e) => { const t = e.currentTarget; t.style.background = 'hsl(var(--secondary))'; t.style.color = 'hsl(var(--muted-foreground))'; t.style.borderColor = 'hsl(var(--border))'; }}
       >⋮</button>
       {open && (
         <div style={{
           position: 'absolute', top: '100%', right: 0, marginTop: 4,
-          background: '#252525', border: '1px solid #333', borderRadius: 9,
+          background: 'hsl(var(--secondary))', border: '1px solid #333', borderRadius: 8,
           padding: 5, minWidth: 195, zIndex: 50,
         }}>
           {isRescheduled ? (
             <>
               <button
                 onClick={() => { setOpen(false); onEditReschedule?.(); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#d4920a', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#d4920a'; }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--amber-text))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--amber-text))'; }}
               >↻ Edit reschedule</button>
               <button
                 onClick={() => { setOpen(false); onRemoveReschedule?.(); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--muted-foreground))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+                onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--muted-foreground))'; }}
               >✕ Remove reschedule</button>
               {isRescheduledTarget && !hideMarkAll && (
                 <>
-                  <div style={{ height: 1, background: '#333', margin: '4px 0' }} />
+                  <div style={{ height: 1, background: 'hsl(var(--border))', margin: '4px 0' }} />
                   <button
                     onClick={() => { setOpen(false); onMarkAllPresent?.(); }}
-                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--muted-foreground))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--muted-foreground))'; }}
                   >✓ Mark all present</button>
                   <button
                     onClick={() => { setOpen(false); onMarkAllAbsent?.(); }}
-                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--muted-foreground))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                    onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+                    onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--muted-foreground))'; }}
                   >✗ Mark all absent</button>
                 </>
               )}
@@ -218,23 +218,23 @@ const ColumnMenu: React.FC<{
                 onClick={() => { if (rescheduleDisabled) return; setOpen(false); onReschedule(); }}
                 title={rescheduleDisabled ? 'Maximum reschedules reached (3 of 3)' : ''}
                 disabled={rescheduleDisabled}
-                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: rescheduleDisabled ? '#555' : '#d4920a', borderRadius: 6, background: 'transparent', border: 'none', cursor: rescheduleDisabled ? 'not-allowed' : 'pointer' }}
-                onMouseEnter={(e) => { if (rescheduleDisabled) return; (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                onMouseLeave={(e) => { if (rescheduleDisabled) return; (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#d4920a'; }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: rescheduleDisabled ? 'hsl(var(--muted-foreground))' : 'hsl(var(--amber-text))', borderRadius: 6, background: 'transparent', border: 'none', cursor: rescheduleDisabled ? 'not-allowed' : 'pointer' }}
+                onMouseEnter={(e) => { if (rescheduleDisabled) return; (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+                onMouseLeave={(e) => { if (rescheduleDisabled) return; (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--amber-text))'; }}
               >↻ Reschedule session</button>
               {!hideMarkAll && <>
-                <div style={{ height: 1, background: '#333', margin: '4px 0' }} />
+                <div style={{ height: 1, background: 'hsl(var(--border))', margin: '4px 0' }} />
                 <button
                   onClick={() => { setOpen(false); onMarkAllPresent?.(); }}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--muted-foreground))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--muted-foreground))'; }}
                 >✓ Mark all present</button>
                 <button
                   onClick={() => { setOpen(false); onMarkAllAbsent?.(); }}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = '#2e2e2e'; (e.target as HTMLElement).style.color = '#fff'; }}
-                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#888'; }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--muted-foreground))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--muted-foreground))'; }}
                 >✗ Mark all absent</button>
               </>}
             </>
@@ -287,7 +287,7 @@ const ScoreInput: React.FC<{
       style={{
         width: 44, textAlign: 'center', fontSize: 12, padding: '3px 6px',
         border: flash ? '1.5px solid #f87171' : '1px solid hsl(var(--input-border))',
-        borderRadius: 5, background: 'hsl(var(--input-bg))', color: 'hsl(var(--foreground))',
+        borderRadius: 6, background: 'hsl(var(--input-bg))', color: 'hsl(var(--foreground))',
         MozAppearance: 'textfield', outline: 'none', transition: 'border-color 0.2s',
         cursor: disabled ? 'default' : 'text',
         opacity: disabled ? 0.85 : 1,
@@ -1101,9 +1101,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const getTotalColor = (totalStr: string): string => {
     if (totalStr === '—') return 'hsl(var(--muted-foreground))';
     const val = parseFloat(totalStr);
-    if (val >= 16) return '#4ade80';
-    if (val >= 12) return '#fbbf24';
-    return '#f87171';
+    if (val >= 16) return 'hsl(var(--score-green))';
+    if (val >= 12) return 'hsl(var(--score-amber))';
+    return 'hsl(var(--score-red))';
   };
 
   const { avgDemoScore, absentDemoCount } = (() => {
@@ -1434,8 +1434,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return (
       <th key={si} id={`session-col-${si}`} className="text-center py-2 font-medium" style={{
         fontSize: 12, position: 'relative',
-        background: rescheduled ? '#1e1800' : (info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))'),
-        color: rescheduled ? '#d4920a' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
+        background: rescheduled ? 'hsl(var(--amber-bg))' : (info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))'),
+        color: rescheduled ? 'hsl(var(--amber-text))' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <span style={{ fontWeight: rescheduled ? 600 : undefined }}>
@@ -1455,11 +1455,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
           )}
         </div>
         {rescheduled ? (
-          <div style={{ fontSize: 9, color: '#9a6000' }}>
+          <div style={{ fontSize: 11, color: 'hsl(var(--amber-text))' }}>
             rescheduled → W{rescheduled.to_week ?? '?'} Wed
           </div>
         ) : (
-          dateStr && <div style={{ fontSize: 10, opacity: 0.7 }}>{dateStr}</div>
+          dateStr && <div style={{ fontSize: 11, opacity: 0.7 }}>{dateStr}</div>
         )}
       </th>
     );
@@ -1474,7 +1474,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return (
       <th key={`wed-${week}`} className="text-center py-2 font-medium" style={{
         fontSize: 12, position: 'relative',
-        background: '#0d1a0d', color: '#4ade80',
+        background: 'hsl(var(--success-bg))', color: 'hsl(var(--score-green))',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <span style={{ fontWeight: 600 }}>Wed</span>
@@ -1491,10 +1491,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             />
           )}
         </div>
-        <div style={{ fontSize: 9, color: '#4ade80', opacity: 0.7 }}>
+        <div style={{ fontSize: 11, color: 'hsl(var(--score-green))', opacity: 0.7 }}>
           ↻ from W{r.from_week ?? r.week_number} {r.from_day ?? r.day_name}
         </div>
-        {dateStr && <div style={{ fontSize: 10, color: '#4ade80', opacity: 0.5 }}>{dateStr}</div>}
+        {dateStr && <div style={{ fontSize: 11, color: 'hsl(var(--score-green))', opacity: 0.5 }}>{dateStr}</div>}
       </th>
     );
   };
@@ -1504,11 +1504,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const rescheduled = isSessionRescheduled(sessionIndex);
     if (rescheduled) {
       return (
-        <div className="flex items-center justify-center py-2" style={{ background: '#1e1800' }}>
+        <div className="flex items-center justify-center py-2" style={{ background: 'hsl(var(--amber-bg))' }}>
           <div style={{
-            width: 26, height: 26, borderRadius: 5,
-            background: '#2a1f00', border: '1.5px solid #5a4a00',
-            color: '#d4920a', fontSize: 14, fontWeight: 700,
+            width: 26, height: 26, borderRadius: 6,
+            background: 'hsl(var(--amber-bg))', border: '1.5px solid #5a4a00',
+            color: 'hsl(var(--amber-text))', fontSize: 14, fontWeight: 700,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           }}>↻</div>
         </div>
@@ -1535,7 +1535,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const state = getAttendanceState(studentId, si);
     const note = getAbsenceNote(studentId, si);
     return (
-      <div style={{ background: '#0d1a0d' }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
+      <div style={{ background: 'hsl(var(--success-bg))' }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
         <AttendanceCell
           state={state}
           isDemo={false}
@@ -1580,9 +1580,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                       onClick={(e) => { e.stopPropagation(); setDeleteBatchConfirm(batch); }}
                       title="Delete batch"
                       aria-label="Delete batch"
-                      style={{ flexShrink: 0, marginLeft: 6, marginRight: 4, width: 14, height: 14, padding: 0, color: '#555', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = '#555'; }}
+                      style={{ flexShrink: 0, marginLeft: 6, marginRight: 4, width: 14, height: 14, padding: 0, color: 'hsl(var(--muted-foreground))', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--score-red))'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'hsl(var(--muted-foreground))'; }}
                     >✕</button>
                   )}
                 </div>
@@ -1612,31 +1612,31 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               <div>
                 <label className="text-sm text-muted-foreground">Month</label>
                 <select value={newBatchMonth} onChange={(e) => setNewBatchMonth(Number(e.target.value))}
-                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }}>
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }}>
                   {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Year</label>
                 <input type="number" value={newBatchYear} onChange={(e) => setNewBatchYear(Number(e.target.value))}
-                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }} />
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1) <span className="text-red-500">*</span></label>
                 <input type="date" value={newBatchStartDate} onChange={(e) => setNewBatchStartDate(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }} />
                 <p className="text-muted-foreground mt-1" style={{ fontSize: 11 }}>Required. This drives all week and day calculations.</p>
               </div>
               <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[newBatchMonth - 1]} {newBatchYear}</strong></p>
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setShowCreateBatch(false)} className="flex-1"
                   style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}>Cancel</button>
                 <button onClick={createBatch} disabled={!newBatchStartDate} className="flex-1 disabled:opacity-50"
                   style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Create</button>
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}>Create</button>
               </div>
             </div>
           </div>
@@ -1645,7 +1645,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="bg-card border-border" style={{ borderRadius: 10, padding: 24 }}>
+        <DialogContent className="bg-card border-border" style={{ borderRadius: 8, padding: 24 }}>
           <DialogHeader>
             <DialogTitle className="text-foreground" style={{ fontSize: 16 }}>Remove student?</DialogTitle>
             <DialogDescription className="text-muted-foreground" style={{ fontSize: 13 }}>
@@ -1655,24 +1655,24 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
           <DialogFooter className="gap-2 mt-4">
             <button onClick={() => setDeleteConfirm(null)}
               style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-              onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}>Cancel</button>
             <button onClick={() => { if (deleteConfirm) { const s = deleteConfirm; setDeleteConfirm(null); removeStudent(s); } }}
               style={destructBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-              onMouseEnter={(e) => { e.currentTarget.style.background = '#991b1b'; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = '#7f1d1d'; }}>Remove</button>
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--destructive))'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--destructive))'; }}>Remove</button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Absence note modal */}
       {noteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }}
           onClick={() => setNoteModal(null)}>
           <div onClick={(e) => e.stopPropagation()}
-            style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 320, width: '100%' }}>
-            <div style={{ fontSize: 14, color: '#F0F0F0', fontWeight: 500, marginBottom: 4 }}>Absence note for {noteModal.studentName}</div>
-            <div style={{ fontSize: 11, color: '#555', marginBottom: 12 }}>
+            style={{ background: 'hsl(var(--card))', border: '1px solid #2A2A2A', borderRadius: 8, padding: 20, maxWidth: 320, width: '100%' }}>
+            <div style={{ fontSize: 14, color: 'hsl(var(--foreground))', fontWeight: 500, marginBottom: 4 }}>Absence note for {noteModal.studentName}</div>
+            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 12 }}>
               {(() => {
                 const dayMap: Record<string, string> = { Mon: 'Monday', Tue: 'Tuesday', Thu: 'Thursday', Fri: 'Friday' };
                 const fullDay = dayMap[noteModal.dayLabel] || noteModal.dayLabel;
@@ -1686,20 +1686,20 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               placeholder="e.g. Sick, family emergency, travel..."
               rows={3}
               style={{
-                width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 6,
-                padding: '8px 10px', fontSize: 12, color: '#F0F0F0', resize: 'none', outline: 'none',
+                width: '100%', background: 'hsl(var(--secondary))', border: '1px solid #333', borderRadius: 6,
+                padding: '8px 10px', fontSize: 12, color: 'hsl(var(--foreground))', resize: 'none', outline: 'none',
                 fontFamily: 'Inter, sans-serif',
               }}
             />
             <div className="flex justify-end gap-2 mt-3">
               <button onClick={() => setNoteModal(null)}
                 style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}>Cancel</button>
               <button onClick={() => { setNoteModal(null); saveAbsenceNote(); }}
                 style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save</button>
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}>Save</button>
             </div>
           </div>
         </div>
@@ -1707,31 +1707,31 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
       {/* Reschedule modal — Wednesday picker (max 3 per batch) */}
       {rescheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }}
           onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); setRescheduleError(null); }}>
           <div onClick={(e) => e.stopPropagation()}
-            style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 400, width: '100%' }}>
-            <div style={{ fontSize: 15, color: '#F0F0F0', fontWeight: 600, marginBottom: 4 }}>↻ Reschedule session</div>
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>
+            style={{ background: 'hsl(var(--card))', border: '1px solid #2A2A2A', borderRadius: 8, padding: 20, maxWidth: 400, width: '100%' }}>
+            <div style={{ fontSize: 15, color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 4 }}>↻ Reschedule session</div>
+            <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 12 }}>
               Week {rescheduleModal.weekNumber} · {rescheduleModal.dayName} — moving to a Wednesday
             </div>
             {/* Counter */}
-            <div style={{ background: '#161616', borderRadius: 8, padding: '10px 12px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '10px 12px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ display: 'flex', gap: 5 }}>
                 {[0, 1, 2].map(i => (
                   <span key={i} style={{
                     width: 9, height: 9, borderRadius: '50%',
-                    background: i < (reschedulesUsed - (rescheduleModal.existingId ? 1 : 0)) ? '#fbbf24' : '#2a2a2a',
+                    background: i < (reschedulesUsed - (rescheduleModal.existingId ? 1 : 0)) ? 'hsl(var(--score-amber))' : 'hsl(var(--border))',
                     border: i < (reschedulesUsed - (rescheduleModal.existingId ? 1 : 0)) ? 'none' : '1px solid #333',
                     display: 'inline-block',
                   }} />
                 ))}
               </div>
-              <span style={{ fontSize: 12, color: '#888' }}>
+              <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
                 {reschedulesUsed} of 3 reschedules used · {reschedulesRemaining} remaining
               </span>
             </div>
-            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 8 }}>Choose a Wednesday to reschedule to:</div>
+            <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 8 }}>Choose a Wednesday to reschedule to:</div>
             <div style={{
               display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto',
               marginBottom: rescheduleError ? 6 : 14,
@@ -1749,39 +1749,39 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                     onClick={() => { if (!isUsed) { setSelectedWednesdayWeek(week); setRescheduleError(null); } }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
-                      background: isSelected ? '#0d1a0d' : '#222',
-                      border: `1px solid ${isSelected ? '#166534' : '#333'}`,
-                      borderRadius: 7, padding: '10px 12px',
+                      background: isSelected ? 'hsl(var(--success-bg))' : 'hsl(var(--secondary))',
+                      border: `1px solid ${isSelected ? 'hsl(var(--success-text))' : 'hsl(var(--border))'}`,
+                      borderRadius: 8, padding: '10px 12px',
                       cursor: isUsed ? 'not-allowed' : 'pointer',
                       opacity: isUsed ? 0.4 : 1,
                     }}>
                     <span style={{
                       width: 14, height: 14, borderRadius: '50%',
-                      border: `2px solid ${isSelected ? '#4ade80' : '#555'}`,
-                      background: isSelected ? '#4ade80' : 'transparent',
+                      border: `2px solid ${isSelected ? 'hsl(var(--score-green))' : 'hsl(var(--muted-foreground))'}`,
+                      background: isSelected ? 'hsl(var(--score-green))' : 'transparent',
                       flexShrink: 0,
                     }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: '#e8e8e8' }}>Week {week} · Wednesday</div>
-                      <div style={{ fontSize: 11, color: '#555' }}>{fmtDate(wedDate) || '(set batch start date)'}</div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'hsl(var(--foreground))' }}>Week {week} · Wednesday</div>
+                      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{fmtDate(wedDate) || '(set batch start date)'}</div>
                     </div>
                     <span style={{
-                      fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 99,
-                      background: isUsed ? '#2a2a2a' : '#0d2a0d',
-                      color: isUsed ? '#888' : '#4ade80',
+                      fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 9999,
+                      background: isUsed ? 'hsl(var(--border))' : 'hsl(var(--success-bg))',
+                      color: isUsed ? 'hsl(var(--muted-foreground))' : 'hsl(var(--score-green))',
                     }}>{isUsed ? 'Already used' : 'Available'}</span>
                   </label>
                 );
               })}
             </div>
             {rescheduleError && (
-              <div style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{rescheduleError}</div>
+              <div style={{ fontSize: 12, color: 'hsl(var(--score-red))', marginBottom: 10 }}>{rescheduleError}</div>
             )}
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => { setRescheduleModal(null); setSelectedWednesdayWeek(null); setRescheduleError(null); }}
                 style={cancelBtnStyle}>Cancel</button>
               <button type="button" onClick={() => saveReschedule()}
-                style={{ background: '#2a1f00', border: '1px solid #7a5000', color: '#d4920a', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: rescheduleSaving ? 'wait' : 'pointer', opacity: rescheduleSaving ? 0.7 : 1 }}
+                style={{ background: 'hsl(var(--amber-bg))', border: '1px solid #7a5000', color: 'hsl(var(--amber-text))', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: rescheduleSaving ? 'wait' : 'pointer', opacity: rescheduleSaving ? 0.7 : 1 }}
               >↻ Confirm reschedule</button>
             </div>
           </div>
@@ -1791,9 +1791,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       {/* Remove reschedule confirmation */}
       {removeRescheduleConfirm && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setRemoveRescheduleConfirm(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 20, maxWidth: 380, width: '100%' }}>
-            <div style={{ fontSize: 15, color: '#F0F0F0', fontWeight: 600, marginBottom: 6 }}>Remove this reschedule?</div>
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 16, lineHeight: 1.5 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'hsl(var(--card))', border: '1px solid #2A2A2A', borderRadius: 8, padding: 20, maxWidth: 380, width: '100%' }}>
+            <div style={{ fontSize: 15, color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 6 }}>Remove this reschedule?</div>
+            <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginBottom: 16, lineHeight: 1.5 }}>
               The original {removeRescheduleConfirm.from_day || removeRescheduleConfirm.day_name} session will be restored.
             </div>
             <div className="flex justify-end gap-2">
@@ -1806,15 +1806,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
       {/* Feedback modal */}
       {feedbackModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)' }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.75)' }}
           onClick={() => setFeedbackModal(null)}>
           <div onClick={(e) => e.stopPropagation()}
-            style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 14, padding: 28, maxWidth: 480, width: '90%' }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Individual feedback</div>
-            <div style={{ fontSize: 13, color: '#555', marginBottom: 20 }}>
+            style={{ background: 'hsl(var(--card))', border: '1px solid #2e2e2e', borderRadius: 8, padding: 28, maxWidth: 480, width: '90%' }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'hsl(var(--foreground))', marginBottom: 4 }}>Individual feedback</div>
+            <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginBottom: 20 }}>
               {feedbackModal.studentName} · {feedbackModal.demoDayTitle} · {feedbackModal.demoDayDate || '—'} · Total: {feedbackModal.totalScore} / 20
             </div>
-            <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>Feedback notes</div>
+            <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 8 }}>Feedback notes</div>
             <textarea
               ref={feedbackTextareaRef}
               value={feedbackText}
@@ -1825,8 +1825,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               }}
               placeholder="Write detailed feedback for this student — what went well, areas to improve, specific examples..."
               style={{
-                width: '100%', background: '#242424', border: '1px solid #333', borderRadius: 10,
-                padding: 16, fontSize: 14, color: '#e8e8e8', lineHeight: 1.8,
+                width: '100%', background: 'hsl(var(--secondary))', border: '1px solid #333', borderRadius: 8,
+                padding: 16, fontSize: 14, color: 'hsl(var(--foreground))', lineHeight: 1.8,
                 outline: 'none', minHeight: 120, resize: 'none', overflow: 'hidden',
                 fontFamily: 'Inter, sans-serif',
               }}
@@ -1834,12 +1834,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
               <button onClick={() => setFeedbackModal(null)}
                 style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}>Cancel</button>
               <button onClick={() => { setFeedbackModal(null); saveFeedback(); }}
                 style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save feedback</button>
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}>Save feedback</button>
             </div>
           </div>
         </div>
@@ -1852,22 +1852,22 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         return (
           <div style={{
             position: 'fixed', left: batchContextMenu.x, top: batchContextMenu.y, zIndex: 100, minWidth: 160,
-            background: '#252525', border: '1px solid #333', borderRadius: 9, padding: 5,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+            background: 'hsl(var(--secondary))', border: '1px solid #333', borderRadius: 8, padding: 5,
+            boxShadow: '0 4px 16px hsl(var(--background) / 0.5)',
           }} onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
             <button
               type="button"
               onClick={() => { setBatchContextMenu(null); openEditBatch(batch); }}
-              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: '#888', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2e2e2e'; }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--muted-foreground))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'hsl(var(--border))'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >✏️ Edit details</button>
-            <div style={{ height: 1, background: '#2e2e2e', margin: '3px 0' }} />
+            <div style={{ height: 1, background: 'hsl(var(--border))', margin: '3px 0' }} />
             <button
               type="button"
               onClick={() => { setBatchContextMenu(null); setDeleteBatchConfirm(batch); }}
-              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: '#f87171', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#2e2e2e'; }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--score-red))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'hsl(var(--border))'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >🗑 Delete batch</button>
           </div>
@@ -1877,20 +1877,20 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       {/* Delete batch confirmation modal */}
       {deleteBatchConfirm && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setDeleteBatchConfirm(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 24, maxWidth: 400, width: '100%' }}>
-            <div style={{ fontSize: 16, color: '#F0F0F0', fontWeight: 500, marginBottom: 8 }}>Delete batch?</div>
-            <div style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>
-              This will permanently delete <span style={{ color: '#f87171' }}>{deleteBatchConfirm.name}</span> and all its attendance, demo day scores and student records. This cannot be undone.
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'hsl(var(--card))', border: '1px solid #2A2A2A', borderRadius: 8, padding: 24, maxWidth: 400, width: '100%' }}>
+            <div style={{ fontSize: 16, color: 'hsl(var(--foreground))', fontWeight: 500, marginBottom: 8 }}>Delete batch?</div>
+            <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', lineHeight: 1.5 }}>
+              This will permanently delete <span style={{ color: 'hsl(var(--score-red))' }}>{deleteBatchConfirm.name}</span> and all its attendance, demo day scores and student records. This cannot be undone.
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setDeleteBatchConfirm(null)}
                 style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}>Cancel</button>
               <button onClick={() => { const b = deleteBatchConfirm; setDeleteBatchConfirm(null); deleteBatch(b); }}
                 style={destructBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#991b1b'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#7f1d1d'; }}>Delete batch</button>
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--destructive))'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--destructive))'; }}>Delete batch</button>
             </div>
           </div>
         </div>
@@ -1905,30 +1905,30 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               <div>
                 <label className="text-sm text-muted-foreground">Month</label>
                 <select value={editBatchMonth} onChange={(e) => setEditBatchMonth(Number(e.target.value))}
-                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }}>
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }}>
                   {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Year</label>
                 <input type="number" value={editBatchYear} onChange={(e) => setEditBatchYear(Number(e.target.value))}
-                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }} />
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1)</label>
                 <input type="date" value={editBatchStartDate} onChange={(e) => setEditBatchStartDate(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 7, background: 'hsl(var(--input-bg))' }} />
+                  className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }} />
               </div>
               <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[editBatchMonth - 1]} {editBatchYear}</strong></p>
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setEditBatchId(null)} className="flex-1"
                   style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}>Cancel</button>
                 <button onClick={() => { setEditBatchId(null); saveEditBatch(); }} className="flex-1 disabled:opacity-50"
                   style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.background = '#fff'; }}>Save changes</button>
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}>Save changes</button>
               </div>
             </div>
           </div>
@@ -1949,43 +1949,43 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
           )}
           {/* Stats row */}
           <div className="grid grid-cols-4 gap-4 mb-6">
-            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{totalStudents}</div>
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Students</div>
             </div>
-            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500, color: attendanceColor }}>{avgAttendance === null ? '—' : `${avgAttendance}%`}</div>
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Avg attendance</div>
             </div>
-            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500, color: 'hsl(var(--score-amber))' }}>{avgDemoScore || '—'}</div>
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Avg demo score</div>
               {absentDemoCount > 0 && (
-                <div style={{ fontSize: 9, color: '#888', marginTop: 2, fontStyle: 'italic' }}>
+                <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2, fontStyle: 'italic' }}>
                   {absentDemoCount} absent (excluded)
                 </div>
               )}
             </div>
-            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{sessionsLogged} / {totalSessions}</div>
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Sessions logged</div>
             </div>
           </div>
 
           {/* Attendance card */}
-          <div className="bg-card mb-4" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
+          <div className="bg-card mb-4" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Attendance</h2>
                 <p className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>{activeBatch.name} · {students.length} students</p>
               </div>
               <div className="flex items-center gap-2">
-                {syncStatus === 'syncing' && <span style={{ fontSize: 11, color: '#555' }}>Syncing...</span>}
-                {syncStatus === 'saved' && <span style={{ fontSize: 11, color: '#4ade80' }}>✓ Saved</span>}
+                {syncStatus === 'syncing' && <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>Syncing...</span>}
+                {syncStatus === 'saved' && <span style={{ fontSize: 11, color: 'hsl(var(--score-green))' }}>✓ Saved</span>}
                 {savedVisible && syncStatus === 'idle' && <span className="save-indicator" style={{ fontSize: 11, color: 'hsl(var(--score-green))' }}>✓ Saved</span>}
                 <button onClick={() => setAllWeeksView(!allWeeksView)} className="flex items-center gap-1.5 text-xs"
                   style={{
-                    padding: '4px 12px', borderRadius: 7,
+                    padding: '4px 12px', borderRadius: 8,
                     ...(allWeeksView
                       ? { background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', border: '1px solid hsl(var(--foreground))' }
                       : { background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' })
@@ -1995,7 +1995,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 </button>
                 {!readOnly && (
                   <button onClick={addStudent} className="flex items-center gap-1.5 text-xs"
-                    style={{ padding: '4px 12px', borderRadius: 7, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' }}>
+                    style={{ padding: '4px 12px', borderRadius: 8, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' }}>
                     <Plus className="w-3.5 h-3.5" /> Add student
                   </button>
                 )}
@@ -2009,13 +2009,13 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   const demo = isDemoWeek(w);
                   const selected = w === selectedWeek;
                   const hasWed = weekHasWednesday(w);
-                  let style: React.CSSProperties = { padding: '4px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer' };
-                  if (hasWed) style = { ...style, background: '#0d1a0d', color: '#4ade80', border: '1px solid #166534' };
+                  let style: React.CSSProperties = { padding: '4px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer' };
+                  if (hasWed) style = { ...style, background: 'hsl(var(--success-bg))', color: 'hsl(var(--score-green))', border: '1px solid #166534' };
                   else if (selected && demo) style = { ...style, background: 'hsl(var(--week-demo-active-bg))', color: 'hsl(var(--week-demo-active-text))', border: '1px solid hsl(var(--week-demo-active-bg))' };
                   else if (selected) style = { ...style, background: 'hsl(var(--week-btn-active-bg))', color: 'hsl(var(--week-btn-active-text))', border: '1px solid hsl(var(--week-btn-active-bg))' };
                   else if (demo) style = { ...style, background: 'hsl(var(--week-demo-bg))', color: 'hsl(var(--week-demo-text))', border: '1px solid hsl(var(--week-demo-border))' };
                   else style = { ...style, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' };
-                  if (selected && hasWed) style = { ...style, background: '#0d1a0d', color: '#4ade80', border: '2px solid #4ade80' };
+                  if (selected && hasWed) style = { ...style, background: 'hsl(var(--success-bg))', color: 'hsl(var(--score-green))', border: '2px solid #4ade80' };
                   return <button key={w} onClick={() => setSelectedWeek(w)} style={style}>Week {w}{demo ? ' · Demo' : ''}{hasWed ? ' ↻' : ''}</button>;
                 })}
               </div>
@@ -2069,7 +2069,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                             <td key={i} className="text-center align-middle" style={{
                               minWidth: 60,
                               padding: '5px 10px',
-                              ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
+                              ...(rescheduled ? { background: 'hsl(var(--amber-bg))' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
                               ...(i % 4 === 0 && i > 0 ? { borderLeft: '2px solid #2e2e2e' } : {}),
                             }}>
                               {renderCell(student.id, i, info.isDemo)}
@@ -2081,7 +2081,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               return (
                                 <React.Fragment key={i}>
                                   {cell}
-                                  <td key={`wed-${w}`} className="text-center align-middle" style={{ minWidth: 60, padding: '5px 10px', background: '#0d1a0d' }}>
+                                  <td key={`wed-${w}`} className="text-center align-middle" style={{ minWidth: 60, padding: '5px 10px', background: 'hsl(var(--success-bg))' }}>
                                     {renderWedCell(student.id, w)}
                                   </td>
                                 </React.Fragment>
@@ -2157,7 +2157,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         const info = getSessionLabel(si);
                         const rescheduled = isSessionRescheduled(si);
                         const cell = (
-                          <td key={si} className="text-center align-middle" style={{ padding: '5px 10px', ...(rescheduled ? { background: '#1e1800' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
+                          <td key={si} className="text-center align-middle" style={{ padding: '5px 10px', ...(rescheduled ? { background: 'hsl(var(--amber-bg))' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
                             {renderCell(student.id, si, info.isDemo)}
                           </td>
                         );
@@ -2165,7 +2165,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           return (
                             <React.Fragment key={si}>
                               {cell}
-                              <td key={`wed-${selectedWeek}`} className="text-center align-middle" style={{ padding: '5px 10px', background: '#0d1a0d' }}>
+                              <td key={`wed-${selectedWeek}`} className="text-center align-middle" style={{ padding: '5px 10px', background: 'hsl(var(--success-bg))' }}>
                                 {renderWedCell(student.id, selectedWeek)}
                               </td>
                             </React.Fragment>
@@ -2185,18 +2185,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 14px', borderTop: '1px solid #2a2a2a',
               }}>
-                <span style={{ fontSize: 11, color: '#555' }}>Reschedules used:</span>
+                <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>Reschedules used:</span>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   {[0, 1, 2].map(i => (
                     <span key={i} style={{
                       width: 10, height: 10, borderRadius: '50%',
-                      background: i < reschedulesUsed ? '#fbbf24' : '#2a2a2a',
+                      background: i < reschedulesUsed ? 'hsl(var(--score-amber))' : 'hsl(var(--border))',
                       border: i < reschedulesUsed ? 'none' : '1px solid #333',
                       display: 'inline-block',
                     }} />
                   ))}
                 </div>
-                <span style={{ fontSize: 11, color: reschedulesRemaining === 0 ? '#f87171' : '#555', marginLeft: 'auto' }}>
+                <span style={{ fontSize: 11, color: reschedulesRemaining === 0 ? 'hsl(var(--score-red))' : 'hsl(var(--muted-foreground))', marginLeft: 'auto' }}>
                   {reschedulesRemaining === 0 ? 'Maximum reached' : `${reschedulesUsed} of 3 used · ${reschedulesRemaining} remaining`}
                 </span>
               </div>
@@ -2225,10 +2225,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 <>
                   {showBanner && !isDevTester && (
                     <div style={{
-                      background: '#1e1800', border: '1px solid #5a4a00', borderRadius: 8,
+                      background: 'hsl(var(--amber-bg))', border: '1px solid #5a4a00', borderRadius: 8,
                       padding: '10px 12px', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
                     }}>
-                      <span style={{ fontSize: 12, color: '#fbbf24', lineHeight: 1.4 }}>
+                      <span style={{ fontSize: 12, color: 'hsl(var(--score-amber))', lineHeight: 1.4 }}>
                         Almost done, {modFirstName}! Just {missingCount} absence{missingCount > 1 ? 's' : ''} need a reason — quick note and you're all good 👍
                       </span>
                       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -2246,11 +2246,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               setNoteText('');
                             }
                           }}
-                          style={{ background: '#5a4a00', border: '1px solid #7a6a10', color: '#fbbf24', borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                          style={{ background: 'hsl(var(--amber-border))', border: '1px solid #7a6a10', color: 'hsl(var(--score-amber))', borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
                         >Add notes</button>
                         <button
                           onClick={() => setBannerDismissed(true)}
-                          style={{ background: 'transparent', border: '1px solid #3a3a00', color: '#888', borderRadius: 6, padding: '5px 12px', fontSize: 11, cursor: 'pointer' }}
+                          style={{ background: 'transparent', border: '1px solid #3a3a00', color: 'hsl(var(--muted-foreground))', borderRadius: 6, padding: '5px 12px', fontSize: 11, cursor: 'pointer' }}
                         >Skip for now</button>
                       </div>
                     </div>
@@ -2267,13 +2267,13 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
           </div>
 
           {/* Demo days section */}
-          <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden' }}>
+          <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, overflow: 'hidden' }}>
             <button onClick={() => setDemoDaysExpanded(!demoDaysExpanded)} className="w-full flex items-center justify-between"
               style={{ padding: '12px 16px', background: 'hsl(var(--grid-header-bg))', borderTop: '1px solid hsl(var(--border))' }}>
               <div className="flex items-center gap-2">
                 {demoDaysExpanded ? <ChevronDown className="w-4 h-4 text-foreground" /> : <ChevronRight className="w-4 h-4 text-foreground" />}
                 <span style={{ fontWeight: 500, fontSize: 13 }} className="text-foreground">Demo days</span>
-                <span style={{ background: 'hsl(var(--pill-success-bg))', color: 'hsl(var(--pill-success-text))', borderRadius: 99, padding: '2px 8px', fontSize: 11 }}>
+                <span style={{ background: 'hsl(var(--pill-success-bg))', color: 'hsl(var(--pill-success-text))', borderRadius: 9999, padding: '2px 8px', fontSize: 11 }}>
                   {demoDays.length} days
                 </span>
               </div>
@@ -2283,7 +2283,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             {demoDaysExpanded && (
               <div style={{ padding: '0 16px 16px' }} className="space-y-4 mt-4">
                 {demoDays.map(dd => (
-                  <div key={dd.id} id={`demo-day-${dd.id}`} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden' }}>
+                  <div key={dd.id} id={`demo-day-${dd.id}`} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, overflow: 'hidden' }}>
                     <div className="flex items-center justify-between" style={{ padding: '14px 16px' }}>
                       <h3 style={{ fontWeight: 600, fontSize: 14 }} className="text-foreground">{dd.title}</h3>
                       <span className="text-muted-foreground" style={{ fontSize: 12 }}>{dd.date || '—'} · {students.length} students</span>
@@ -2300,9 +2300,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                 {s.name}
                                 {isStudentAbsentOnDemoDay(s.id, dd.day_number) && (
                                   <span style={{
-                                    display: 'inline-block', marginLeft: 5, fontSize: 9,
-                                    padding: '1px 5px', borderRadius: 99,
-                                    background: '#2a1414', color: '#f87171',
+                                    display: 'inline-block', marginLeft: 5, fontSize: 11,
+                                    padding: '1px 5px', borderRadius: 9999,
+                                    background: 'hsl(var(--danger-bg))', color: 'hsl(var(--score-red))',
                                     border: '1px solid #4a2424', fontWeight: 500, verticalAlign: 'middle',
                                   }}>absent</span>
                                 )}
@@ -2320,9 +2320,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                     <div
                                       title="Student was absent on this demo day. Mark them as present on the attendance grid to score them."
                                       style={{
-                                        width: 44, height: 26, background: '#161616',
-                                        border: '1px dashed #2a2a2a', borderRadius: 5,
-                                        color: '#555', textAlign: 'center', lineHeight: '24px',
+                                        width: 44, height: 26, background: 'hsl(var(--card))',
+                                        border: '1px dashed #2a2a2a', borderRadius: 6,
+                                        color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '24px',
                                         fontSize: 12, cursor: 'not-allowed', userSelect: 'none',
                                         margin: '0 auto',
                                       }}
@@ -2338,7 +2338,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                             <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Total (/ 20)</td>
                             {students.map(s => {
                               if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
-                                return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: '#f87171' }}>Absent</td>;
+                                return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--score-red))' }}>Absent</td>;
                               }
                               const total = getStudentDemoTotal(dd.id, s.id);
                               return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 700, color: getTotalColor(total) }}>{total}</td>;
@@ -2351,8 +2351,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                  return (
                                    <td key={s.id} className="text-center px-2 py-2">
                                      <div title="Student was absent on this demo day." style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'not-allowed', userSelect: 'none', opacity: 0.5 }}>
-                                       <div style={{ width: 22, height: 22, background: '#161616', border: '1px dashed #2a2a2a', borderRadius: 4, color: '#555', textAlign: 'center', lineHeight: '20px', fontSize: 12 }}>—</div>
-                                       <span style={{ fontSize: 9, color: '#555', fontStyle: 'italic' }}>absent</span>
+                                       <div style={{ width: 22, height: 22, background: 'hsl(var(--card))', border: '1px dashed #2a2a2a', borderRadius: 4, color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '20px', fontSize: 12 }}>—</div>
+                                       <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>absent</span>
                                      </div>
                                    </td>
                                  );
@@ -2362,7 +2362,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                  <td key={s.id} className="text-center px-2 py-2" style={{ cursor: readOnly ? 'default' : 'pointer' }} onClick={readOnly ? undefined : () => openFeedbackModal(dd.id, s.id, dd)}>
                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                                      <span style={{ fontSize: 20, fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' }}>{fb?.feedback ? '📝' : '📄'}</span>
-                                     {!readOnly && <span style={{ fontSize: 10, color: '#555', fontStyle: 'italic' }}>{fb?.feedback ? 'click to edit' : 'click to add'}</span>}
+                                     {!readOnly && <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>{fb?.feedback ? 'click to edit' : 'click to add'}</span>}
                                    </div>
                                  </td>
                                );

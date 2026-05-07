@@ -64,42 +64,42 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
   const hasOverdue = overdueTasks.length > 0;
 
   const severityColors: Record<string, { text: string; border: string }> = {
-    urgent: { text: '#f87171', border: '#f87171' },
-    warn: { text: '#fbbf24', border: '#fbbf24' },
-    default: { text: '#888', border: '#555' },
+    urgent: { text: 'hsl(var(--score-red))', border: 'hsl(var(--score-red))' },
+    warn: { text: 'hsl(var(--score-amber))', border: 'hsl(var(--score-amber))' },
+    default: { text: 'hsl(var(--muted-foreground))', border: 'hsl(var(--muted-foreground))' },
   };
 
   return (
     <div style={{
       width: 320, minWidth: 320, position: 'sticky', top: 16, height: 'calc(100vh - 32px)',
-      maxHeight: 'calc(100vh - 32px)', background: '#161616', borderLeft: '1px solid #2a2a2a',
+      maxHeight: 'calc(100vh - 32px)', background: 'hsl(var(--card))', borderLeft: '1px solid hsl(var(--border))',
       borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
       {/* Header */}
       <div style={{
         flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8,
-        padding: '12px 12px 8px', borderBottom: '1px solid #2a2a2a',
+        padding: '12px 12px 8px', borderBottom: '1px solid hsl(var(--border))',
       }}>
-        <span style={{ fontSize: 13, color: '#e8e8e8', fontWeight: 500 }}>
+        <span style={{ fontSize: 13, color: 'hsl(var(--foreground))', fontWeight: 500 }}>
           📋 To do
         </span>
         <span style={{
-          background: '#2a1f00', color: '#fbbf24', padding: '1px 8px',
-          border: '1px solid #5a4a00', borderRadius: 99, fontSize: 11, fontWeight: 500,
+          background: 'hsl(var(--amber-bg))', color: 'hsl(var(--score-amber))', padding: '2px 8px',
+          border: '1px solid hsl(var(--amber-border))', borderRadius: 9999, fontSize: 11, fontWeight: 500,
         }}>
           {nonFinaliseTasks.length + overdueTasks.length}
         </span>
       </div>
 
       {/* Tabs */}
-      <div style={{ flexShrink: 0, display: 'flex', borderBottom: '1px solid #2a2a2a', padding: '0 12px' }}>
+      <div style={{ flexShrink: 0, display: 'flex', borderBottom: '1px solid hsl(var(--border))', padding: '0 12px' }}>
         <button
           onClick={() => setActiveTab('current')}
           style={{
-            fontSize: 11, padding: '7px 11px', background: 'none', border: 'none', cursor: 'pointer',
-            color: activeTab === 'current' ? '#e8e8e8' : '#888',
+            fontSize: 12, padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
+            color: activeTab === 'current' ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
             fontWeight: activeTab === 'current' ? 500 : 400,
-            borderBottom: activeTab === 'current' ? '2px solid #e8e8e8' : '2px solid transparent',
+            borderBottom: activeTab === 'current' ? '2px solid hsl(var(--foreground))' : '2px solid transparent',
             marginBottom: -1,
           }}
         >
@@ -109,10 +109,10 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
           <button
             onClick={() => setActiveTab('overdue')}
             style={{
-              fontSize: 11, padding: '7px 11px', background: 'none', border: 'none', cursor: 'pointer',
-              color: activeTab === 'overdue' ? '#e8e8e8' : '#888',
+              fontSize: 12, padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
+              color: activeTab === 'overdue' ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
               fontWeight: activeTab === 'overdue' ? 500 : 400,
-              borderBottom: activeTab === 'overdue' ? '2px solid #e8e8e8' : '2px solid transparent',
+              borderBottom: activeTab === 'overdue' ? '2px solid hsl(var(--foreground))' : '2px solid transparent',
               marginBottom: -1,
             }}
           >
@@ -126,19 +126,19 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
           {/* Deadline pill */}
           <div style={{
             flexShrink: 0,
-            background: '#1e1800', border: '1px solid #5a4a00', color: '#fbbf24',
-            fontSize: 10, padding: '6px 9px', borderRadius: 5, margin: '12px 12px 0', lineHeight: 1.4,
+            background: 'hsl(var(--amber-bg))', border: '1px solid hsl(var(--amber-border))', color: 'hsl(var(--score-amber))',
+            fontSize: 11, padding: '8px 12px', borderRadius: 6, margin: '12px 12px 0', lineHeight: 1.4,
           }}>
           {weekNumber ? `Week ${weekNumber} closes Friday 11:59 PM` : 'Closes Friday 11:59 PM'} · {countdown}
           </div>
 
           {/* Task list — scrollable */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 12px 6px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 12px 8px' }}>
             {nonFinaliseTasks.length === 0 ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                 <span style={{ fontSize: 28 }}>☕</span>
-                <span style={{ fontSize: 13, color: '#e8e8e8', fontWeight: 500 }}>All caught up</span>
-                <span style={{ fontSize: 11, color: '#888', textAlign: 'center' }}>
+                <span style={{ fontSize: 13, color: 'hsl(var(--foreground))', fontWeight: 500 }}>All caught up</span>
+                <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', textAlign: 'center' }}>
                   {finaliseTask ? 'Ready to finalise this week.' : 'Nothing to do this week. Go take a break.'}
                 </span>
               </div>
@@ -150,21 +150,21 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
                     key={task.id}
                     onClick={() => onTaskClick(task)}
                     style={{
-                      background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6,
-                      padding: '8px 10px', cursor: 'pointer', transition: 'border-color 0.15s',
+                      background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6,
+                      padding: '8px 12px', cursor: 'pointer', transition: 'border-color 0.15s',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#3a3a3a'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2a2a'; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'hsl(var(--border))'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'hsl(var(--border))'; }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{
                         width: 12, height: 12, borderRadius: 2, flexShrink: 0,
                         border: `1.5px solid ${colors.border}`, background: 'transparent',
                       }} />
-                      <span style={{ fontSize: 11, color: colors.text, fontWeight: 500 }}>{task.title}</span>
+                      <span style={{ fontSize: 12, color: colors.text, fontWeight: 500 }}>{task.title}</span>
                     </div>
                     {task.meta && (
-                      <div style={{ fontSize: 10, color: '#888', marginTop: 3, marginLeft: 18 }}>{task.meta}</div>
+                      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4, marginLeft: 20 }}>{task.meta}</div>
                     )}
                   </div>
                 );
@@ -174,17 +174,15 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
 
           {/* Finalise button — sticky bottom */}
           {finaliseTask && (
-            <div style={{ flexShrink: 0, padding: '10px 12px 14px', borderTop: '1px solid #2a2a2a' }}>
+            <div style={{ flexShrink: 0, padding: '12px 12px 16px', borderTop: '1px solid hsl(var(--border))' }}>
               {canFinalise ? (
                 <button
                   onClick={onFinaliseClick}
                   style={{
-                    width: '100%', padding: '10px 0', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                    background: '#fff', color: '#111', border: 'none', cursor: 'pointer',
+                    width: '100%', padding: '12px 0', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', border: 'none', cursor: 'pointer',
                     transition: 'background 0.1s',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#e8e8e8'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
                 >
                   ✓ Finalise Week {weekNumber}
                 </button>
@@ -193,13 +191,13 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
                   <button
                     disabled
                     style={{
-                      width: '100%', padding: '10px 0', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                      background: '#222', color: '#555', border: '1px solid #2a2a2a', cursor: 'not-allowed',
+                      width: '100%', padding: '12px 0', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                      background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))', border: '1px solid hsl(var(--border))', cursor: 'not-allowed',
                     }}
                   >
                     ✓ Finalise Week {weekNumber}
                   </button>
-                  <div style={{ fontSize: 9, color: '#555', marginTop: 4 }}>Complete tasks above first</div>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>Complete tasks above first</div>
                 </div>
               )}
             </div>
@@ -208,29 +206,29 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
       ) : (
         /* Overdue tab */
         <>
-          <div style={{ flexShrink: 0, padding: '10px 12px 6px' }}>
-            <p style={{ fontSize: 10, color: '#888', fontStyle: 'italic', lineHeight: 1.4 }}>
+          <div style={{ flexShrink: 0, padding: '12px 12px 8px' }}>
+            <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic', lineHeight: 1.4 }}>
               Ask your admin to reopen these weeks if you need to edit.
             </p>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 12px 14px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 12px 16px' }}>
             {overdueTasks.map(task => (
               <div
                 key={task.id}
                 style={{
-                  background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 6,
-                  padding: '8px 10px', cursor: 'not-allowed', opacity: 0.65,
+                  background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6,
+                  padding: '8px 12px', cursor: 'not-allowed', opacity: 0.65,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{
                     width: 12, height: 12, borderRadius: 2, flexShrink: 0,
-                    border: '1.5px solid #555', background: 'transparent',
+                    border: '1.5px solid hsl(var(--muted-foreground))', background: 'transparent',
                   }} />
-                  <span style={{ fontSize: 11, color: '#555', fontWeight: 500 }}>{task.title}</span>
+                  <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', fontWeight: 500 }}>{task.title}</span>
                 </div>
                 {task.meta && (
-                  <div style={{ fontSize: 10, color: '#555', marginTop: 3, marginLeft: 18 }}>{task.meta}</div>
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4, marginLeft: 20 }}>{task.meta}</div>
                 )}
               </div>
             ))}
@@ -248,21 +246,21 @@ export const AdminSummaryPanel: React.FC<{
   taskCount: number;
   weekCompletionPct: number;
 }> = ({ modName, weekNumber, taskCount, weekCompletionPct }) => {
-  const pctColor = weekCompletionPct >= 80 ? '#4ade80' : weekCompletionPct >= 50 ? '#fbbf24' : '#f87171';
+  const pctColor = weekCompletionPct >= 80 ? 'hsl(var(--score-green))' : weekCompletionPct >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
   return (
     <div style={{
       width: 280, minWidth: 280, position: 'sticky', top: 0, height: 'fit-content',
-      background: '#161616', borderLeft: '1px solid #2a2a2a', padding: '20px 16px',
+      background: 'hsl(var(--card))', borderLeft: '1px solid hsl(var(--border))', padding: '20px 16px',
     }}>
-      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#555', fontWeight: 600, marginBottom: 12 }}>
+      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', fontWeight: 600, marginBottom: 12 }}>
         Mod progress
       </div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: '#e8e8e8', marginBottom: 2 }}>{modName || 'Moderator'}</div>
-      <div style={{ fontSize: 12, color: '#888', marginBottom: 14 }}>Week {weekNumber} of 6</div>
-      <div style={{ height: 1, background: '#2a2a2a', marginBottom: 14 }} />
-      <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>Week completion</div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: 'hsl(var(--foreground))', marginBottom: 2 }}>{modName || 'Moderator'}</div>
+      <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 14 }}>Week {weekNumber} of 6</div>
+      <div style={{ height: 1, background: 'hsl(var(--border))', marginBottom: 14 }} />
+      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>Week completion</div>
       <div style={{ fontSize: 28, fontWeight: 700, color: pctColor, marginBottom: 4 }}>{weekCompletionPct}%</div>
-      <div style={{ fontSize: 11, color: '#888' }}>{taskCount} task{taskCount === 1 ? '' : 's'} pending</div>
+      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{taskCount} task{taskCount === 1 ? '' : 's'} pending</div>
     </div>
   );
 };
