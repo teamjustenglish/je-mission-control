@@ -2377,15 +2377,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             )}
           </div>
         </div>
-        {/* Right sidebar */}
-        {readOnly && hideTopNav ? (
+        {/* Right sidebar — only for dev tester */}
+        {isDevTester && readOnly && hideTopNav ? (
           <AdminSummaryPanel
             modName={displayModName}
             weekNumber={computedCurrentWeek}
             taskCount={detectedTasks.filter(t => t.type !== 'finalise').length}
             weekCompletionPct={completionPct}
           />
-        ) : !readOnly ? (
+        ) : isDevTester && !readOnly ? (
           <ToDoSidebar
             tasks={detectedTasks}
             overdueTasks={overdueTasks}
