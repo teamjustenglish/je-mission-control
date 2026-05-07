@@ -44,9 +44,11 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
 
   const studentAtt = attendance.filter(a => a.student_id === student.id);
   const sessionsOccurred = startDate ? getSessionsOccurred(startDate) : 0;
-  const present = studentAtt.filter(a => a.state === 'c').length;
-  const overallPct = computeAttendancePct(present, 1, sessionsOccurred);
-  const attColor = overallPct === null ? 'hsl(var(--muted-foreground))' : overallPct >= 70 ? 'hsl(var(--score-green))' : overallPct >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
+  const attended = studentAtt.filter(a => a.state === 'c').length;
+  const missed = studentAtt.filter(a => a.state === 'x').length;
+  const toGo = 24 - attended - missed;
+  const missedRatio = sessionsOccurred > 0 ? missed / sessionsOccurred : 0;
+  const attColor = sessionsOccurred === 0 ? 'hsl(var(--score-green))' : missedRatio >= 0.4 ? 'hsl(var(--score-red))' : missedRatio >= 0.2 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-green))';
 
   const currentWeek = Math.min(Math.max(weekNumber, 1), 6);
 
