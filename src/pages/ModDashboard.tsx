@@ -25,9 +25,9 @@ const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Sego
 
 const btnPress = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = 'scale(0.98)'; };
 const btnRelease = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = ''; };
-const cancelBtnStyle: React.CSSProperties = { background: '#2a2a2a', border: '1px solid #444', color: '#ccc', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
-const primaryBtnStyle: React.CSSProperties = { background: '#fff', border: '1px solid #fff', color: '#111', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
-const destructBtnStyle: React.CSSProperties = { background: '#7f1d1d', border: '1px solid #991b1b', color: '#fca5a5', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const cancelBtnStyle: React.CSSProperties = { background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input))', color: 'hsl(var(--foreground))', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const primaryBtnStyle: React.CSSProperties = { background: 'hsl(var(--foreground))', border: '1px solid hsl(var(--foreground))', color: 'hsl(var(--primary-foreground))', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
+const destructBtnStyle: React.CSSProperties = { background: 'hsl(var(--destructive))', border: '1px solid hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
 
 // Attendance cell with tooltip for ❌ states — BUG FIXES: yellow dot position, hover bridge, no ⋮
 const AttendanceCell: React.FC<{
@@ -65,16 +65,16 @@ const AttendanceCell: React.FC<{
               <span style={{
                 position: 'absolute', top: -3, right: -3,
                 width: 7, height: 7, borderRadius: '50%',
-                background: '#4ade80',
-                border: '2px solid #1e1e1e',
+                background: 'hsl(var(--score-green))',
+                border: '2px solid hsl(var(--card))',
                 zIndex: 10,
               }} />
             ) : (
               <span className="pulse-dot" style={{
                 position: 'absolute', top: -3, right: -3,
                 width: 7, height: 7, borderRadius: '50%',
-                background: '#FBBF24',
-                border: '2px solid #1e1e1e',
+                background: 'hsl(var(--score-amber))',
+                border: '2px solid hsl(var(--card))',
                 zIndex: 10,
               }} />
             )}
@@ -91,12 +91,12 @@ const AttendanceCell: React.FC<{
               }}
             >
               <div style={{
-                background: '#252525', border: '1px solid #333', borderRadius: 9,
-                padding: '10px 13px', minWidth: 185, maxWidth: 220,
+                background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: 8,
+                padding: '12px 12px', minWidth: 185, maxWidth: 220,
               }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>Absence note</div>
+                <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.08em' }}>Absence note</div>
                 {absenceNote ? (
                   <>
                     <div style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.4, marginBottom: 6 }}>{absenceNote}</div>
