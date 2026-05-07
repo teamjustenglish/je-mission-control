@@ -2220,45 +2220,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
               return (
                 <>
-                  {showBanner && (
-                    <div style={{
-                      background: '#1a1400', border: '1px solid #7a5000', borderRadius: 10, padding: '13px 16px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12,
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 18, ...emojiStyle }}>📝</span>
-                        <span style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.5 }}>
-                          Almost done, {modFirstName}! Just {missingCount} absence{missingCount > 1 ? 's' : ''} need a reason — quick note and you're all good 👍
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                        <button
-                          onClick={() => {
-                            if (missingNoteCells.length > 0) {
-                              const first = missingNoteCells[0];
-                              const el = document.querySelector(`[data-absence-cell="${first.studentId}-${first.sessionIndex}"]`);
-                              if (el) {
-                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                el.classList.add('amber-glow');
-                                setTimeout(() => el.classList.remove('amber-glow'), 1500);
-                              }
-                              openNoteModal(first.studentId, first.sessionIndex);
-                            }
-                          }}
-                          style={{
-                            fontSize: 12, padding: '5px 12px', border: '1px solid #7a5000', borderRadius: 7,
-                            background: '#2a1f00', color: '#d4920a', cursor: 'pointer',
-                          }}
-                        >Add notes</button>
-                        <span
-                          onClick={() => setBannerDismissed(true)}
-                          style={{ fontSize: 11, color: '#555', cursor: 'pointer' }}
-                          onMouseEnter={(e) => { (e.target as HTMLElement).style.color = '#888'; }}
-                          onMouseLeave={(e) => { (e.target as HTMLElement).style.color = '#555'; }}
-                        >Skip for now</span>
-                      </div>
-                    </div>
-                  )}
                   {isDemoWeek(selectedWeek) && !allWeeksView && (
                     <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'hsl(var(--amber-text))' }}>
                       <span style={emojiStyle}>⭐</span> Demo day attendance marked above · Scores tracked in Demo days section below
