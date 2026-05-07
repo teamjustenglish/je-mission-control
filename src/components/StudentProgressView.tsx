@@ -17,8 +17,8 @@ export interface StudentProgressViewProps {
   hideHeader?: boolean;
 }
 
-const scoreColor = (n: number) => n >= 14 ? '#4ade80' : n >= 9 ? '#fbbf24' : '#f87171';
-const cellScoreColor = (n: number) => n >= 4 ? '#4ade80' : n >= 2.5 ? '#fbbf24' : '#f87171';
+const scoreColor = (n: number) => n >= 14 ? 'hsl(var(--score-green))' : n >= 9 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
+const cellScoreColor = (n: number) => n >= 4 ? 'hsl(var(--score-green))' : n >= 2.5 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
 
 const StudentProgressView: React.FC<StudentProgressViewProps> = ({
   student, batchName, modName, weekNumber, startDate,
@@ -46,7 +46,7 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
   const sessionsOccurred = startDate ? getSessionsOccurred(startDate) : 0;
   const present = studentAtt.filter(a => a.state === 'c').length;
   const overallPct = computeAttendancePct(present, 1, sessionsOccurred);
-  const attColor = overallPct === null ? '#555' : overallPct >= 70 ? '#4ade80' : overallPct >= 50 ? '#fbbf24' : '#f87171';
+  const attColor = overallPct === null ? 'hsl(var(--muted-foreground))' : overallPct >= 70 ? 'hsl(var(--score-green))' : overallPct >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
 
   const currentWeek = Math.min(Math.max(weekNumber, 1), 6);
 
@@ -87,50 +87,50 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
   };
 
   return (
-    <div style={{ color: '#e8e8e8', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ color: 'hsl(var(--foreground))', fontFamily: 'Inter, system-ui, sans-serif' }}>
       {/* Live banner */}
       {showLiveBanner && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 0 10px', borderBottom: '1px solid #1a1a1a' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', display: 'inline-block', animation: 'spv-pulse 1.5s ease-in-out infinite' }} />
-          <span style={{ fontSize: 12, color: '#4ade80', fontWeight: 600 }}>Live</span>
-          <span style={{ fontSize: 12, color: '#555' }}>· Updated {timeAgo()}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 0 12px', borderBottom: '1px solid hsl(var(--card))' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(var(--score-green))', display: 'inline-block', animation: 'spv-pulse 1.5s ease-in-out infinite' }} />
+          <span style={{ fontSize: 12, color: 'hsl(var(--score-green))', fontWeight: 600 }}>Live</span>
+          <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>· Updated {timeAgo()}</span>
         </div>
       )}
 
       {/* Header */}
       {!hideHeader && (
         <div style={{ padding: '20px 0 16px' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{student.name}</div>
-          <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: 'hsl(var(--foreground))' }}>{student.name}</div>
+          <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
             {batchName} · Moderator: {modName} · Week {weekNumber} of 6
           </div>
         </div>
       )}
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>
-        <div style={{ background: '#1a1a1a', borderRadius: 10, padding: '14px 12px', textAlign: 'center', border: '1px solid #222' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+        <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: attColor }}>{overallPct === null ? '—' : `${overallPct}%`}</div>
-          <div style={{ fontSize: 10, color: '#888', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: 2 }}>Attendance</div>
-          <div style={{ fontSize: 10, color: '#555' }}>{present} of {sessionsOccurred} sessions</div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>Attendance</div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{present} of {sessionsOccurred} sessions</div>
         </div>
-        <div style={{ background: '#1a1a1a', borderRadius: 10, padding: '14px 12px', textAlign: 'center', border: '1px solid #222' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#e8e8e8' }}>{demoDaysCompleted} / 3</div>
-          <div style={{ fontSize: 10, color: '#888', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: 2 }}>Demo days</div>
-          <div style={{ fontSize: 10, color: '#555' }}>completed so far</div>
+        <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: 'hsl(var(--foreground))' }}>{demoDaysCompleted} / 3</div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>Demo days</div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>completed so far</div>
         </div>
-        <div style={{ background: '#1a1a1a', borderRadius: 10, padding: '14px 12px', textAlign: 'center', border: '1px solid #222' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: lastDemoScore !== null ? scoreColor(lastDemoScore) : '#555' }}>
+        <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: lastDemoScore !== null ? scoreColor(lastDemoScore) : 'hsl(var(--muted-foreground))' }}>
             {lastDemoScore !== null ? `${lastDemoScore} / 20` : '—'}
           </div>
-          <div style={{ fontSize: 10, color: '#888', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: 2 }}>Last demo</div>
-          <div style={{ fontSize: 10, color: '#555' }}>{lastDemoNumber !== null ? `Demo Day ${lastDemoNumber}` : '—'}</div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>Last demo</div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{lastDemoNumber !== null ? `Demo Day ${lastDemoNumber}` : '—'}</div>
         </div>
       </div>
 
       {/* Attendance by week */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Attendance by week</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Attendance by week</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
           {[1, 2, 3, 4, 5, 6].map(w => {
             const days = getWeekAttendance(w);
@@ -138,37 +138,37 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
             const presentCount = days.filter(d => d.state === 'c').length;
             const totalInWeek = isFuture ? 4 : Math.min(4, sessionsOccurred - (w - 1) * 4);
             return (
-              <div key={w} style={{ background: '#161616', borderRadius: 6, padding: '9px 7px', textAlign: 'center', border: '1px solid #2a2a2a', opacity: isFuture ? 0.4 : 1 }}>
-                <div style={{ fontSize: 10, color: w === currentWeek ? '#4ade80' : '#888', fontWeight: 500, marginBottom: 6 }}>W{w}</div>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 6 }}>
+              <div key={w} style={{ background: 'hsl(var(--card))', borderRadius: 6, padding: '8px 8px', textAlign: 'center', border: '1px solid hsl(var(--border))', opacity: isFuture ? 0.4 : 1 }}>
+                <div style={{ fontSize: 11, color: w === currentWeek ? 'hsl(var(--score-green))' : 'hsl(var(--muted-foreground))', fontWeight: 500, marginBottom: 8 }}>W{w}</div>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 8 }}>
                   {days.map(d => {
                     if (d.state === 'c') {
-                      return <div key={d.idx} style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }} />;
+                      return <div key={d.idx} style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(var(--score-green))' }} />;
                     } else if (d.state === 'x') {
-                      return <div key={d.idx} style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171' }} />;
+                      return <div key={d.idx} style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(var(--score-red))' }} />;
                     } else {
-                      return <div key={d.idx} style={{ width: 8, height: 8, borderRadius: '50%', background: 'transparent', border: '1px dashed #444' }} />;
+                      return <div key={d.idx} style={{ width: 8, height: 8, borderRadius: '50%', background: 'transparent', border: '1px dashed hsl(var(--input))' }} />;
                     }
                   })}
                 </div>
-                <div style={{ fontSize: 11, color: isFuture ? '#555' : '#e8e8e8', fontWeight: 500, marginTop: 7 }}>
+                <div style={{ fontSize: 11, color: isFuture ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))', fontWeight: 500, marginTop: 8 }}>
                   {isFuture ? '— / 4' : `${presentCount} / ${Math.max(totalInWeek, 0)}`}
                 </div>
               </div>
             );
           })}
         </div>
-        <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 10, color: '#555', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11, color: 'hsl(var(--muted-foreground))', alignItems: 'center' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(var(--score-green))', display: 'inline-block' }} />
             Present
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171', display: 'inline-block' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'hsl(var(--score-red))', display: 'inline-block' }} />
             Absent
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'transparent', border: '1px dashed #444', display: 'inline-block' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'transparent', border: '1px dashed hsl(var(--input))', display: 'inline-block' }} />
             Not marked
           </span>
         </div>
@@ -176,7 +176,7 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
 
       {/* Demo days — always render all 3 */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Demo days</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Demo days</div>
         {[1, 2, 3].map(dn => {
           const dd = demoDays.find(d => d.day_number === dn);
           const demoWeek = dn * 2;
@@ -188,14 +188,14 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
           const fb = ddId ? demoFeedback?.find(f => f.demo_day_id === ddId && f.student_id === student.id) : null;
 
           const renderRubric = (muted: boolean) => (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 8 }}>
               {CRITERIA.map(c => {
                 const s = scores.find(sc => sc.criterion === c);
                 const val = s ? Number(s.score) : 0;
                 return (
-                  <div key={c} style={{ background: '#151515', borderRadius: 6, padding: '8px 4px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 9, color: '#555', marginBottom: 4 }}>{c.split(' ')[0]}</div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: muted ? '#555' : cellScoreColor(val) }}>
+                  <div key={c} style={{ background: 'hsl(var(--background))', borderRadius: 6, padding: '8px 4px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4 }}>{c.split(' ')[0]}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: muted ? 'hsl(var(--muted-foreground))' : cellScoreColor(val) }}>
                       {muted || total === null ? '—' : val}
                     </div>
                   </div>
@@ -205,26 +205,26 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
           );
 
           return (
-            <div key={dn} style={{ background: '#1a1a1a', borderRadius: 10, padding: 16, marginBottom: 10, border: '1px solid #222', opacity: isFuture ? 0.55 : 1 }}>
+            <div key={dn} style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: 16, marginBottom: 12, border: '1px solid hsl(var(--secondary))', opacity: isFuture ? 0.55 : 1 }}>
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#e8e8e8' }}>Demo Day {dn}</span>
-                  {wasAbsent && <span style={{ fontSize: 10, background: '#450a0a', color: '#f87171', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Absent</span>}
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'hsl(var(--foreground))' }}>Demo Day {dn}</span>
+                  {wasAbsent && <span style={{ fontSize: 11, background: 'hsl(var(--danger-bg))', color: 'hsl(var(--score-red))', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>Absent</span>}
                 </div>
-                <span style={{ fontSize: 11, color: '#555' }}>{dd?.date || ''}</span>
+                <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{dd?.date || ''}</span>
               </div>
 
               {/* Rubric + total */}
               {isFuture ? (
                 <>
                   {renderRubric(true)}
-                  <div style={{ textAlign: 'right', fontSize: 12, color: '#555', fontStyle: 'italic' }}>Not yet</div>
+                  <div style={{ textAlign: 'right', fontSize: 12, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>Not yet</div>
                 </>
               ) : wasAbsent ? (
                 <>
                   {renderRubric(true)}
-                  <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#f87171' }}>Absent</div>
+                  <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: 'hsl(var(--score-red))' }}>Absent</div>
                 </>
               ) : (
                 <>
@@ -233,17 +233,17 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
                     {total !== null ? (
                       <span style={{ fontSize: 14, fontWeight: 700, color: scoreColor(total) }}>{total} / 20</span>
                     ) : (
-                      <span style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>Not scored yet</span>
+                      <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>Not scored yet</span>
                     )}
                   </div>
                   {fb?.feedback && (
-                    <div style={{ marginTop: 10, borderLeft: '3px solid #4ade80', paddingLeft: 12 }}>
-                      <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Feedback</div>
-                      <div style={{ fontSize: 13, color: '#999', lineHeight: 1.5, fontStyle: 'italic' }}>{fb.feedback}</div>
+                    <div style={{ marginTop: 12, borderLeft: '3px solid hsl(var(--score-green))', paddingLeft: 12 }}>
+                      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', fontWeight: 600, marginBottom: 4 }}>Feedback</div>
+                      <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, fontStyle: 'italic' }}>{fb.feedback}</div>
                     </div>
                   )}
                   {!fb?.feedback && total !== null && (
-                    <div style={{ marginTop: 10, fontSize: 12, color: '#444', fontStyle: 'italic' }}>No feedback yet</div>
+                    <div style={{ marginTop: 12, fontSize: 12, color: 'hsl(var(--input))', fontStyle: 'italic' }}>No feedback yet</div>
                   )}
                 </>
               )}
@@ -253,9 +253,9 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
       </div>
 
       {/* Footer */}
-      <div style={{ borderTop: '1px solid #1a1a1a', padding: '20px 0 32px', textAlign: 'center' }}>
-        <div style={{ fontSize: 12, color: '#444' }}>Just English Mission Control</div>
-        <div style={{ fontSize: 11, color: '#333', marginTop: 4 }}>This page updates automatically. Refresh anytime.</div>
+      <div style={{ borderTop: '1px solid hsl(var(--card))', padding: '20px 0 32px', textAlign: 'center' }}>
+        <div style={{ fontSize: 12, color: 'hsl(var(--input))' }}>Just English Mission Control</div>
+        <div style={{ fontSize: 11, color: 'hsl(var(--border))', marginTop: 4 }}>This page updates automatically. Refresh anytime.</div>
       </div>
 
       <style>{`@keyframes spv-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>

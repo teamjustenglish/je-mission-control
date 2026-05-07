@@ -75,17 +75,17 @@ const StudentShare: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0f0f0f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#888', fontSize: 14 }}>Loading…</p>
+      <div style={{ minHeight: '100vh', background: 'hsl(var(--background))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: 14 }}>Loading…</p>
       </div>
     );
   }
 
   if (error || !student || !batch) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0f0f0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <div style={{ fontSize: 32, fontWeight: 700, color: '#fff' }}>Just English</div>
-        <div style={{ fontSize: 14, color: '#888' }}>{error || 'Something went wrong.'}</div>
+      <div style={{ minHeight: '100vh', background: 'hsl(var(--background))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <div style={{ fontSize: 32, fontWeight: 700, color: 'hsl(var(--foreground))' }}>Just English</div>
+        <div style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>{error || 'Something went wrong.'}</div>
       </div>
     );
   }
@@ -93,7 +93,7 @@ const StudentShare: React.FC = () => {
   const weekNumber = getCurrentWeek(batch.start_date) ?? 1;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0f0f0f' }}>
+    <div style={{ minHeight: '100vh', background: 'hsl(var(--background))' }}>
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '0 16px' }}>
         <StudentProgressView
           student={student}
