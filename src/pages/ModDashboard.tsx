@@ -310,6 +310,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   hideTopNav = false,
 }) => {
   const { user, profile, signOut } = useAuth();
+  const isDevTester = profile?.email === 'dilinaedu@gmail.com';
   // When viewing another mod's data (admin read-only), we may need to display
   // that mod's name. Fetch it on demand and fall back to logged-in profile.
   const [overrideModName, setOverrideModName] = useState<string | null>(null);
