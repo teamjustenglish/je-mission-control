@@ -85,12 +85,33 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
   };
 
   const handleCopy = async () => {
-    if (!shareUrl) return;
+    if (!shareUrl) {
+      console.error('Copy failed — no URL available');
+      return;
+    }
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {}
+    } catch (err) {
+      console.error('Copy failed via clipboard API, trying fallback', err);
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (fallbackErr) {
+        console.error('Fallback copy also failed', fallbackErr);
+        alert('Copy failed. Please select and copy the URL manually.');
+      } finally {
+        document.body.removeChild(textArea);
+      }
+    }
   };
 
   const handleRevoke = async () => {
