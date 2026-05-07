@@ -99,15 +99,15 @@ const AttendanceCell: React.FC<{
                 <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.08em' }}>Absence note</div>
                 {absenceNote ? (
                   <>
-                    <div style={{ fontSize: 13, color: '#e8e8e8', lineHeight: 1.4, marginBottom: 6 }}>{absenceNote}</div>
-                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: '#FBBF24', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    <div style={{ fontSize: 13, color: 'hsl(var(--foreground))', lineHeight: 1.4, marginBottom: 8 }}>{absenceNote}</div>
+                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: 'hsl(var(--score-amber))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                       <span style={emojiStyle}>✏️</span> Edit note
                     </button>
                   </>
                 ) : (
                   <>
-                    <div style={{ fontSize: 13, color: '#555', fontStyle: 'italic', marginBottom: 6 }}>No reason added yet</div>
-                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: '#FBBF24', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic', marginBottom: 8 }}>No reason added yet</div>
+                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: 'hsl(var(--score-amber))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                       <span style={emojiStyle}>✏️</span> Add note
                     </button>
                   </>
