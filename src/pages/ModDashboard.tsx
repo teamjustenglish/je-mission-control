@@ -310,6 +310,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   hideTopNav = false,
 }) => {
   const { user, profile, signOut } = useAuth();
+  const isDevTester = profile?.email === 'dilinaedu@gmail.com';
   // When viewing another mod's data (admin read-only), we may need to display
   // that mod's name. Fetch it on demand and fall back to logged-in profile.
   const [overrideModName, setOverrideModName] = useState<string | null>(null);
@@ -1331,6 +1332,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Current week tasks
   const detectedTasks: Task[] = useMemo(() => {
+    if (!isDevTester) return [];
     if (!activeBatch || students.length === 0) return [];
     const cw = computedCurrentWeek;
     const tasks = generateTasksForWeek(cw, false);
@@ -1349,10 +1351,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     }
     return tasks;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, currentWeekStatus, rescheduledSessions]);
+  }, [isDevTester, activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, currentWeekStatus, rescheduledSessions]);
 
   // Overdue tasks (previous weeks that are 'open' or 'closed' — not 'finalised' or 'reopened')
   const overdueTasks: Task[] = useMemo(() => {
+    if (!isDevTester) return [];
     if (!activeBatch || students.length === 0) return [];
     const cw = computedCurrentWeek;
     const allOverdue: Task[] = [];
@@ -1365,7 +1368,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     }
     return allOverdue;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, weekStatuses, rescheduledSessions]);
+  }, [isDevTester, activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, weekStatuses, rescheduledSessions]);
 
   // Click handler for tasks — switch week, scroll + pulse
   const handleTaskClick = (task: Task) => {
@@ -2220,6 +2223,38 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
               return (
                 <>
+                  {showBanner && !isDevTester && (
+                    <div style={{
+                      background: '#1e1800', border: '1px solid #5a4a00', borderRadius: 8,
+                      padding: '10px 12px', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                    }}>
+                      <span style={{ fontSize: 12, color: '#fbbf24', lineHeight: 1.4 }}>
+                        Almost done, {modFirstName}! Just {missingCount} absence{missingCount > 1 ? 's' : ''} need a reason — quick note and you're all good 👍
+                      </span>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button
+                          onClick={() => {
+                            const first = missingNoteCells[0];
+                            if (first) {
+                              const student = students.find(s => s.id === first.studentId);
+                              const si = first.sessionIndex;
+                              const dayIdx = si % 4;
+                              const dayNames = ['Monday', 'Tuesday', 'Thursday', 'Friday'];
+                              const sessionDate = getSessionDateObj(si);
+                              const dateLabel = sessionDate ? sessionDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+                              setNoteModal({ studentId: first.studentId, sessionIndex: si, studentName: student?.name || 'Student', dayLabel: dayNames[dayIdx], dateLabel });
+                              setNoteText('');
+                            }
+                          }}
+                          style={{ background: '#5a4a00', border: '1px solid #7a6a10', color: '#fbbf24', borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                        >Add notes</button>
+                        <button
+                          onClick={() => setBannerDismissed(true)}
+                          style={{ background: 'transparent', border: '1px solid #3a3a00', color: '#888', borderRadius: 6, padding: '5px 12px', fontSize: 11, cursor: 'pointer' }}
+                        >Skip for now</button>
+                      </div>
+                    </div>
+                  )}
                   {isDemoWeek(selectedWeek) && !allWeeksView && (
                     <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'hsl(var(--amber-text))' }}>
                       <span style={emojiStyle}>⭐</span> Demo day attendance marked above · Scores tracked in Demo days section below
@@ -2342,15 +2377,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             )}
           </div>
         </div>
-        {/* Right sidebar */}
-        {readOnly && hideTopNav ? (
+        {/* Right sidebar — only for dev tester */}
+        {isDevTester && readOnly && hideTopNav ? (
           <AdminSummaryPanel
             modName={displayModName}
             weekNumber={computedCurrentWeek}
             taskCount={detectedTasks.filter(t => t.type !== 'finalise').length}
             weekCompletionPct={completionPct}
           />
-        ) : !readOnly ? (
+        ) : isDevTester && !readOnly ? (
           <ToDoSidebar
             tasks={detectedTasks}
             overdueTasks={overdueTasks}
