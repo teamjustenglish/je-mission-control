@@ -71,10 +71,26 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
 
   return (
     <div style={{
-      width: 280, minWidth: 280, position: 'sticky', top: 16, height: 'calc(100vh - 32px)',
+      width: 320, minWidth: 320, position: 'sticky', top: 16, height: 'calc(100vh - 32px)',
       maxHeight: 'calc(100vh - 32px)', background: '#161616', borderLeft: '1px solid #2a2a2a',
       borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
+      {/* Header */}
+      <div style={{
+        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8,
+        padding: '12px 12px 8px', borderBottom: '1px solid #2a2a2a',
+      }}>
+        <span style={{ fontSize: 13, color: '#e8e8e8', fontWeight: 500 }}>
+          📋 To do
+        </span>
+        <span style={{
+          background: '#2a1f00', color: '#fbbf24', padding: '1px 8px',
+          border: '1px solid #5a4a00', borderRadius: 99, fontSize: 11, fontWeight: 500,
+        }}>
+          {nonFinaliseTasks.length + overdueTasks.length}
+        </span>
+      </div>
+
       {/* Tabs */}
       <div style={{ flexShrink: 0, display: 'flex', borderBottom: '1px solid #2a2a2a', padding: '0 12px' }}>
         <button
