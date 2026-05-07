@@ -52,6 +52,9 @@ const AppRoutes = () => {
         user && role === 'moderator' ? <ModDashboard /> : <LoginPage />
       } />
 
+      {/* Public share page — no auth required */}
+      <Route path="/share/:slug" element={<StudentShare />} />
+
       {/* Anything else → / */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
