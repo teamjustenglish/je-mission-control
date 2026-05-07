@@ -103,7 +103,7 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
             marginBottom: -1,
           }}
         >
-          Current week
+          {weekNumber ? `Current week (W${weekNumber})` : 'Current week'}
         </button>
         {hasOverdue && (
           <button
@@ -129,7 +129,7 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
             background: '#1e1800', border: '1px solid #5a4a00', color: '#fbbf24',
             fontSize: 10, padding: '6px 9px', borderRadius: 5, margin: '12px 12px 0', lineHeight: 1.4,
           }}>
-            Closes Friday 11:59 PM · {countdown}
+          {weekNumber ? `Week ${weekNumber} closes Friday 11:59 PM` : 'Closes Friday 11:59 PM'} · {countdown}
           </div>
 
           {/* Task list — scrollable */}
