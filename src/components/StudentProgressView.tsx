@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getSessionLabel, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
+import { getSessionLabel, CRITERIA, getSessionsOccurred } from '@/lib/batchtrack';
 
 export interface StudentProgressViewProps {
   student: { id: string; name: string };
