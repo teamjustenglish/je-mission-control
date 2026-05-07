@@ -112,9 +112,16 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
         <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: attColor }}>{overallPct === null ? '—' : `${overallPct}%`}</div>
-          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>Attendance</div>
-          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{present} of {sessionsOccurred} sessions</div>
+          <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Attendance</div>
+          <div>
+            <span style={{ fontSize: 24, fontWeight: 500, color: attColor }}>{attended}</span>
+            <span style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))', marginLeft: 4 }}>attended</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+            <span style={{ color: 'hsl(var(--score-red))' }}>{missed} missed</span>
+            <span> · </span>
+            <span>{toGo} to go</span>
+          </div>
         </div>
         <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: 'hsl(var(--foreground))' }}>{demoDaysCompleted} / 3</div>
