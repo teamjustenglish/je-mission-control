@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getSessionLabel, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
+import { getSessionLabel, CRITERIA, getSessionsOccurred } from '@/lib/batchtrack';
 
 export interface StudentProgressViewProps {
   student: { id: string; name: string };
@@ -44,9 +44,11 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
 
   const studentAtt = attendance.filter(a => a.student_id === student.id);
   const sessionsOccurred = startDate ? getSessionsOccurred(startDate) : 0;
-  const present = studentAtt.filter(a => a.state === 'c').length;
-  const overallPct = computeAttendancePct(present, 1, sessionsOccurred);
-  const attColor = overallPct === null ? 'hsl(var(--muted-foreground))' : overallPct >= 70 ? 'hsl(var(--score-green))' : overallPct >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
+  const attended = studentAtt.filter(a => a.state === 'c').length;
+  const missed = studentAtt.filter(a => a.state === 'x').length;
+  const toGo = 24 - attended - missed;
+  const missedRatio = sessionsOccurred > 0 ? missed / sessionsOccurred : 0;
+  const attColor = sessionsOccurred === 0 ? 'hsl(var(--score-green))' : missedRatio >= 0.4 ? 'hsl(var(--score-red))' : missedRatio >= 0.2 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-green))';
 
   const currentWeek = Math.min(Math.max(weekNumber, 1), 6);
 
@@ -110,9 +112,16 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
         <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: attColor }}>{overallPct === null ? '—' : `${overallPct}%`}</div>
-          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>Attendance</div>
-          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{present} of {sessionsOccurred} sessions</div>
+          <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Attendance</div>
+          <div>
+            <span style={{ fontSize: 24, fontWeight: 500, color: attColor }}>{attended}</span>
+            <span style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))', marginLeft: 4 }}>attended</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+            <span style={{ color: 'hsl(var(--score-red))' }}>{missed} missed</span>
+            <span> · </span>
+            <span>{toGo} to go</span>
+          </div>
         </div>
         <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: 'hsl(var(--foreground))' }}>{demoDaysCompleted} / 3</div>
