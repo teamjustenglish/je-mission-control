@@ -363,6 +363,51 @@ export type Database = {
         }
         Relationships: []
       }
+      student_share_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          last_viewed_at: string | null
+          revoked_at: string | null
+          slug: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_viewed_at?: string | null
+          revoked_at?: string | null
+          slug: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_viewed_at?: string | null
+          revoked_at?: string | null
+          slug?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_share_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_share_links_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           batch_id: string

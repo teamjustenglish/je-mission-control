@@ -8,6 +8,7 @@ import LoginPage from "./pages/LoginPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import ModDashboard from "./pages/ModDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import StudentShare from "./pages/StudentShare";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,9 @@ const AppRoutes = () => {
       <Route path="/" element={
         user && role === 'moderator' ? <ModDashboard /> : <LoginPage />
       } />
+
+      {/* Public share page — no auth required */}
+      <Route path="/share/:slug" element={<StudentShare />} />
 
       {/* Anything else → / */}
       <Route path="*" element={<Navigate to="/" replace />} />
