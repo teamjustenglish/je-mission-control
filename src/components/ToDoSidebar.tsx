@@ -103,7 +103,7 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
             marginBottom: -1,
           }}
         >
-          Current week
+          {weekNumber ? `Current week (W${weekNumber})` : 'Current week'}
         </button>
         {hasOverdue && (
           <button
