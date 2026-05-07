@@ -117,7 +117,7 @@ const AttendanceCell: React.FC<{
                   position: 'absolute', bottom: 9, left: '50%', transform: 'translateX(-50%)',
                   width: 0, height: 0,
                   borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
-                  borderTop: '5px solid #252525',
+                  borderTop: '5px solid hsl(var(--secondary))',
                 }} />
               </div>
             </div>
