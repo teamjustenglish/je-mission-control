@@ -132,60 +132,58 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)' }}
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.75)' }}
         onClick={onClose}>
         <div onClick={(e) => e.stopPropagation()}
           ref={cardRef}
-          style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 14, maxWidth: 640, width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0 }}>
+          style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, maxWidth: 640, width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0 }}>
           {/* Header (fixed) */}
-          <div style={{ padding: '16px 18px', borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid hsl(var(--border))', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.name}</div>
-              <div style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{batchName} · Week {weekNumber} of 6</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'hsl(var(--foreground))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.name}</div>
+              <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{batchName} · Week {weekNumber} of 6</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, position: 'relative' }}>
               <button
                 onClick={handleShareClick}
-                style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #5a4a00', borderRadius: 6, background: '#2a1f00', color: '#fbbf24', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6, lineHeight: 1, whiteSpace: 'nowrap' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7a6000'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#5a4a00'; }}
+                style={{ fontSize: 12, padding: '4px 12px', border: '1px solid hsl(var(--amber-border))', borderRadius: 6, background: 'hsl(var(--amber-bg))', color: 'hsl(var(--score-amber))', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1, whiteSpace: 'nowrap' }}
               >🔗 Share link</button>
-              <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18, padding: 4 }}>✕</button>
+              <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'hsl(var(--muted-foreground))', cursor: 'pointer', fontSize: 18, padding: 4 }}>✕</button>
 
               {/* Share popover */}
               {showSharePopover && (
-                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, width: 320, background: '#1a1a1a', border: '1px solid #333', borderRadius: 10, padding: 14, zIndex: 100, boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, width: 320, background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 16, zIndex: 100, boxShadow: '0 8px 30px hsl(var(--background) / 0.5)' }}
                   onClick={(e) => e.stopPropagation()}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e8e8', marginBottom: 10 }}>Share {firstName}'s progress</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))', marginBottom: 12 }}>Share {firstName}'s progress</div>
                   {shareLoading ? (
-                    <div style={{ fontSize: 12, color: '#666' }}>Generating link…</div>
+                    <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>Generating link…</div>
                   ) : shareRevoked ? (
                     <>
-                      <div style={{ background: '#151515', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 11, fontFamily: 'monospace', color: '#555', marginBottom: 8, textDecoration: 'line-through' }}>{shareUrl}</div>
-                      <div style={{ fontSize: 11, color: '#f87171', marginBottom: 8 }}>Link revoked</div>
-                      <button onClick={handleRegenerateLink} style={{ fontSize: 11, color: '#fbbf24', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Generate new link</button>
+                      <div style={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '8px 12px', fontSize: 11, fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace', color: 'hsl(var(--muted-foreground))', marginBottom: 8, textDecoration: 'line-through' }}>{shareUrl}</div>
+                      <div style={{ fontSize: 11, color: 'hsl(var(--score-red))', marginBottom: 8 }}>Link revoked</div>
+                      <button onClick={handleRegenerateLink} style={{ fontSize: 11, color: 'hsl(var(--score-amber))', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Generate new link</button>
                     </>
                   ) : (
                     <>
-                      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                         <input
                           readOnly
                           value={shareUrl}
                           onClick={(e) => (e.target as HTMLInputElement).select()}
-                          style={{ flex: 1, background: '#151515', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 11, fontFamily: 'monospace', color: '#ccc', outline: 'none' }}
+                          style={{ flex: 1, background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '8px 12px', fontSize: 11, fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace', color: 'hsl(var(--foreground))', outline: 'none' }}
                         />
-                        <button onClick={handleCopy} style={{ fontSize: 11, padding: '6px 12px', background: copied ? '#14532d' : '#2a1f00', border: `1px solid ${copied ? '#166534' : '#5a4a00'}`, borderRadius: 6, color: copied ? '#4ade80' : '#fbbf24', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 600, transition: 'all 0.15s' }}>
+                        <button onClick={handleCopy} style={{ fontSize: 11, padding: '8px 12px', background: copied ? 'hsl(var(--success-bg))' : 'hsl(var(--amber-bg))', border: `1px solid ${copied ? 'hsl(var(--success-text))' : 'hsl(var(--amber-border))'}`, borderRadius: 6, color: copied ? 'hsl(var(--score-green))' : 'hsl(var(--score-amber))', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 600, transition: 'all 0.15s' }}>
                           {copied ? 'Copied ✓' : 'Copy'}
                         </button>
                       </div>
-                      <div style={{ fontSize: 10, color: '#555', marginBottom: 10, lineHeight: 1.5 }}>Live link — always shows latest data. Anyone with the link can view.</div>
+                      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 12, lineHeight: 1.5 }}>Live link — always shows latest data. Anyone with the link can view.</div>
                       {!confirmRevoke ? (
-                        <button onClick={() => setConfirmRevoke(true)} style={{ fontSize: 11, color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Revoke link</button>
+                        <button onClick={() => setConfirmRevoke(true)} style={{ fontSize: 11, color: 'hsl(var(--score-red))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Revoke link</button>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 11, color: '#f87171' }}>Revoke? Anyone with it will lose access.</span>
-                          <button onClick={handleRevoke} style={{ fontSize: 11, padding: '3px 8px', background: '#7f1d1d', border: '1px solid #991b1b', borderRadius: 4, color: '#fca5a5', cursor: 'pointer', fontWeight: 600 }}>Yes</button>
-                          <button onClick={() => setConfirmRevoke(false)} style={{ fontSize: 11, color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}>No</button>
+                          <span style={{ fontSize: 11, color: 'hsl(var(--score-red))' }}>Revoke? Anyone with it will lose access.</span>
+                          <button onClick={handleRevoke} style={{ fontSize: 11, padding: '4px 8px', background: 'hsl(var(--destructive))', border: '1px solid hsl(var(--destructive))', borderRadius: 4, color: 'hsl(var(--destructive-foreground))', cursor: 'pointer', fontWeight: 600 }}>Yes</button>
+                          <button onClick={() => setConfirmRevoke(false)} style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', background: 'none', border: 'none', cursor: 'pointer' }}>No</button>
                         </div>
                       )}
                     </>
@@ -196,9 +194,9 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
           </div>
 
           {/* Scrollable body */}
-          <div data-scroll-container="true" style={{ flex: 1, overflowY: 'auto', padding: '0 18px 16px' }}>
+          <div data-scroll-container="true" style={{ flex: 1, overflowY: 'auto', padding: '0 20px 16px' }}>
             {/* Preview hint */}
-            <div style={{ padding: '6px 0', fontSize: 10, color: '#888', fontStyle: 'italic' }}>👁 This is what the student / parent will see</div>
+            <div style={{ padding: '8px 0', fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>👁 This is what the student / parent will see</div>
 
             <StudentProgressView
               student={student}
