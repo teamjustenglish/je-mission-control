@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
-import html2canvas from 'html2canvas';
+import React, { useRef, useState, useEffect } from 'react';
 import { getSessionLabel, isDemoWeek, CRITERIA, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
+import { supabase } from '@/integrations/supabase/client';
 
 interface StudentProgressModalProps {
   student: { id: string; name: string; batch_id: string };
@@ -17,62 +17,98 @@ interface StudentProgressModalProps {
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
 
+function generateSlug(name: string): string {
+  const base = name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  const rand = Array.from({ length: 6 }, () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]).join('');
+  return `${base}-${rand}`;
+}
+
 const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
   student, batchName, modName, weekNumber, startDate, attendance, demoDays, demoScores, demoFeedback, onClose,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const handleExport = async () => {
-    if (!cardRef.current) return;
+  // Share link state
+  const [showSharePopover, setShowSharePopover] = useState(false);
+  const [shareSlug, setShareSlug] = useState<string | null>(null);
+  const [shareLinkId, setShareLinkId] = useState<string | null>(null);
+  const [shareRevoked, setShareRevoked] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
 
-    const card = cardRef.current;
-    const scrollContainer = card.querySelector('[data-scroll-container="true"]') as HTMLElement | null;
+  const shareUrl = shareSlug ? `${window.location.origin}/share/${shareSlug}` : '';
 
-    const originalCardMaxHeight = card.style.maxHeight;
-    const originalCardHeight = card.style.height;
-    const originalScrollOverflow = scrollContainer?.style.overflowY ?? '';
-    const originalScrollHeight = scrollContainer?.style.height ?? '';
-    const originalScrollTop = scrollContainer?.scrollTop ?? 0;
+  const loadOrCreateShareLink = async () => {
+    setShareLoading(true);
+    setConfirmRevoke(false);
+    // Check for existing non-revoked link
+    const { data: existing } = await supabase
+      .from('student_share_links')
+      .select('*')
+      .eq('student_id', student.id)
+      .is('revoked_at', null)
+      .limit(1);
 
-    try {
-      card.style.maxHeight = 'none';
-      card.style.height = 'auto';
-      if (scrollContainer) {
-        scrollContainer.style.overflowY = 'visible';
-        scrollContainer.style.height = 'auto';
-        scrollContainer.scrollTop = 0;
-      }
-
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
-
-      const canvas = await html2canvas(card, {
-        backgroundColor: '#1e1e1e',
-        scale: 2,
-        useCORS: true,
-        scrollY: 0,
-        windowHeight: card.scrollHeight,
-        height: card.scrollHeight,
-        width: card.scrollWidth,
-      });
-
-      const link = document.createElement('a');
-      const safeName = (student.name || 'student').replace(/[^a-z0-9]+/gi, '_');
-      const safeBatch = (batchName || 'batch').replace(/[^a-z0-9]+/gi, '_');
-      link.download = `${safeName}_progress_${safeBatch}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    } catch (e) {
-      console.error('Export failed, falling back to print', e);
-      window.print();
-    } finally {
-      card.style.maxHeight = originalCardMaxHeight;
-      card.style.height = originalCardHeight;
-      if (scrollContainer) {
-        scrollContainer.style.overflowY = originalScrollOverflow;
-        scrollContainer.style.height = originalScrollHeight;
-        scrollContainer.scrollTop = originalScrollTop;
-      }
+    if (existing && existing.length > 0) {
+      const link = existing[0] as any;
+      setShareSlug(link.slug);
+      setShareLinkId(link.id);
+      setShareRevoked(false);
+      setShareLoading(false);
+      return;
     }
+
+    // Create new
+    const slug = generateSlug(student.name);
+    const { data: user } = await supabase.auth.getUser();
+    const { data: inserted, error } = await supabase
+      .from('student_share_links')
+      .insert({ student_id: student.id, slug, created_by: user?.user?.id ?? null } as any)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Failed to create share link', error);
+      setShareLoading(false);
+      return;
+    }
+    setShareSlug((inserted as any).slug);
+    setShareLinkId((inserted as any).id);
+    setShareRevoked(false);
+    setShareLoading(false);
+  };
+
+  const handleShareClick = () => {
+    if (!showSharePopover) {
+      setShowSharePopover(true);
+      loadOrCreateShareLink();
+    } else {
+      setShowSharePopover(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  const handleRevoke = async () => {
+    if (!shareLinkId) return;
+    await supabase.from('student_share_links').update({ revoked_at: new Date().toISOString() } as any).eq('id', shareLinkId);
+    setShareRevoked(true);
+    setConfirmRevoke(false);
+  };
+
+  const handleRegenerateLink = () => {
+    setShareSlug(null);
+    setShareLinkId(null);
+    setShareRevoked(false);
+    loadOrCreateShareLink();
   };
 
   const studentAtt = attendance.filter(a => a.student_id === student.id);
@@ -84,7 +120,6 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
 
   const currentWeek = Math.min(Math.max(weekNumber, 1), 6);
 
-  // Compute student's total for a demo day
   const demoDayTotal = (demoDayId: string): number | null => {
     const scores = demoScores.filter(s => s.demo_day_id === demoDayId && s.student_id === student.id);
     if (scores.length === 0) return null;
@@ -119,7 +154,6 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
     return Math.round((p / 4) * 100);
   };
 
-  // Find demo day record for a given week (weeks 2, 4, 6 → day_number 1, 2, 3)
   const demoDayForWeek = (weekNum: number) => {
     if (!isDemoWeek(weekNum)) return null;
     const dayNumber = weekNum / 2;
@@ -131,10 +165,11 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
   const visibleWeeks = Array.from({ length: currentWeek }, (_, i) => i + 1);
   const futureWeeksNote = currentWeek < 6 ? `Weeks ${currentWeek + 1}–6 not started yet` : null;
 
-  // Demo day cards: show for weeks 2, 4, 6 where week ≤ currentWeek
   const visibleDemoWeeks = [2, 4, 6].filter(w => w <= currentWeek);
   const nextFutureDemoWeek = [2, 4, 6].find(w => w > currentWeek);
   const nextFutureDemoNumber = nextFutureDemoWeek ? nextFutureDemoWeek / 2 : null;
+
+  const firstName = student.name.split(' ')[0] || student.name;
 
   return (
     <>
@@ -155,21 +190,65 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
                 <div style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{batchName} · {modName} · Week {weekNumber} of 6</div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }} data-html2canvas-ignore="true">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, position: 'relative' }}>
               <button
-                onClick={handleExport}
-                style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #333', borderRadius: 6, background: '#242424', color: '#888', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6, lineHeight: 1, whiteSpace: 'nowrap' }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#555'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = '#333'; }}
-              ><span>⬇</span><span>Export</span></button>
+                onClick={handleShareClick}
+                style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #5a4a00', borderRadius: 6, background: '#2a1f00', color: '#fbbf24', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6, lineHeight: 1, whiteSpace: 'nowrap' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#7a6000'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#5a4a00'; }}
+              >🔗 Share link</button>
               <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 18, padding: 4 }}>✕</button>
+
+              {/* Share popover */}
+              {showSharePopover && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, width: 320, background: '#1a1a1a', border: '1px solid #333', borderRadius: 10, padding: 14, zIndex: 100, boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}
+                  onClick={(e) => e.stopPropagation()}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e8e8', marginBottom: 10 }}>Share {firstName}'s progress</div>
+                  {shareLoading ? (
+                    <div style={{ fontSize: 12, color: '#666' }}>Generating link…</div>
+                  ) : shareRevoked ? (
+                    <>
+                      <div style={{ background: '#151515', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 11, fontFamily: 'monospace', color: '#555', marginBottom: 8, textDecoration: 'line-through' }}>{shareUrl}</div>
+                      <div style={{ fontSize: 11, color: '#f87171', marginBottom: 8 }}>Link revoked</div>
+                      <button onClick={handleRegenerateLink} style={{ fontSize: 11, color: '#fbbf24', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Generate new link</button>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                        <input
+                          readOnly
+                          value={shareUrl}
+                          onClick={(e) => (e.target as HTMLInputElement).select()}
+                          style={{ flex: 1, background: '#151515', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 11, fontFamily: 'monospace', color: '#ccc', outline: 'none' }}
+                        />
+                        <button onClick={handleCopy} style={{ fontSize: 11, padding: '6px 12px', background: copied ? '#14532d' : '#2a1f00', border: `1px solid ${copied ? '#166534' : '#5a4a00'}`, borderRadius: 6, color: copied ? '#4ade80' : '#fbbf24', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 600, transition: 'all 0.15s' }}>
+                          {copied ? 'Copied ✓' : 'Copy'}
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#555', marginBottom: 10, lineHeight: 1.5 }}>Live link — always shows latest data. Anyone with the link can view.</div>
+                      {!confirmRevoke ? (
+                        <button onClick={() => setConfirmRevoke(true)} style={{ fontSize: 11, color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Revoke link</button>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 11, color: '#f87171' }}>Revoke? Anyone with it will lose access.</span>
+                          <button onClick={handleRevoke} style={{ fontSize: 11, padding: '3px 8px', background: '#7f1d1d', border: '1px solid #991b1b', borderRadius: 4, color: '#fca5a5', cursor: 'pointer', fontWeight: 600 }}>Yes</button>
+                          <button onClick={() => setConfirmRevoke(false)} style={{ fontSize: 11, color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}>No</button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Scrollable body */}
           <div data-scroll-container="true" style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 }}>
+            {/* Hint banner */}
+            <div style={{ padding: '6px 18px', fontSize: 10, color: '#555', fontStyle: 'italic' }}>👁 This is what the student / parent will see</div>
+
             {/* Stats row */}
-            <div style={{ padding: '16px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ padding: '10px 18px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div style={{ background: '#242424', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 600, color: attColor }}>Attendance · {overallPct === null ? '—' : `${overallPct}%`}</div>
               </div>
