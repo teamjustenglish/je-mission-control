@@ -1355,6 +1355,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Overdue tasks (previous weeks that are 'open' or 'closed' — not 'finalised' or 'reopened')
   const overdueTasks: Task[] = useMemo(() => {
+    if (!isDevTester) return [];
     if (!activeBatch || students.length === 0) return [];
     const cw = computedCurrentWeek;
     const allOverdue: Task[] = [];
@@ -1367,7 +1368,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     }
     return allOverdue;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, weekStatuses, rescheduledSessions]);
+  }, [isDevTester, activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, weekStatuses, rescheduledSessions]);
 
   // Click handler for tasks — switch week, scroll + pulse
   const handleTaskClick = (task: Task) => {
