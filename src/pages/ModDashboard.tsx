@@ -1161,10 +1161,25 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return computeAttendancePct(present, students.length, sessionsOccurred);
   })();
   // avgDemoScore computed below after getStudentDemoTotal is defined
-  const sessionsLogged = (() => {
-    const loggedSessions = new Set<number>();
-    attendance.forEach(a => { if (a.state !== 'e') loggedSessions.add(a.session_index); });
-    return loggedSessions.size;
+  const sessionsCompleted = (() => {
+    const completedIndexes = new Set<number>();
+    attendance.forEach(a => {
+      if (a.batch_id !== activeBatchId) return;
+      if (a.state !== 'c' && a.state !== 'x') return;
+      if (a.session_index >= 0 && a.session_index < 24) {
+        completedIndexes.add(a.session_index);
+      } else if (a.session_index >= 1000) {
+        const toWeek = a.session_index - 1000 + 1;
+        const r = rescheduledSessions.find(r => (r.to_week ?? null) === toWeek);
+        if (r) {
+          const week = (r.from_week ?? r.week_number) as number;
+          const dayName = (r.from_day ?? r.day_name) as string;
+          const dayIdx = dayName === 'Mon' ? 0 : dayName === 'Tue' ? 1 : dayName === 'Thu' ? 2 : 3;
+          completedIndexes.add((week - 1) * 4 + dayIdx);
+        }
+      }
+    });
+    return completedIndexes.size;
   })();
 
   // Initialize scoreValues from demoScores when:
