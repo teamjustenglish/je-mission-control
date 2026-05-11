@@ -138,6 +138,71 @@ const AttendanceCell: React.FC<{
   );
 };
 
+const DroppedTag: React.FC = () => (
+  <span style={{
+    marginLeft: 6, background: 'hsl(var(--danger-bg))', color: 'hsl(var(--score-red))',
+    border: '1px solid hsl(var(--score-red) / 0.4)', fontSize: 9, padding: '1px 6px',
+    borderRadius: 9999, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600,
+    display: 'inline-block', verticalAlign: 'middle',
+  }}>Dropped</span>
+);
+
+const menuItemStyle: React.CSSProperties = {
+  display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+  padding: '6px 10px', fontSize: 12, color: 'hsl(var(--foreground))', cursor: 'pointer', borderRadius: 4,
+};
+
+const StudentRowMenu: React.FC<{
+  student: { id: string; name: string };
+  open: boolean;
+  dropped: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDrop: () => void;
+  onReverse: () => void;
+}> = ({ open, dropped, onToggle, onEdit, onDrop, onReverse }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onToggle();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open, onToggle]);
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block', marginLeft: 4 }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        style={{
+          width: 20, height: 20, border: '1px solid hsl(var(--border))', borderRadius: 4,
+          background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))',
+          fontSize: 14, lineHeight: '14px', cursor: 'pointer', padding: 0,
+        }}
+        title="Student options"
+      >⋮</button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 4, minWidth: 200,
+          background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6,
+          boxShadow: '0 4px 16px hsl(var(--background) / 0.6)', zIndex: 50, padding: 4,
+        }}>
+          <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={menuItemStyle}>Edit details</button>
+          <button disabled style={{ ...menuItemStyle, opacity: 0.5, cursor: 'not-allowed' }} title="Coming soon">Add note</button>
+          <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
+          {dropped ? (
+            <button onClick={(e) => { e.stopPropagation(); onReverse(); onToggle(); }} style={{ ...menuItemStyle, color: 'hsl(var(--amber-text))' }}>Reverse drop-out</button>
+          ) : (
+            <button onClick={(e) => { e.stopPropagation(); onDrop(); }} style={{ ...menuItemStyle, color: 'hsl(var(--score-red))' }}>Mark as dropped out</button>
+          )}
+          <button disabled style={{ ...menuItemStyle, opacity: 0.5, cursor: 'not-allowed' }} title="Coming soon">Move to another batch</button>
+          <button disabled style={{ ...menuItemStyle, opacity: 0.5, cursor: 'not-allowed' }} title="Coming soon">Pause temporarily</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Column header dropdown menu
 const ColumnMenu: React.FC<{
   sessionIndex: number;
