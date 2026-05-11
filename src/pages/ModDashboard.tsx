@@ -2646,9 +2646,13 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           <tr className="font-medium" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                             <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Total (/ 20)</td>
                             {students.map(s => {
-                              const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
-                              const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
-                              if (isAbsent && !makeup) {
+                              const state = getStudentDemoDayState(s.id, dd.day_number);
+                              const makeup = state === 'x' ? getStudentMakeup(s.id, dd.day_number) : null;
+                              const canScore = state === 'c' || (state === 'x' && !!makeup);
+                              if (!canScore) {
+                                if (state === 'e') {
+                                  return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>—</td>;
+                                }
                                 return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--score-red))' }}>Absent</td>;
                               }
                               const total = getStudentDemoTotal(dd.id, s.id);
@@ -2658,14 +2662,17 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           <tr>
                             <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Individual feedback</td>
                             {students.map(s => {
-                               const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
-                               const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
-                               if (isAbsent && !makeup) {
+                               const state = getStudentDemoDayState(s.id, dd.day_number);
+                               const makeup = state === 'x' ? getStudentMakeup(s.id, dd.day_number) : null;
+                               const canScore = state === 'c' || (state === 'x' && !!makeup);
+                               if (!canScore) {
+                                 const tip = state === 'e' ? 'Mark attendance first' : 'Student was absent on this demo day.';
+                                 const label = state === 'e' ? '' : 'absent';
                                  return (
                                    <td key={s.id} className="text-center px-2 py-2">
-                                     <div title="Student was absent on this demo day." style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'not-allowed', userSelect: 'none', opacity: 0.5 }}>
+                                     <div title={tip} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'not-allowed', userSelect: 'none', opacity: 0.5 }}>
                                        <div style={{ width: 22, height: 22, background: 'hsl(var(--card))', border: '1px dashed hsl(var(--input-border))', borderRadius: 4, color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '20px', fontSize: 12 }}>—</div>
-                                       <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>absent</span>
+                                       {label && <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>{label}</span>}
                                      </div>
                                    </td>
                                  );
