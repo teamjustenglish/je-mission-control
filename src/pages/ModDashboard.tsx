@@ -1857,14 +1857,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     }
     const state = getAttendanceState(studentId, sessionIndex);
     const note = getAbsenceNote(studentId, sessionIndex);
+    const studentRec = students.find(s => s.id === studentId);
+    const isDropped = studentRec?.status === 'dropped';
+    if (isDropped && state === 'e') {
+      return <div style={{ textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>—</div>;
+    }
     return (
       <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined}>
         <AttendanceCell
           state={state}
           isDemo={isDemo}
           absenceNote={note}
-          onClick={() => cycleAttendance(studentId, sessionIndex)}
-          onNoteClick={() => openNoteModal(studentId, sessionIndex)}
+          onClick={isDropped ? undefined : () => cycleAttendance(studentId, sessionIndex)}
+          onNoteClick={isDropped ? undefined : () => openNoteModal(studentId, sessionIndex)}
         />
       </div>
     );
