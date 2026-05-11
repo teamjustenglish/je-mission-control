@@ -160,7 +160,8 @@ const StudentRowMenu: React.FC<{
   onEdit: () => void;
   onDrop: () => void;
   onReverse: () => void;
-}> = ({ open, dropped, onToggle, onEdit, onDrop, onReverse }) => {
+  onDelete: () => void;
+}> = ({ open, dropped, onToggle, onEdit, onDrop, onReverse, onDelete }) => {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -188,15 +189,14 @@ const StudentRowMenu: React.FC<{
           boxShadow: '0 4px 16px hsl(var(--background) / 0.6)', zIndex: 50, padding: 4,
         }}>
           <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={menuItemStyle}>Edit details</button>
-          <button disabled style={{ ...menuItemStyle, opacity: 0.5, cursor: 'not-allowed' }} title="Coming soon">Add note</button>
           <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
           {dropped ? (
             <button onClick={(e) => { e.stopPropagation(); onReverse(); onToggle(); }} style={{ ...menuItemStyle, color: 'hsl(var(--amber-text))' }}>Reverse drop-out</button>
           ) : (
             <button onClick={(e) => { e.stopPropagation(); onDrop(); }} style={{ ...menuItemStyle, color: 'hsl(var(--score-red))' }}>Mark as dropped out</button>
           )}
-          <button disabled style={{ ...menuItemStyle, opacity: 0.5, cursor: 'not-allowed' }} title="Coming soon">Move to another batch</button>
-          <button disabled style={{ ...menuItemStyle, opacity: 0.5, cursor: 'not-allowed' }} title="Coming soon">Pause temporarily</button>
+          <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Danger zone</div>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(); onToggle(); }} style={{ ...menuItemStyle, color: 'hsl(var(--score-red))' }}>Delete student</button>
         </div>
       )}
     </div>
