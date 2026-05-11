@@ -14,7 +14,8 @@ import {
 import { toast } from 'sonner';
 
 interface Batch { id: string; name: string; mod_id: string; month: number; year: number; start_date?: string | null; }
-interface Student { id: string; batch_id: string; name: string; }
+interface Student { id: string; batch_id: string; name: string; status?: string | null; status_reason?: string | null; status_changed_at?: string | null; }
+const isDroppedStudent = (s: Pick<Student, 'status'>) => s.status === 'dropped';
 interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
