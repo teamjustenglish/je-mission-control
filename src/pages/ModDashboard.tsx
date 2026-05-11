@@ -1853,16 +1853,16 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const studentRec = students.find(s => s.id === studentId);
     const isDropped = studentRec?.status === 'dropped';
     if (isDropped && state === 'e') {
-      return <div style={{ textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>—</div>;
+      return <div style={{ textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))', opacity: 0.55 }}>—</div>;
     }
     return (
-      <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined}>
+      <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined} style={isDropped ? { opacity: 0.55 } : undefined}>
         <AttendanceCell
           state={state}
           isDemo={isDemo}
           absenceNote={note}
           onClick={isDropped ? () => {} : () => cycleAttendance(studentId, sessionIndex)}
-          onNoteClick={isDropped ? () => {} : () => openNoteModal(studentId, sessionIndex)}
+          onNoteClick={() => openNoteModal(studentId, sessionIndex)}
         />
       </div>
     );
