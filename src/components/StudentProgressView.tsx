@@ -28,7 +28,10 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
   student, batchName, modName, weekNumber, startDate,
   attendance, demoDays, demoScores, demoFeedback,
   showLiveBanner, lastUpdatedAt, hideHeader,
+  studentStatus, statusReason, statusChangedAt, onReverseDropout,
 }) => {
+  const isDropped = studentStatus === 'dropped';
+  const droppedDateLabel = statusChangedAt ? new Date(statusChangedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   // Time ago ticker
   const [, setTick] = useState(0);
   useEffect(() => {
