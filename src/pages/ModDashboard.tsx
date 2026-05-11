@@ -2132,8 +2132,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               )}
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
-              <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{sessionsLogged} / {totalSessions}</div>
-              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Sessions logged</div>
+              <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{sessionsCompleted} / {totalSessions}</div>
+              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Sessions completed</div>
             </div>
           </div>
 
