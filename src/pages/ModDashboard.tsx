@@ -164,15 +164,6 @@ const StudentRowMenu: React.FC<{
   onDelete: () => void;
 }> = ({ open, dropped, onToggle, onEdit, onDrop, onReverse, onDelete }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setMenuPos({ top: rect.top, left: rect.right + 4 });
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -183,23 +174,21 @@ const StudentRowMenu: React.FC<{
     return () => document.removeEventListener('mousedown', handler);
   }, [open, onToggle]);
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block', marginLeft: 4 }}>
+    <div ref={ref} style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', marginLeft: 4 }}>
       <button
-        ref={buttonRef}
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
         style={{
           width: 20, height: 20, border: '1px solid hsl(var(--border))', borderRadius: 4,
           background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))',
           fontSize: 14, lineHeight: '14px', cursor: 'pointer', padding: 0,
-          position: 'relative', zIndex: 700, pointerEvents: 'auto', opacity: 1,
         }}
         title="Student options"
       >⋮</button>
       {open && (
         <div style={{
-          position: 'fixed', top: menuPos?.top ?? 0, left: menuPos?.left ?? 0, minWidth: 200,
-          background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6,
-          boxShadow: '0 4px 16px hsl(var(--background) / 0.6)', zIndex: 500, padding: 4,
+          position: 'absolute', top: '100%', right: 0, marginTop: 4, minWidth: 200,
+          background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.5)', zIndex: 50, padding: 5,
         }}>
           <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={menuItemStyle}>Edit details</button>
           <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
@@ -2438,7 +2427,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           </span>
                           {dropped && <DroppedTag />}
                           <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer', opacity: 1, pointerEvents: 'auto' }} onClick={(e) => { e.stopPropagation(); setProgressModalStudent(student); }}>📄</span>
-                          {!readOnly && <span style={{ position: 'relative', zIndex: 700, opacity: 1, pointerEvents: 'auto' }}><StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(current => current === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} onDelete={() => confirmRemoveStudent(student)} /></span>}
+                          {!readOnly && <StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(current => current === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} onDelete={() => confirmRemoveStudent(student)} />}
                         </td>
                         {Array.from({ length: 24 }, (_, i) => {
                           const info = getSessionLabel(i);
@@ -2522,7 +2511,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               </span>
                               {dropped && <DroppedTag />}
                               <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer', opacity: 1, pointerEvents: 'auto' }} onClick={(e) => { e.stopPropagation(); setProgressModalStudent(student); }}>📄</span>
-                              {!readOnly && <span style={{ position: 'relative', zIndex: 700, opacity: 1, pointerEvents: 'auto' }}><StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(current => current === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} onDelete={() => confirmRemoveStudent(student)} /></span>}
+                              {!readOnly && <StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(current => current === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} onDelete={() => confirmRemoveStudent(student)} />}
                             </>
                           )}
                         </div>
