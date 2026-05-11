@@ -868,6 +868,30 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return original?.state === 'x';
   };
 
+  // Make-up scheduling helpers
+  const getStudentMakeup = (studentId: string, dayNumber: number): { date: string; note: string | null } | null => {
+    if (!isStudentAbsentOnDemoDay(studentId, dayNumber)) return null;
+    const dd = demoDays.find(d => d.day_number === dayNumber);
+    if (!dd) return null;
+    const scoreRow = demoScores.find((s: any) => s.demo_day_id === dd.id && s.student_id === studentId && s.makeup_date);
+    if (!scoreRow) return null;
+    return { date: (scoreRow as any).makeup_date as string, note: ((scoreRow as any).makeup_note as string | null) ?? null };
+  };
+  const getAbsentNeedsScheduling = (dayNumber: number): Student[] =>
+    students.filter(s => isStudentAbsentOnDemoDay(s.id, dayNumber) && !getStudentMakeup(s.id, dayNumber));
+  const getAbsentScheduled = (dayNumber: number): Array<{ student: Student; makeup: { date: string; note: string | null } }> =>
+    students
+      .filter(s => isStudentAbsentOnDemoDay(s.id, dayNumber))
+      .map(s => ({ student: s, makeup: getStudentMakeup(s.id, dayNumber) }))
+      .filter((x): x is { student: Student; makeup: { date: string; note: string | null } } => x.makeup !== null);
+  const fmtMakeupDate = (iso: string): string => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch { return iso; }
+  };
+
+
   const openNoteModal = (studentId: string, sessionIndex: number) => {
     if (readOnly) return;
     const student = students.find(s => s.id === studentId);
