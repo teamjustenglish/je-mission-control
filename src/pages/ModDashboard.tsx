@@ -402,6 +402,14 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
   // Removal confirmation
   const [removeRescheduleConfirm, setRemoveRescheduleConfirm] = useState<RescheduledSession | null>(null);
+
+  // Demo make-up scheduling modal
+  const [makeupModal, setMakeupModal] = useState<{
+    studentId: string; studentName: string; dayNumber: number; demoDayId: string; demoDayTitle: string; demoDayDate: string | null; isEdit: boolean;
+  } | null>(null);
+  const [makeupDate, setMakeupDate] = useState<string>('');
+  const [makeupNote, setMakeupNote] = useState<string>('');
+  const [makeupSaving, setMakeupSaving] = useState(false);
   
   // Absence note reminder banner
   const [bannerDismissed, setBannerDismissed] = useState(false);
