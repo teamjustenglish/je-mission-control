@@ -737,6 +737,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const cycleAttendance = async (studentId: string, sessionIndex: number) => {
     if (readOnly) return;
     if (!activeBatchId) return;
+    const studentRec = students.find(s => s.id === studentId);
+    if (studentRec && isDroppedStudent(studentRec)) return;
     const existing = attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex);
     let newState: string;
     if (!existing || existing.state === 'e') newState = 'c';
