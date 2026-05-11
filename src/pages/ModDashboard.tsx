@@ -171,7 +171,7 @@ const StudentRowMenu: React.FC<{
     if (!open) return;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setMenuPos({ top: rect.bottom + 4, left: rect.left });
+    setMenuPos({ top: rect.top, left: rect.right + 4 });
   }, [open]);
 
   useEffect(() => {
