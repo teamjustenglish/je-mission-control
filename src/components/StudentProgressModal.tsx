@@ -215,6 +215,10 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
               demoFeedback={demoFeedback}
               showLiveBanner={false}
               hideHeader={true}
+              studentStatus={studentStatus}
+              statusReason={statusReason}
+              statusChangedAt={statusChangedAt}
+              onReverseDropout={onReverseDropout}
             />
           </div>
         </div>
