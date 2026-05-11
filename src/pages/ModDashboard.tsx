@@ -1565,15 +1565,14 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
        }
      }
 
-     // 2. Absences without reason
+     // 2. Absences without reason — include dropped students (their past ✕ marks still need reasons)
      const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
-     const activeIdSet = new Set(activeOnly.map(s => s.id));
      for (const a of attendance) {
        if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '')) {
          if (a.session_index < wStart || a.session_index >= wStart + 4) continue;
-         if (!activeIdSet.has(a.student_id)) continue;
+         const student = students.find(s => s.id === a.student_id);
+         if (!student) continue;
          if (!absencesBySession[a.session_index]) absencesBySession[a.session_index] = [];
-         const student = activeOnly.find(s => s.id === a.student_id);
          absencesBySession[a.session_index].push({ studentId: a.student_id, name: student?.name?.split(' ')[0] || 'Student' });
        }
      }
@@ -1853,16 +1852,16 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const studentRec = students.find(s => s.id === studentId);
     const isDropped = studentRec?.status === 'dropped';
     if (isDropped && state === 'e') {
-      return <div style={{ textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>—</div>;
+      return <div style={{ textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))', opacity: 0.55 }}>—</div>;
     }
     return (
-      <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined}>
+      <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined} style={isDropped ? { opacity: 0.55 } : undefined}>
         <AttendanceCell
           state={state}
           isDemo={isDemo}
           absenceNote={note}
           onClick={isDropped ? () => {} : () => cycleAttendance(studentId, sessionIndex)}
-          onNoteClick={isDropped ? () => {} : () => openNoteModal(studentId, sessionIndex)}
+          onNoteClick={() => openNoteModal(studentId, sessionIndex)}
         />
       </div>
     );
@@ -1873,13 +1872,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const si = wedSessionIndex(week);
     const state = getAttendanceState(studentId, si);
     const note = getAbsenceNote(studentId, si);
+    const studentRec = students.find(s => s.id === studentId);
+    const isDropped = studentRec?.status === 'dropped';
+    if (isDropped && state === 'e') {
+      return <div style={{ background: 'hsl(var(--success-bg))', textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))', opacity: 0.55 }}>—</div>;
+    }
     return (
-      <div style={{ background: 'hsl(var(--success-bg))' }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
+      <div style={{ background: 'hsl(var(--success-bg))', ...(isDropped ? { opacity: 0.55 } : {}) }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
         <AttendanceCell
           state={state}
           isDemo={false}
           absenceNote={note}
-          onClick={() => cycleAttendance(studentId, si)}
+          onClick={isDropped ? () => {} : () => cycleAttendance(studentId, si)}
           onNoteClick={() => openNoteModal(studentId, si)}
         />
       </div>
@@ -2413,9 +2417,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         {showDivider && (
                           <tr><td colSpan={26} style={{ borderTop: '1px solid hsl(var(--border))', padding: '6px 0 4px', fontSize: 10, color: 'hsl(var(--muted-foreground))', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dropped ({droppedCount})</td></tr>
                         )}
-                      <tr style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}>
+                      <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                         <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12, whiteSpace: 'nowrap' }}>
-                          <span style={{ cursor: 'pointer', textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
+                          <span style={{ cursor: 'pointer', textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined, opacity: dropped ? 0.55 : 1 }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
                             {student.name || '(unnamed)'}
                           </span>
                           {dropped && <DroppedTag />}
@@ -2484,7 +2488,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         <tr><td colSpan={weekSessions.length + 1} style={{ borderTop: '1px solid hsl(var(--border))', padding: '6px 0 4px', fontSize: 10, color: 'hsl(var(--muted-foreground))', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dropped ({droppedCount})</td></tr>
                       )}
                     <tr className="group"
-                      style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}>
+                      style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                       <td className="py-1 font-medium text-foreground relative" style={{ width: 140, minWidth: 140, fontSize: 13, whiteSpace: 'nowrap' }}>
                         <div className="flex items-center gap-2">
                           {editingStudentId === student.id ? (
@@ -2497,7 +2501,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                             <>
                               <span
                                 className={readOnly || dropped ? '' : 'cursor-pointer hover:underline'}
-                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }}
+                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined, opacity: dropped ? 0.55 : 1 }}
                                 onClick={readOnly || dropped ? undefined : () => setEditingStudentId(student.id)}
                               >
                                 {student.name || (readOnly ? '(unnamed)' : '(click to name)')}
