@@ -2583,7 +2583,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                       <button
                                         type="button"
                                         onClick={readOnly ? undefined : () => openMakeupModal(s.id, dd.day_number)}
-                                        title={`Made up ${fmtMakeupDate(makeup.date)}${makeup.note ? ` · ${makeup.note}` : ''}`}
+                                        title={`Made up on ${fmtMakeupDate(makeup.date)}${makeup.note ? ` · ${makeup.note}` : ''}`}
                                         style={{
                                           width: 10, height: 10, borderRadius: '50%',
                                           background: 'hsl(var(--score-amber))',
@@ -2612,18 +2612,22 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                             <tr key={criterion} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                               <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>{criterion}</td>
                               {students.map(s => {
-                                const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
-                                const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
-                                if (isAbsent && !makeup) {
+                                const state = getStudentDemoDayState(s.id, dd.day_number);
+                                const makeup = state === 'x' ? getStudentMakeup(s.id, dd.day_number) : null;
+                                const canScore = state === 'c' || (state === 'x' && !!makeup);
+                                if (!canScore) {
+                                  const tip = state === 'e'
+                                    ? 'Mark attendance first'
+                                    : 'Student was absent on this demo day. Record a make-up to enter scores.';
                                   return (
                                     <td key={s.id} className="text-center px-2 py-2">
                                       <div
-                                        title="Student was absent on this demo day. Schedule a make-up to enter scores."
+                                        title={tip}
                                         style={{
                                           width: 44, height: 26, background: 'hsl(var(--card))',
                                           border: '1px dashed hsl(var(--input-border))', borderRadius: 6,
                                           color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '24px',
-                                          fontSize: 12, cursor: 'not-allowed', userSelect: 'none', margin: '0 auto',
+                                          fontSize: 12, cursor: 'not-allowed', userSelect: 'none', margin: '0 auto', opacity: 0.6,
                                         }}
                                       >—</div>
                                     </td>
@@ -2631,7 +2635,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                 }
                                 return (
                                   <td key={s.id} className="text-center px-2 py-2"
-                                    style={isAbsent && makeup ? { background: 'hsl(var(--amber-bg) / 0.35)' } : undefined}
+                                    style={state === 'x' && makeup ? { background: 'hsl(var(--amber-bg) / 0.35)' } : undefined}
                                   >
                                     <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} disabled={readOnly} />
                                   </td>
