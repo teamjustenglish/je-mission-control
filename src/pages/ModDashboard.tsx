@@ -2490,7 +2490,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         {absentNeeds.length === 1 && absentScheduled.length === 0 ? (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px' }}>
                             <div style={{ fontSize: 13, fontWeight: 500 }}>
-                              ⚠ {absentNeeds[0].name} was absent on demo day.
+                              ⚠ {absentNeeds[0].name} was absent on demo day. Make up the demo and add the scores.
                             </div>
                             <button
                               type="button"
@@ -2500,18 +2500,16 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                 color: 'hsl(var(--amber-text))', borderRadius: 6,
                                 padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
                               }}
-                            >Schedule make-up</button>
+                            >Make up demo</button>
                           </div>
                         ) : (
                           <>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid hsl(var(--amber-border))' }}>
                               <div style={{ fontSize: 13, fontWeight: 500 }}>
                                 ⚠ {totalAbsent} students were absent on demo day
-                                {absentScheduled.length > 0 && (
-                                  <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>
-                                    · {absentNeeds.length} pending
-                                  </span>
-                                )}
+                                <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>
+                                  · Make up their demos and add scores
+                                </span>
                               </div>
                               <span style={{
                                 background: 'hsl(var(--amber-text) / 0.15)', color: 'hsl(var(--amber-text))',
@@ -2537,7 +2535,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                       color: 'hsl(var(--amber-text))', borderRadius: 6,
                                       padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                                     }}
-                                  >Schedule</button>
+                                  >Make up</button>
                                 </div>
                               ))}
                               {/* Then scheduled, dimmed */}
