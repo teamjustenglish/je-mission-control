@@ -2985,6 +2985,51 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         </div>
       )}
 
+      {/* Dropout modal */}
+      {dropoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }} onClick={closeDropoutModal}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 20, maxWidth: 440, width: '90%' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'hsl(var(--foreground))', marginBottom: 4 }}>Mark {dropoutModal.name} as dropped out</div>
+            <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 14, lineHeight: 1.5 }}>
+              They'll be moved to inactive status. Their past attendance and demo scores stay on record. You can reverse this anytime.
+            </div>
+            <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Reason (visible to admin)</label>
+            <textarea
+              value={dropoutReason}
+              onChange={(e) => setDropoutReason(e.target.value)}
+              placeholder="e.g. Career change, work hours conflicting with class."
+              rows={3}
+              style={{ width: '100%', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input-border))', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: 'hsl(var(--foreground))', resize: 'vertical', outline: 'none', fontFamily: 'Inter, sans-serif', marginBottom: 12 }}
+            />
+            <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Drop-out date</label>
+            <input type="date" value={dropoutDate} onChange={(e) => setDropoutDate(e.target.value)}
+              style={{ width: '100%', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input-border))', borderRadius: 6, padding: '8px 10px', fontSize: 13, color: 'hsl(var(--foreground))', outline: 'none', marginBottom: 16 }} />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={closeDropoutModal} style={cancelBtnStyle}>Cancel</button>
+              <button type="button" onClick={saveDropout} disabled={dropoutSaving}
+                style={{ background: 'hsl(var(--destructive))', border: '1px solid hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: dropoutSaving ? 'wait' : 'pointer', opacity: dropoutSaving ? 0.7 : 1 }}>
+                Mark dropped out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reverse drop-out confirm */}
+      {reverseDropConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }} onClick={() => setReverseDropConfirm(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 20, maxWidth: 400, width: '90%' }}>
+            <div style={{ fontSize: 14, color: 'hsl(var(--foreground))', marginBottom: 16, lineHeight: 1.5 }}>
+              Reverse {reverseDropConfirm.name}'s drop-out? They'll return to active status and start counting in batch stats again.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setReverseDropConfirm(null)} style={cancelBtnStyle}>Cancel</button>
+              <button type="button" onClick={() => reverseDropout(reverseDropConfirm)} style={primaryBtnStyle}>Reverse drop-out</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Student progress modal */}
       {progressModalStudent && activeBatch && (
         <StudentProgressModal
@@ -2997,6 +3042,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
           demoDays={demoDays}
           demoScores={demoScores}
           demoFeedback={demoFeedback}
+          studentStatus={progressModalStudent.status || 'active'}
+          statusReason={progressModalStudent.status_reason || null}
+          statusChangedAt={progressModalStudent.status_changed_at || null}
+          onReverseDropout={readOnly ? undefined : () => { setReverseDropConfirm(progressModalStudent); setProgressModalStudent(null); }}
           onClose={() => setProgressModalStudent(null)}
         />
       )}
