@@ -876,6 +876,27 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return original?.state === 'x';
   };
 
+  // Returns student's attendance state on a demo day: 'c' (present), 'x' (absent), or 'e' (not marked).
+  // Honors rescheduled Friday demo days via synthetic Wed index (1000 + week-1).
+  const getStudentDemoDayState = (studentId: string, dayNumber: number): 'c' | 'x' | 'e' => {
+    const baseIdx = getDemoDaySessionIndex(dayNumber);
+    if (baseIdx === null) return 'e';
+    const week = dayNumber * 2;
+    const reschedule = rescheduledSessions.find(r =>
+      ((r.from_week ?? r.week_number) === week) &&
+      ((r.from_day ?? r.day_name) === 'Fri')
+    );
+    if (reschedule) {
+      const wedIdx = 1000 + (week - 1);
+      const ra = attendance.find(a =>
+        a.student_id === studentId && a.session_index === wedIdx && a.batch_id === activeBatchId
+      );
+      return ra?.state === 'c' || ra?.state === 'x' ? (ra.state as 'c' | 'x') : 'e';
+    }
+    const original = attendance.find(a => a.student_id === studentId && a.session_index === baseIdx);
+    return original?.state === 'c' || original?.state === 'x' ? (original.state as 'c' | 'x') : 'e';
+  };
+
   // Make-up scheduling helpers
   const getStudentMakeup = (studentId: string, dayNumber: number): { date: string; note: string | null } | null => {
     if (!isStudentAbsentOnDemoDay(studentId, dayNumber)) return null;
@@ -1104,7 +1125,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         logActivity(
           user.id, profile?.name || '',
           'demo_makeup_scheduled',
-          `${makeupModal.isEdit ? 'Updated' : 'Scheduled'} make-up for ${studentName} on Demo Day ${dayNumber} for ${fmtMakeupDate(makeupIso)}`,
+          `Recorded make-up for ${studentName} on Demo Day ${dayNumber} (made up on ${fmtMakeupDate(makeupIso)})`,
           activeBatch.name,
         );
       }
@@ -1161,10 +1182,25 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return computeAttendancePct(present, students.length, sessionsOccurred);
   })();
   // avgDemoScore computed below after getStudentDemoTotal is defined
-  const sessionsLogged = (() => {
-    const loggedSessions = new Set<number>();
-    attendance.forEach(a => { if (a.state !== 'e') loggedSessions.add(a.session_index); });
-    return loggedSessions.size;
+  const sessionsCompleted = (() => {
+    const completedIndexes = new Set<number>();
+    attendance.forEach(a => {
+      if (a.batch_id !== activeBatchId) return;
+      if (a.state !== 'c' && a.state !== 'x') return;
+      if (a.session_index >= 0 && a.session_index < 24) {
+        completedIndexes.add(a.session_index);
+      } else if (a.session_index >= 1000) {
+        const toWeek = a.session_index - 1000 + 1;
+        const r = rescheduledSessions.find(r => (r.to_week ?? null) === toWeek);
+        if (r) {
+          const week = (r.from_week ?? r.week_number) as number;
+          const dayName = (r.from_day ?? r.day_name) as string;
+          const dayIdx = dayName === 'Mon' ? 0 : dayName === 'Tue' ? 1 : dayName === 'Thu' ? 2 : 3;
+          completedIndexes.add((week - 1) * 4 + dayIdx);
+        }
+      }
+    });
+    return completedIndexes.size;
   })();
 
   // Initialize scoreValues from demoScores when:
@@ -2117,8 +2153,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               )}
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
-              <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{sessionsLogged} / {totalSessions}</div>
-              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Sessions logged</div>
+              <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{sessionsCompleted} / {totalSessions}</div>
+              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Sessions completed</div>
             </div>
           </div>
 
@@ -2454,7 +2490,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         {absentNeeds.length === 1 && absentScheduled.length === 0 ? (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px' }}>
                             <div style={{ fontSize: 13, fontWeight: 500 }}>
-                              ⚠ {absentNeeds[0].name} was absent on demo day.
+                              ⚠ {absentNeeds[0].name} was absent on demo day. Make up the demo and add the scores.
                             </div>
                             <button
                               type="button"
@@ -2464,18 +2500,16 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                 color: 'hsl(var(--amber-text))', borderRadius: 6,
                                 padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
                               }}
-                            >Schedule make-up</button>
+                            >Make up demo</button>
                           </div>
                         ) : (
                           <>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid hsl(var(--amber-border))' }}>
                               <div style={{ fontSize: 13, fontWeight: 500 }}>
                                 ⚠ {totalAbsent} students were absent on demo day
-                                {absentScheduled.length > 0 && (
-                                  <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>
-                                    · {absentNeeds.length} pending
-                                  </span>
-                                )}
+                                <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>
+                                  · Make up their demos and add scores
+                                </span>
                               </div>
                               <span style={{
                                 background: 'hsl(var(--amber-text) / 0.15)', color: 'hsl(var(--amber-text))',
@@ -2501,7 +2535,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                       color: 'hsl(var(--amber-text))', borderRadius: 6,
                                       padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                                     }}
-                                  >Schedule</button>
+                                  >Make up</button>
                                 </div>
                               ))}
                               {/* Then scheduled, dimmed */}
@@ -2549,7 +2583,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                       <button
                                         type="button"
                                         onClick={readOnly ? undefined : () => openMakeupModal(s.id, dd.day_number)}
-                                        title={`Made up ${fmtMakeupDate(makeup.date)}${makeup.note ? ` · ${makeup.note}` : ''}`}
+                                        title={`Made up on ${fmtMakeupDate(makeup.date)}${makeup.note ? ` · ${makeup.note}` : ''}`}
                                         style={{
                                           width: 10, height: 10, borderRadius: '50%',
                                           background: 'hsl(var(--score-amber))',
@@ -2578,18 +2612,22 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                             <tr key={criterion} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                               <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>{criterion}</td>
                               {students.map(s => {
-                                const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
-                                const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
-                                if (isAbsent && !makeup) {
+                                const state = getStudentDemoDayState(s.id, dd.day_number);
+                                const makeup = state === 'x' ? getStudentMakeup(s.id, dd.day_number) : null;
+                                const canScore = state === 'c' || (state === 'x' && !!makeup);
+                                if (!canScore) {
+                                  const tip = state === 'e'
+                                    ? 'Mark attendance first'
+                                    : 'Student was absent on this demo day. Record a make-up to enter scores.';
                                   return (
                                     <td key={s.id} className="text-center px-2 py-2">
                                       <div
-                                        title="Student was absent on this demo day. Schedule a make-up to enter scores."
+                                        title={tip}
                                         style={{
                                           width: 44, height: 26, background: 'hsl(var(--card))',
                                           border: '1px dashed hsl(var(--input-border))', borderRadius: 6,
                                           color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '24px',
-                                          fontSize: 12, cursor: 'not-allowed', userSelect: 'none', margin: '0 auto',
+                                          fontSize: 12, cursor: 'not-allowed', userSelect: 'none', margin: '0 auto', opacity: 0.6,
                                         }}
                                       >—</div>
                                     </td>
@@ -2597,7 +2635,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                 }
                                 return (
                                   <td key={s.id} className="text-center px-2 py-2"
-                                    style={isAbsent && makeup ? { background: 'hsl(var(--amber-bg) / 0.35)' } : undefined}
+                                    style={state === 'x' && makeup ? { background: 'hsl(var(--amber-bg) / 0.35)' } : undefined}
                                   >
                                     <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} disabled={readOnly} />
                                   </td>
@@ -2608,9 +2646,13 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           <tr className="font-medium" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                             <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Total (/ 20)</td>
                             {students.map(s => {
-                              const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
-                              const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
-                              if (isAbsent && !makeup) {
+                              const state = getStudentDemoDayState(s.id, dd.day_number);
+                              const makeup = state === 'x' ? getStudentMakeup(s.id, dd.day_number) : null;
+                              const canScore = state === 'c' || (state === 'x' && !!makeup);
+                              if (!canScore) {
+                                if (state === 'e') {
+                                  return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>—</td>;
+                                }
                                 return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--score-red))' }}>Absent</td>;
                               }
                               const total = getStudentDemoTotal(dd.id, s.id);
@@ -2620,14 +2662,17 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           <tr>
                             <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Individual feedback</td>
                             {students.map(s => {
-                               const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
-                               const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
-                               if (isAbsent && !makeup) {
+                               const state = getStudentDemoDayState(s.id, dd.day_number);
+                               const makeup = state === 'x' ? getStudentMakeup(s.id, dd.day_number) : null;
+                               const canScore = state === 'c' || (state === 'x' && !!makeup);
+                               if (!canScore) {
+                                 const tip = state === 'e' ? 'Mark attendance first' : 'Student was absent on this demo day.';
+                                 const label = state === 'e' ? '' : 'absent';
                                  return (
                                    <td key={s.id} className="text-center px-2 py-2">
-                                     <div title="Student was absent on this demo day." style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'not-allowed', userSelect: 'none', opacity: 0.5 }}>
+                                     <div title={tip} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'not-allowed', userSelect: 'none', opacity: 0.5 }}>
                                        <div style={{ width: 22, height: 22, background: 'hsl(var(--card))', border: '1px dashed hsl(var(--input-border))', borderRadius: 4, color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '20px', fontSize: 12 }}>—</div>
-                                       <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>absent</span>
+                                       {label && <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>{label}</span>}
                                      </div>
                                    </td>
                                  );
@@ -2678,18 +2723,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         </div>
       )}
 
-      {/* Schedule make-up modal */}
+      {/* Make-up demo modal */}
       {makeupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }}
           onClick={closeMakeupModal}>
           <div onClick={(e) => e.stopPropagation()}
             style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 20, maxWidth: 420, width: '100%' }}>
             <div style={{ fontSize: 15, color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 4 }}>
-              Schedule {makeupModal.studentName.split(' ')[0]}'s make-up
+              Mark {makeupModal.studentName.split(' ')[0]}'s make-up demo
             </div>
             <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 14 }}>
               {makeupModal.studentName} was absent on Demo Day {makeupModal.dayNumber}
-              {makeupModal.demoDayDate ? ` (${makeupModal.demoDayDate})` : ''}.
+              {makeupModal.demoDayDate ? ` (${makeupModal.demoDayDate})` : ''}. Enter the date the make-up demo was done.
             </div>
 
             <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Make-up date</label>
@@ -2720,7 +2765,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               background: 'hsl(var(--amber-bg))', border: '1px solid hsl(var(--amber-border))',
               color: 'hsl(var(--amber-text))', borderRadius: 8, padding: '8px 12px', fontSize: 12, marginBottom: 16,
             }}>
-              Demo scoring will unlock once you save. You can score after the make-up happens.
+              Saving will unlock scoring for {makeupModal.studentName.split(' ')[0]} on Demo Day {makeupModal.dayNumber}.
             </div>
 
             <div className="flex items-center justify-between gap-2">
@@ -2745,7 +2790,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   onClick={saveMakeup}
                   disabled={makeupSaving}
                   style={{ ...primaryBtnStyle, opacity: makeupSaving ? 0.7 : 1, cursor: makeupSaving ? 'wait' : 'pointer' }}
-                >Save</button>
+                >Save make-up date</button>
               </div>
             </div>
           </div>
