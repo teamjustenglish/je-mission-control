@@ -1151,6 +1151,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
 
+  // Stats
+  const totalStudents = students.length;
   const totalSessions = 24;
   const avgAttendance: number | null = (() => {
     if (students.length === 0) return null;
