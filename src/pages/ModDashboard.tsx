@@ -961,7 +961,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const week = dayNumber * 2;
     const reschedule = rescheduledSessions.find(r =>
       ((r.from_week ?? r.week_number) === week) &&
-      ((r.from_day ?? r.day_name) === 'Fri')
+      ((r.from_day ?? r.day_name) === 'Demo day' || (r.from_day ?? r.day_name) === 'Fri')
     );
     if (reschedule) {
       // Demo happened on rescheduled day — check the Wed synthetic index
@@ -986,7 +986,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const week = dayNumber * 2;
     const reschedule = rescheduledSessions.find(r =>
       ((r.from_week ?? r.week_number) === week) &&
-      ((r.from_day ?? r.day_name) === 'Fri')
+      ((r.from_day ?? r.day_name) === 'Demo day' || (r.from_day ?? r.day_name) === 'Fri')
     );
     if (reschedule) {
       const wedIdx = 1000 + (week - 1);
