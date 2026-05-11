@@ -1185,14 +1185,87 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
 
+  // ===== Drop-out helpers =====
+  const activeStudents = useMemo(() => students.filter(s => !isDroppedStudent(s)), [students]);
+  const droppedStudents = useMemo(() => students.filter(isDroppedStudent), [students]);
+  const sortedStudents = useMemo(() => {
+    const dropped = [...droppedStudents].sort((a, b) => {
+      const ad = a.status_changed_at ? new Date(a.status_changed_at).getTime() : 0;
+      const bd = b.status_changed_at ? new Date(b.status_changed_at).getTime() : 0;
+      return bd - ad;
+    });
+    return [...activeStudents, ...dropped];
+  }, [activeStudents, droppedStudents]);
+
+  const openDropoutModal = (s: Student) => {
+    if (readOnly) return;
+    setDropoutReason('');
+    setDropoutDate(new Date().toISOString().slice(0, 10));
+    setDropoutModal(s);
+    setStudentMenuId(null);
+  };
+  const closeDropoutModal = () => { setDropoutModal(null); setDropoutReason(''); setDropoutSaving(false); };
+
+  const saveDropout = async () => {
+    if (!dropoutModal || readOnly) return;
+    setDropoutSaving(true);
+    try {
+      const dateIso = dropoutDate ? new Date(dropoutDate).toISOString() : new Date().toISOString();
+      const { error } = await supabase.from('students').update({
+        status: 'dropped',
+        status_reason: dropoutReason || null,
+        status_changed_at: dateIso,
+      } as any).eq('id', dropoutModal.id);
+      if (error) throw error;
+      setStudents(prev => prev.map(s => s.id === dropoutModal.id
+        ? { ...s, status: 'dropped', status_reason: dropoutReason || null, status_changed_at: dateIso }
+        : s));
+      if (user && activeBatch) {
+        await logActivity(user.id, profile?.name || '', 'student_dropped', `Marked ${dropoutModal.name} as dropped out`, activeBatch.name);
+      }
+      showSaved();
+      closeDropoutModal();
+    } catch (e) {
+      console.error('saveDropout', e);
+      toast.error('Failed to save — please try again');
+      setDropoutSaving(false);
+    }
+  };
+
+  const reverseDropout = async (s: Student) => {
+    if (readOnly) return;
+    try {
+      const nowIso = new Date().toISOString();
+      const { error } = await supabase.from('students').update({
+        status: 'active', status_reason: null, status_changed_at: nowIso,
+      } as any).eq('id', s.id);
+      if (error) throw error;
+      setStudents(prev => prev.map(x => x.id === s.id
+        ? { ...x, status: 'active', status_reason: null, status_changed_at: nowIso }
+        : x));
+      if (user && activeBatch) {
+        await logActivity(user.id, profile?.name || '', 'student_reactivated', `Reversed ${s.name}'s drop-out`, activeBatch.name);
+      }
+      showSaved();
+      setReverseDropConfirm(null);
+    } catch (e) {
+      console.error('reverseDropout', e);
+      toast.error('Failed to save — please try again');
+    }
+  };
+
   // Stats
-  const totalStudents = students.length;
+  const enrolledStudents = students.length;
+  const activeStudentCount = activeStudents.length;
+  const droppedCount = droppedStudents.length;
+  const totalStudents = activeStudentCount;
   const totalSessions = 24;
   const avgAttendance: number | null = (() => {
-    if (students.length === 0) return null;
+    if (activeStudents.length === 0) return null;
     const sessionsOccurred = getSessionsOccurred(activeBatch?.start_date);
-    const present = attendance.filter(a => a.state === 'c').length;
-    return computeAttendancePct(present, students.length, sessionsOccurred);
+    const activeIds = new Set(activeStudents.map(s => s.id));
+    const present = attendance.filter(a => a.state === 'c' && activeIds.has(a.student_id)).length;
+    return computeAttendancePct(present, activeStudents.length, sessionsOccurred);
   })();
   // avgDemoScore computed below after getStudentDemoTotal is defined
   const sessionsCompleted = (() => {
