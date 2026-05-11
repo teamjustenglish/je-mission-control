@@ -198,6 +198,8 @@ export type Database = {
           criterion: string
           demo_day_id: string
           id: string
+          makeup_date: string | null
+          makeup_note: string | null
           score: number
           student_id: string
         }
@@ -205,6 +207,8 @@ export type Database = {
           criterion: string
           demo_day_id: string
           id?: string
+          makeup_date?: string | null
+          makeup_note?: string | null
           score?: number
           student_id: string
         }
@@ -212,6 +216,8 @@ export type Database = {
           criterion?: string
           demo_day_id?: string
           id?: string
+          makeup_date?: string | null
+          makeup_note?: string | null
           score?: number
           student_id?: string
         }
