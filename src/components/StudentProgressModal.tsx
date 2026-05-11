@@ -12,6 +12,10 @@ interface StudentProgressModalProps {
   demoDays: { id: string; title: string; date: string | null; day_number: number }[];
   demoScores: { id: string; demo_day_id: string; student_id: string; criterion: string; score: number }[];
   demoFeedback?: { id: string; demo_day_id: string; student_id: string; feedback: string }[];
+  studentStatus?: string;
+  statusReason?: string | null;
+  statusChangedAt?: string | null;
+  onReverseDropout?: () => void;
   onClose: () => void;
 }
 
