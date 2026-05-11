@@ -165,66 +165,62 @@ const StudentRowMenu: React.FC<{
   onDelete: () => void;
 }> = ({ open, dropped, onToggle, onEdit, onDrop, onReverse, onDelete }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
-
-  const updateMenuPosition = useCallback(() => {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setMenuPos({ top: rect.bottom + 4, left: rect.left });
-  }, []);
 
   useEffect(() => {
     if (!open) return;
-    updateMenuPosition();
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
-      onToggle();
-    };
-    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onToggle(); };
-    document.addEventListener('mousedown', handler);
-    document.addEventListener('keydown', keyHandler);
-    window.addEventListener('scroll', updateMenuPosition, true);
-    window.addEventListener('resize', updateMenuPosition);
-    return () => {
-      document.removeEventListener('mousedown', handler);
-      document.removeEventListener('keydown', keyHandler);
-      window.removeEventListener('scroll', updateMenuPosition, true);
-      window.removeEventListener('resize', updateMenuPosition);
-    };
-  }, [open, onToggle, updateMenuPosition]);
+    const handleClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onToggle(); };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open, onToggle]);
+
   return (
     <div ref={ref} style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', marginLeft: 4 }}>
       <button
-        ref={buttonRef}
-        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onToggle(); }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
         style={{
-          width: 20, height: 20, border: '1px solid hsl(var(--border))', borderRadius: 4,
-          background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))',
-          fontSize: 14, lineHeight: '14px', cursor: 'pointer', padding: 0,
+          width: 20, height: 20, borderRadius: 4, border: '1px solid #333',
+          color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--secondary))', cursor: 'pointer', fontSize: 12,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          lineHeight: 1,
+          transition: 'all 0.15s',
         }}
-        title="Student options"
+        onMouseEnter={(e) => { const t = e.currentTarget; t.style.background = 'hsl(var(--border))'; t.style.color = 'hsl(var(--foreground))'; t.style.borderColor = 'hsl(var(--muted-foreground))'; }}
+        onMouseLeave={(e) => { const t = e.currentTarget; t.style.background = 'hsl(var(--secondary))'; t.style.color = 'hsl(var(--muted-foreground))'; t.style.borderColor = 'hsl(var(--border))'; }}
       >⋮</button>
-      {open && menuPos && createPortal(
-        <div ref={menuRef} style={{
-          position: 'fixed', top: menuPos.top, left: menuPos.left, minWidth: 200,
-          background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.5)', zIndex: 9999, padding: 5,
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 4,
+          background: 'hsl(var(--secondary))', border: '1px solid #333', borderRadius: 8,
+          padding: 5, minWidth: 195, zIndex: 50,
         }}>
-          <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={menuItemStyle}>Edit details</button>
-          <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
+          <button
+            onClick={() => { onEdit(); }}
+            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--foreground))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+            onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; }}
+            onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
+          >Edit details</button>
           {dropped ? (
-            <button onClick={(e) => { e.stopPropagation(); onReverse(); onToggle(); }} style={{ ...menuItemStyle, color: 'hsl(var(--amber-text))' }}>Reverse drop-out</button>
+            <button
+              onClick={() => { onToggle(); onReverse(); }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--amber-text))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+              onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--amber-text))'; }}
+            >Reverse drop-out</button>
           ) : (
-            <button onClick={(e) => { e.stopPropagation(); onDrop(); }} style={{ ...menuItemStyle, color: 'hsl(var(--score-red))' }}>Mark as dropped out</button>
+            <button
+              onClick={() => { onDrop(); }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--score-red))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+              onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--score-red))'; }}
+            >Mark as dropped out</button>
           )}
-          <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Danger zone</div>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(); onToggle(); }} style={{ ...menuItemStyle, color: 'hsl(var(--score-red))' }}>Delete student</button>
+          <button
+            onClick={() => { onToggle(); onDelete(); }}
+            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: 13, color: 'hsl(var(--score-red))', borderRadius: 6, background: 'transparent', border: 'none', cursor: 'pointer' }}
+            onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--border))'; (e.target as HTMLElement).style.color = 'hsl(var(--foreground))'; }}
+            onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = 'hsl(var(--score-red))'; }}
+          >Delete student</button>
         </div>
-        , document.body
       )}
     </div>
   );
