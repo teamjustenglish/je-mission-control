@@ -1033,8 +1033,124 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     showSaved();
   };
 
-  // Stats
-  const totalStudents = students.length;
+  // ===== Demo make-up scheduling =====
+  const openMakeupModal = (studentId: string, dayNumber: number) => {
+    if (readOnly) return;
+    const student = students.find(s => s.id === studentId);
+    const dd = demoDays.find(d => d.day_number === dayNumber);
+    if (!student || !dd) return;
+    const existing = getStudentMakeup(studentId, dayNumber);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    setMakeupDate(existing ? (existing.date.slice(0, 10)) : todayIso);
+    setMakeupNote(existing?.note || '');
+    setMakeupModal({
+      studentId,
+      studentName: student.name,
+      dayNumber,
+      demoDayId: dd.id,
+      demoDayTitle: dd.title,
+      demoDayDate: dd.date,
+      isEdit: !!existing,
+    });
+  };
+
+  const closeMakeupModal = () => {
+    setMakeupModal(null);
+    setMakeupDate('');
+    setMakeupNote('');
+    setMakeupSaving(false);
+  };
+
+  const saveMakeup = async () => {
+    if (!makeupModal || readOnly || makeupSaving) return;
+    if (!makeupDate) { toast.error('Please pick a make-up date'); return; }
+    setMakeupSaving(true);
+    const { demoDayId, studentId, studentName, dayNumber } = makeupModal;
+    const makeupIso = new Date(makeupDate).toISOString();
+    const noteVal = makeupNote.trim() || null;
+    try {
+      const existing = demoScores.filter(s => s.demo_day_id === demoDayId && s.student_id === studentId);
+      const missingCriteria = CRITERIA.filter(c => !existing.find(e => e.criterion === c));
+
+      // Update existing rows
+      if (existing.length > 0) {
+        const { error: updErr } = await supabase
+          .from('demo_scores')
+          .update({ makeup_date: makeupIso, makeup_note: noteVal } as any)
+          .eq('demo_day_id', demoDayId)
+          .eq('student_id', studentId);
+        if (updErr) throw updErr;
+      }
+      // Insert any missing criterion rows with score 0
+      if (missingCriteria.length > 0) {
+        const rows = missingCriteria.map(criterion => ({
+          demo_day_id: demoDayId, student_id: studentId, criterion, score: 0,
+          makeup_date: makeupIso, makeup_note: noteVal,
+        }));
+        const { data: inserted, error: insErr } = await supabase
+          .from('demo_scores').insert(rows as any).select();
+        if (insErr) throw insErr;
+        if (inserted) {
+          setDemoScores(prev => [...prev, ...(inserted as DemoScore[])]);
+        }
+      }
+      // Reflect makeup fields in local state for existing rows
+      setDemoScores(prev => prev.map(s =>
+        (s.demo_day_id === demoDayId && s.student_id === studentId)
+          ? ({ ...s, makeup_date: makeupIso, makeup_note: noteVal } as any)
+          : s
+      ));
+      if (user && activeBatch) {
+        logActivity(
+          user.id, profile?.name || '',
+          'demo_makeup_scheduled',
+          `${makeupModal.isEdit ? 'Updated' : 'Scheduled'} make-up for ${studentName} on Demo Day ${dayNumber} for ${fmtMakeupDate(makeupIso)}`,
+          activeBatch.name,
+        );
+      }
+      showSaved();
+      closeMakeupModal();
+    } catch (e) {
+      console.error('saveMakeup error', e);
+      toast.error('Failed to save make-up — please try again');
+      setMakeupSaving(false);
+    }
+  };
+
+  const removeMakeup = async () => {
+    if (!makeupModal || readOnly || makeupSaving) return;
+    setMakeupSaving(true);
+    const { demoDayId, studentId, studentName, dayNumber } = makeupModal;
+    try {
+      const { error } = await supabase
+        .from('demo_scores')
+        .update({ makeup_date: null, makeup_note: null } as any)
+        .eq('demo_day_id', demoDayId)
+        .eq('student_id', studentId);
+      if (error) throw error;
+      setDemoScores(prev => prev.map(s =>
+        (s.demo_day_id === demoDayId && s.student_id === studentId)
+          ? ({ ...s, makeup_date: null, makeup_note: null } as any)
+          : s
+      ));
+      if (user && activeBatch) {
+        logActivity(
+          user.id, profile?.name || '',
+          'demo_makeup_scheduled',
+          `Removed make-up for ${studentName} on Demo Day ${dayNumber}`,
+          activeBatch.name,
+        );
+      }
+      showSaved();
+      closeMakeupModal();
+    } catch (e) {
+      console.error('removeMakeup error', e);
+      toast.error('Failed to remove make-up — please try again');
+      setMakeupSaving(false);
+    }
+  };
+
+
   const totalSessions = 24;
   const avgAttendance: number | null = (() => {
     if (students.length === 0) return null;
