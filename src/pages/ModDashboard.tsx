@@ -405,8 +405,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   
   const [newBatchStartDate, setNewBatchStartDate] = useState('');
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
-  const [hoveredStudentId, setHoveredStudentId] = useState<string | null>(null);
-  const [reportStudent, setReportStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
   const [progressModalStudent, setProgressModalStudent] = useState<Student | null>(null);
 
