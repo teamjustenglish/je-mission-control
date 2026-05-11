@@ -1877,10 +1877,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const studentRec = students.find(s => s.id === studentId);
     const isDropped = studentRec?.status === 'dropped';
     if (isDropped && state === 'e') {
-      return <div style={{ background: 'hsl(var(--success-bg))', textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))', opacity: 0.55 }}>—</div>;
+      return <div style={{ background: 'hsl(var(--success-bg))', textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>—</div>;
     }
     return (
-      <div style={{ background: 'hsl(var(--success-bg))', ...(isDropped ? { opacity: 0.55 } : {}) }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
+      <div style={{ background: 'hsl(var(--success-bg))' }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
         <AttendanceCell
           state={state}
           isDemo={false}
