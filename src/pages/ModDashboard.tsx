@@ -172,10 +172,8 @@ const StudentRowMenu: React.FC<{
   const updateMenuPosition = useCallback(() => {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const menuHeight = dropped ? 128 : 128;
-    const top = dropped ? rect.top - menuHeight - 4 : rect.bottom + 4;
-    setMenuPos({ top: Math.max(8, top), left: rect.left });
-  }, [dropped]);
+    setMenuPos({ top: rect.bottom + 4, left: rect.left });
+  }, []);
 
   useEffect(() => {
     if (!open) return;
