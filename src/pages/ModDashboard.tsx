@@ -2220,10 +2220,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             </div>
           )}
           {/* Stats row */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
-              <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{totalStudents}</div>
-              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Students</div>
+              <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">
+                {droppedCount > 0 ? `${activeStudentCount} / ${enrolledStudents}` : activeStudentCount}
+              </div>
+              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Active students</div>
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500, color: attendanceColor }}>{avgAttendance === null ? '—' : `${avgAttendance}%`}</div>
@@ -2235,6 +2237,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               {absentDemoCount > 0 && (
                 <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2, fontStyle: 'italic' }}>
                   {absentDemoCount} absent (excluded)
+                </div>
+              )}
+            </div>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
+              <div style={{ fontSize: 22, fontWeight: 500, color: droppedCount >= 1 ? 'hsl(var(--score-red))' : 'hsl(var(--muted-foreground))' }}>{droppedCount}</div>
+              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Dropouts</div>
+              {enrolledStudents > 0 && (
+                <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2, fontStyle: 'italic' }}>
+                  {Math.round((droppedCount / enrolledStudents) * 100)}% of batch
                 </div>
               )}
             </div>
