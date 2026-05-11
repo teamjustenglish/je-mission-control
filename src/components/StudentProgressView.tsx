@@ -15,6 +15,10 @@ export interface StudentProgressViewProps {
   showLiveBanner?: boolean;
   lastUpdatedAt?: Date;
   hideHeader?: boolean;
+  studentStatus?: string;
+  statusReason?: string | null;
+  statusChangedAt?: string | null;
+  onReverseDropout?: () => void;
 }
 
 const scoreColor = (n: number) => n >= 14 ? 'hsl(var(--score-green))' : n >= 9 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
