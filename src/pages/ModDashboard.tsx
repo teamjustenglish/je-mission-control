@@ -2421,7 +2421,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         )}
                       <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                         <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12, whiteSpace: 'nowrap' }}>
-                          <span style={{ cursor: 'pointer', textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined, opacity: dropped ? 0.55 : 1 }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
+                          <span style={{ cursor: 'pointer', textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
                             {student.name || '(unnamed)'}
                           </span>
                           {dropped && <DroppedTag />}
