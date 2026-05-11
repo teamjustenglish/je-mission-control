@@ -876,6 +876,27 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return original?.state === 'x';
   };
 
+  // Returns student's attendance state on a demo day: 'c' (present), 'x' (absent), or 'e' (not marked).
+  // Honors rescheduled Friday demo days via synthetic Wed index (1000 + week-1).
+  const getStudentDemoDayState = (studentId: string, dayNumber: number): 'c' | 'x' | 'e' => {
+    const baseIdx = getDemoDaySessionIndex(dayNumber);
+    if (baseIdx === null) return 'e';
+    const week = dayNumber * 2;
+    const reschedule = rescheduledSessions.find(r =>
+      ((r.from_week ?? r.week_number) === week) &&
+      ((r.from_day ?? r.day_name) === 'Fri')
+    );
+    if (reschedule) {
+      const wedIdx = 1000 + (week - 1);
+      const ra = attendance.find(a =>
+        a.student_id === studentId && a.session_index === wedIdx && a.batch_id === activeBatchId
+      );
+      return ra?.state === 'c' || ra?.state === 'x' ? (ra.state as 'c' | 'x') : 'e';
+    }
+    const original = attendance.find(a => a.student_id === studentId && a.session_index === baseIdx);
+    return original?.state === 'c' || original?.state === 'x' ? (original.state as 'c' | 'x') : 'e';
+  };
+
   // Make-up scheduling helpers
   const getStudentMakeup = (studentId: string, dayNumber: number): { date: string; note: string | null } | null => {
     if (!isStudentAbsentOnDemoDay(studentId, dayNumber)) return null;
