@@ -49,6 +49,8 @@ const formatCountdown = (deadline: Date): string => {
   return `${hours}h left`;
 };
 
+const AMNESTY_END = new Date('2026-05-15T18:30:00Z');
+
 const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumber, weekStatus, onTaskClick, onFinaliseClick }) => {
   const [countdown, setCountdown] = useState(() => formatCountdown(getThisWeeksFriday()));
   const [activeTab, setActiveTab] = useState<'current' | 'overdue'>('current');
@@ -90,6 +92,18 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
           {nonFinaliseTasks.length + overdueTasks.length}
         </span>
       </div>
+
+      {/* Amnesty banner */}
+      {Date.now() < AMNESTY_END.getTime() && (
+        <div style={{
+          flexShrink: 0,
+          background: 'hsl(var(--amber-bg))', border: '1px solid hsl(var(--amber-border))', color: 'hsl(var(--score-amber))',
+          fontSize: 11, padding: '8px 12px', borderRadius: 6, margin: '12px 12px 0', lineHeight: 1.4,
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 2 }}>🔒 Catch-up week</div>
+          <div>Overdue tasks lock permanently after Fri 15 May. Clear your backlog this week — fresh slate from Monday :)</div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ flexShrink: 0, display: 'flex', borderBottom: '1px solid hsl(var(--border))', padding: '0 12px' }}>
