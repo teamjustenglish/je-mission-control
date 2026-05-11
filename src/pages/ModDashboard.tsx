@@ -2489,7 +2489,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         <tr><td colSpan={weekSessions.length + 1} style={{ borderTop: '1px solid hsl(var(--border))', padding: '6px 0 4px', fontSize: 10, color: 'hsl(var(--muted-foreground))', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dropped ({droppedCount})</td></tr>
                       )}
                     <tr className="group"
-                      style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}>
+                      style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                       <td className="py-1 font-medium text-foreground relative" style={{ width: 140, minWidth: 140, fontSize: 13, whiteSpace: 'nowrap' }}>
                         <div className="flex items-center gap-2">
                           {editingStudentId === student.id ? (
@@ -2502,7 +2502,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                             <>
                               <span
                                 className={readOnly || dropped ? '' : 'cursor-pointer hover:underline'}
-                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }}
+                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined, opacity: dropped ? 0.55 : 1 }}
                                 onClick={readOnly || dropped ? undefined : () => setEditingStudentId(student.id)}
                               >
                                 {student.name || (readOnly ? '(unnamed)' : '(click to name)')}
