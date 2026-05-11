@@ -164,6 +164,16 @@ const StudentRowMenu: React.FC<{
   onDelete: () => void;
 }> = ({ open, dropped, onToggle, onEdit, onDrop, onReverse, onDelete }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenuPos({ top: rect.bottom + 4, left: rect.left });
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -175,6 +185,7 @@ const StudentRowMenu: React.FC<{
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-block', marginLeft: 4 }}>
       <button
+        ref={buttonRef}
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
         style={{
           width: 20, height: 20, border: '1px solid hsl(var(--border))', borderRadius: 4,
@@ -185,9 +196,9 @@ const StudentRowMenu: React.FC<{
       >⋮</button>
       {open && (
         <div style={{
-          position: 'absolute', top: '100%', left: 0, marginTop: 4, minWidth: 200,
+          position: 'fixed', top: menuPos?.top ?? 0, left: menuPos?.left ?? 0, minWidth: 200,
           background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6,
-          boxShadow: '0 4px 16px hsl(var(--background) / 0.6)', zIndex: 50, padding: 4,
+          boxShadow: '0 4px 16px hsl(var(--background) / 0.6)', zIndex: 500, padding: 4,
         }}>
           <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={menuItemStyle}>Edit details</button>
           <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
