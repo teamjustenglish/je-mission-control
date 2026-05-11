@@ -52,14 +52,16 @@ const AttendanceCell: React.FC<{
     <div
       style={{ position: 'relative' }}
       className="flex items-center justify-center cursor-pointer w-full h-full py-2"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
       {state === 'c' ? (
         <span style={emojiStyle} className="text-[18px] leading-none" onClick={onClick}>✅</span>
       ) : state === 'x' ? (
         <>
-          <span style={{ position: 'relative', display: 'inline-block', paddingBottom: 8, marginBottom: -8 }}>
+          <span
+            style={{ position: 'relative', display: 'inline-block' }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
             <span style={emojiStyle} className="text-[18px] leading-none" onClick={onClick}>❌</span>
             {absenceNote ? (
               <span style={{
