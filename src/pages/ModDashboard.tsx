@@ -2413,7 +2413,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                       return (
                       <React.Fragment key={student.id}>
                         {showDivider && (
-                          <tr aria-hidden="true"><td colSpan={26} style={{ borderTop: '1px solid hsl(var(--border))', padding: 0, height: 1 }} /></tr>
+                          <tr><td colSpan={26} style={{ borderTop: '1px solid hsl(var(--border))', padding: '6px 0 4px', fontSize: 10, color: 'hsl(var(--muted-foreground))', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dropped ({droppedCount})</td></tr>
                         )}
                       <tr style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}>
                         <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12, whiteSpace: 'nowrap' }}>
