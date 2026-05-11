@@ -174,7 +174,7 @@ const StudentRowMenu: React.FC<{
   }, [open, onToggle]);
 
   return (
-    <div ref={ref} style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', marginLeft: 4 }}>
+    <div ref={ref} style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', marginLeft: 4, zIndex: 1 }}>
       <button
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
         style={{
