@@ -2409,12 +2409,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map(student => (
-                    <tr key={student.id} className="group"
-                      style={{ borderBottom: '1px solid hsl(var(--row-border))' }}
+                  {sortedStudents.map((student, sIdx) => {
+                    const dropped = isDroppedStudent(student);
+                    const prev = sortedStudents[sIdx - 1];
+                    const showDivider = dropped && prev && !isDroppedStudent(prev);
+                    return (
+                    <React.Fragment key={student.id}>
+                      {showDivider && (
+                        <tr aria-hidden="true"><td colSpan={weekSessions.length + 1} style={{ borderTop: '1px solid hsl(var(--border))', padding: 0, height: 1 }} /></tr>
+                      )}
+                    <tr className="group"
+                      style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}
                       onMouseEnter={() => setHoveredStudentId(student.id)}
                       onMouseLeave={() => setHoveredStudentId(null)}>
-                      {/* BUG 3 fix: nowrap on name */}
                       <td className="py-1 font-medium text-foreground relative" style={{ width: 140, minWidth: 140, fontSize: 13, whiteSpace: 'nowrap' }}>
                         <div className="flex items-center gap-2">
                           {editingStudentId === student.id ? (
@@ -2426,15 +2433,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           ) : (
                             <>
                               <span
-                                className={readOnly ? '' : 'cursor-pointer hover:underline'}
-                                onClick={readOnly ? undefined : () => setEditingStudentId(student.id)}
+                                className={readOnly || dropped ? '' : 'cursor-pointer hover:underline'}
+                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }}
+                                onClick={readOnly || dropped ? undefined : () => setEditingStudentId(student.id)}
                               >
                                 {student.name || (readOnly ? '(unnamed)' : '(click to name)')}
                               </span>
+                              {dropped && <DroppedTag />}
                               <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
+                              {!readOnly && <StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(studentMenuId === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} />}
                             </>
                           )}
-                          {hoveredStudentId === student.id && (
+                          {hoveredStudentId === student.id && !dropped && (
                             <div className="flex items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
                               {!readOnly && (
                                 <button onClick={() => confirmRemoveStudent(student)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'hsl(var(--danger-text))' }}>
@@ -2471,7 +2481,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         return cell;
                       })}
                     </tr>
-                  ))}
+                    </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
