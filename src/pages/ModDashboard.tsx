@@ -2484,9 +2484,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         <tr aria-hidden="true"><td colSpan={weekSessions.length + 1} style={{ borderTop: '1px solid hsl(var(--border))', padding: 0, height: 1 }} /></tr>
                       )}
                     <tr className="group"
-                      style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}
-                      onMouseEnter={() => setHoveredStudentId(student.id)}
-                      onMouseLeave={() => setHoveredStudentId(null)}>
+                      style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}>
                       <td className="py-1 font-medium text-foreground relative" style={{ width: 140, minWidth: 140, fontSize: 13, whiteSpace: 'nowrap' }}>
                         <div className="flex items-center gap-2">
                           {editingStudentId === student.id ? (
@@ -2506,22 +2504,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               </span>
                               {dropped && <DroppedTag />}
                               <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
-                              {!readOnly && <StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(studentMenuId === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} />}
+                              {!readOnly && <StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(studentMenuId === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} onDelete={() => confirmRemoveStudent(student)} />}
                             </>
-                          )}
-                          {hoveredStudentId === student.id && !dropped && (
-                            <div className="flex items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
-                              {!readOnly && (
-                                <button onClick={() => confirmRemoveStudent(student)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'hsl(var(--danger-text))' }}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                              <button onClick={() => setReportStudent(student)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 hover:text-foreground"
-                                style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
-                                Progress
-                              </button>
-                            </div>
                           )}
                         </div>
                       </td>
