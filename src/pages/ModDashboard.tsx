@@ -2483,7 +2483,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                     return (
                     <React.Fragment key={student.id}>
                       {showDivider && (
-                        <tr aria-hidden="true"><td colSpan={weekSessions.length + 1} style={{ borderTop: '1px solid hsl(var(--border))', padding: 0, height: 1 }} /></tr>
+                        <tr><td colSpan={weekSessions.length + 1} style={{ borderTop: '1px solid hsl(var(--border))', padding: '6px 0 4px', fontSize: 10, color: 'hsl(var(--muted-foreground))', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dropped ({droppedCount})</td></tr>
                       )}
                     <tr className="group"
                       style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}>
