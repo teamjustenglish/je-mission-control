@@ -415,6 +415,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   // Absence note reminder banner
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
+  // Student row ⋮ menu
+  const [studentMenuId, setStudentMenuId] = useState<string | null>(null);
+
+  // Drop-out modal
+  const [dropoutModal, setDropoutModal] = useState<Student | null>(null);
+  const [dropoutReason, setDropoutReason] = useState('');
+  const [dropoutDate, setDropoutDate] = useState('');
+  const [dropoutSaving, setDropoutSaving] = useState(false);
+
+  // Reverse drop-out confirm
+  const [reverseDropConfirm, setReverseDropConfirm] = useState<Student | null>(null);
+
   const activeBatch = batches.find(b => b.id === activeBatchId);
 
   const showSaved = () => {
