@@ -6,7 +6,7 @@ import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRIT
 import { Plus, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
-import ToDoSidebar, { AdminSummaryPanel } from '@/components/ToDoSidebar';
+import ToDoSidebar, { AdminSummaryPanel, AMNESTY_END } from '@/components/ToDoSidebar';
 import type { Task } from '@/components/ToDoSidebar';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -400,6 +400,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 }) => {
   const { user, profile, signOut } = useAuth();
   const isDevTester = profile?.email === 'dilinaedu@gmail.com';
+  const isAmnestyActive = Date.now() < AMNESTY_END.getTime();
   // When viewing another mod's data (admin read-only), we may need to display
   // that mod's name. Fetch it on demand and fall back to logged-in profile.
   const [overrideModName, setOverrideModName] = useState<string | null>(null);
@@ -1727,7 +1728,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Click handler for tasks — switch week, scroll + pulse
   const handleTaskClick = (task: Task) => {
-    if (task.type === 'finalise' || task.isOverdue) return;
+    if (task.type === 'finalise') return;
+    if (task.isOverdue && !isAmnestyActive) return;
 
     let targetWeek: number | null = null;
     if (task.targetSessionIndex !== undefined) {

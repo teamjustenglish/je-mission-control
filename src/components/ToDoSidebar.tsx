@@ -49,11 +49,12 @@ const formatCountdown = (deadline: Date): string => {
   return `${hours}h left`;
 };
 
-const AMNESTY_END = new Date('2026-05-15T18:30:00Z');
+export const AMNESTY_END = new Date('2026-05-15T18:30:00Z');
 
 const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumber, weekStatus, onTaskClick, onFinaliseClick }) => {
   const [countdown, setCountdown] = useState(() => formatCountdown(getThisWeeksFriday()));
   const [activeTab, setActiveTab] = useState<'current' | 'overdue'>('current');
+  const isAmnestyActive = Date.now() < AMNESTY_END.getTime();
 
   useEffect(() => {
     const iv = setInterval(() => setCountdown(formatCountdown(getThisWeeksFriday())), 60000);
@@ -222,16 +223,19 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
         <>
           <div style={{ flexShrink: 0, padding: '12px 12px 8px' }}>
             <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic', lineHeight: 1.4 }}>
-              Ask your admin to reopen these weeks if you need to edit.
+              {isAmnestyActive ? 'Click any task to clear it before Fri 15 May 🔒' : 'Ask your admin to reopen these weeks if you need to edit.'}
             </p>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 12px 16px' }}>
             {overdueTasks.map(task => (
               <div
                 key={task.id}
+                onClick={isAmnestyActive ? () => onTaskClick(task) : undefined}
                 style={{
                   background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6,
-                  padding: '8px 12px', cursor: 'not-allowed', opacity: 0.65,
+                  padding: '8px 12px',
+                  cursor: isAmnestyActive ? 'pointer' : 'not-allowed',
+                  opacity: isAmnestyActive ? 1 : 0.65,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
