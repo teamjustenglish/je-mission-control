@@ -402,6 +402,14 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
   // Removal confirmation
   const [removeRescheduleConfirm, setRemoveRescheduleConfirm] = useState<RescheduledSession | null>(null);
+
+  // Demo make-up scheduling modal
+  const [makeupModal, setMakeupModal] = useState<{
+    studentId: string; studentName: string; dayNumber: number; demoDayId: string; demoDayTitle: string; demoDayDate: string | null; isEdit: boolean;
+  } | null>(null);
+  const [makeupDate, setMakeupDate] = useState<string>('');
+  const [makeupNote, setMakeupNote] = useState<string>('');
+  const [makeupSaving, setMakeupSaving] = useState(false);
   
   // Absence note reminder banner
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -868,6 +876,30 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return original?.state === 'x';
   };
 
+  // Make-up scheduling helpers
+  const getStudentMakeup = (studentId: string, dayNumber: number): { date: string; note: string | null } | null => {
+    if (!isStudentAbsentOnDemoDay(studentId, dayNumber)) return null;
+    const dd = demoDays.find(d => d.day_number === dayNumber);
+    if (!dd) return null;
+    const scoreRow = demoScores.find((s: any) => s.demo_day_id === dd.id && s.student_id === studentId && s.makeup_date);
+    if (!scoreRow) return null;
+    return { date: (scoreRow as any).makeup_date as string, note: ((scoreRow as any).makeup_note as string | null) ?? null };
+  };
+  const getAbsentNeedsScheduling = (dayNumber: number): Student[] =>
+    students.filter(s => isStudentAbsentOnDemoDay(s.id, dayNumber) && !getStudentMakeup(s.id, dayNumber));
+  const getAbsentScheduled = (dayNumber: number): Array<{ student: Student; makeup: { date: string; note: string | null } }> =>
+    students
+      .filter(s => isStudentAbsentOnDemoDay(s.id, dayNumber))
+      .map(s => ({ student: s, makeup: getStudentMakeup(s.id, dayNumber) }))
+      .filter((x): x is { student: Student; makeup: { date: string; note: string | null } } => x.makeup !== null);
+  const fmtMakeupDate = (iso: string): string => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch { return iso; }
+  };
+
+
   const openNoteModal = (studentId: string, sessionIndex: number) => {
     if (readOnly) return;
     const student = students.find(s => s.id === studentId);
@@ -1000,6 +1032,124 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     setRemoveRescheduleConfirm(null);
     showSaved();
   };
+
+  // ===== Demo make-up scheduling =====
+  const openMakeupModal = (studentId: string, dayNumber: number) => {
+    if (readOnly) return;
+    const student = students.find(s => s.id === studentId);
+    const dd = demoDays.find(d => d.day_number === dayNumber);
+    if (!student || !dd) return;
+    const existing = getStudentMakeup(studentId, dayNumber);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    setMakeupDate(existing ? (existing.date.slice(0, 10)) : todayIso);
+    setMakeupNote(existing?.note || '');
+    setMakeupModal({
+      studentId,
+      studentName: student.name,
+      dayNumber,
+      demoDayId: dd.id,
+      demoDayTitle: dd.title,
+      demoDayDate: dd.date,
+      isEdit: !!existing,
+    });
+  };
+
+  const closeMakeupModal = () => {
+    setMakeupModal(null);
+    setMakeupDate('');
+    setMakeupNote('');
+    setMakeupSaving(false);
+  };
+
+  const saveMakeup = async () => {
+    if (!makeupModal || readOnly || makeupSaving) return;
+    if (!makeupDate) { toast.error('Please pick a make-up date'); return; }
+    setMakeupSaving(true);
+    const { demoDayId, studentId, studentName, dayNumber } = makeupModal;
+    const makeupIso = new Date(makeupDate).toISOString();
+    const noteVal = makeupNote.trim() || null;
+    try {
+      const existing = demoScores.filter(s => s.demo_day_id === demoDayId && s.student_id === studentId);
+      const missingCriteria = CRITERIA.filter(c => !existing.find(e => e.criterion === c));
+
+      // Update existing rows
+      if (existing.length > 0) {
+        const { error: updErr } = await supabase
+          .from('demo_scores')
+          .update({ makeup_date: makeupIso, makeup_note: noteVal } as any)
+          .eq('demo_day_id', demoDayId)
+          .eq('student_id', studentId);
+        if (updErr) throw updErr;
+      }
+      // Insert any missing criterion rows with score 0
+      if (missingCriteria.length > 0) {
+        const rows = missingCriteria.map(criterion => ({
+          demo_day_id: demoDayId, student_id: studentId, criterion, score: 0,
+          makeup_date: makeupIso, makeup_note: noteVal,
+        }));
+        const { data: inserted, error: insErr } = await supabase
+          .from('demo_scores').insert(rows as any).select();
+        if (insErr) throw insErr;
+        if (inserted) {
+          setDemoScores(prev => [...prev, ...(inserted as DemoScore[])]);
+        }
+      }
+      // Reflect makeup fields in local state for existing rows
+      setDemoScores(prev => prev.map(s =>
+        (s.demo_day_id === demoDayId && s.student_id === studentId)
+          ? ({ ...s, makeup_date: makeupIso, makeup_note: noteVal } as any)
+          : s
+      ));
+      if (user && activeBatch) {
+        logActivity(
+          user.id, profile?.name || '',
+          'demo_makeup_scheduled',
+          `${makeupModal.isEdit ? 'Updated' : 'Scheduled'} make-up for ${studentName} on Demo Day ${dayNumber} for ${fmtMakeupDate(makeupIso)}`,
+          activeBatch.name,
+        );
+      }
+      showSaved();
+      closeMakeupModal();
+    } catch (e) {
+      console.error('saveMakeup error', e);
+      toast.error('Failed to save make-up — please try again');
+      setMakeupSaving(false);
+    }
+  };
+
+  const removeMakeup = async () => {
+    if (!makeupModal || readOnly || makeupSaving) return;
+    setMakeupSaving(true);
+    const { demoDayId, studentId, studentName, dayNumber } = makeupModal;
+    try {
+      const { error } = await supabase
+        .from('demo_scores')
+        .update({ makeup_date: null, makeup_note: null } as any)
+        .eq('demo_day_id', demoDayId)
+        .eq('student_id', studentId);
+      if (error) throw error;
+      setDemoScores(prev => prev.map(s =>
+        (s.demo_day_id === demoDayId && s.student_id === studentId)
+          ? ({ ...s, makeup_date: null, makeup_note: null } as any)
+          : s
+      ));
+      if (user && activeBatch) {
+        logActivity(
+          user.id, profile?.name || '',
+          'demo_makeup_scheduled',
+          `Removed make-up for ${studentName} on Demo Day ${dayNumber}`,
+          activeBatch.name,
+        );
+      }
+      showSaved();
+      closeMakeupModal();
+    } catch (e) {
+      console.error('removeMakeup error', e);
+      toast.error('Failed to remove make-up — please try again');
+      setMakeupSaving(false);
+    }
+  };
+
 
   // Stats
   const totalStudents = students.length;
@@ -2282,12 +2432,105 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
             {demoDaysExpanded && (
               <div style={{ padding: '0 16px 16px' }} className="space-y-4 mt-4">
-                {demoDays.map(dd => (
+                {demoDays.map(dd => {
+                  const absentNeeds = readOnly ? [] : getAbsentNeedsScheduling(dd.day_number);
+                  const absentScheduled = getAbsentScheduled(dd.day_number);
+                  const totalAbsent = absentNeeds.length + absentScheduled.length;
+                  const showBanner = !readOnly && absentNeeds.length > 0;
+                  return (
                   <div key={dd.id} id={`demo-day-${dd.id}`} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, overflow: 'hidden' }}>
                     <div className="flex items-center justify-between" style={{ padding: '14px 16px' }}>
                       <h3 style={{ fontWeight: 600, fontSize: 14 }} className="text-foreground">{dd.title}</h3>
                       <span className="text-muted-foreground" style={{ fontSize: 12 }}>{dd.date || '—'} · {students.length} students</span>
                     </div>
+
+                    {/* Absent-students banner (only shown if at least one needs scheduling) */}
+                    {showBanner && (
+                      <div style={{
+                        margin: '0 16px 12px', background: 'hsl(var(--amber-bg))',
+                        border: '1px solid hsl(var(--amber-border))', borderRadius: 8,
+                        color: 'hsl(var(--amber-text))', overflow: 'hidden',
+                      }}>
+                        {absentNeeds.length === 1 && absentScheduled.length === 0 ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px' }}>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>
+                              ⚠ {absentNeeds[0].name} was absent on demo day.
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => openMakeupModal(absentNeeds[0].id, dd.day_number)}
+                              style={{
+                                background: 'transparent', border: '1px solid hsl(var(--amber-border))',
+                                color: 'hsl(var(--amber-text))', borderRadius: 6,
+                                padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+                              }}
+                            >Schedule make-up</button>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid hsl(var(--amber-border))' }}>
+                              <div style={{ fontSize: 13, fontWeight: 500 }}>
+                                ⚠ {totalAbsent} students were absent on demo day
+                                {absentScheduled.length > 0 && (
+                                  <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>
+                                    · {absentNeeds.length} pending
+                                  </span>
+                                )}
+                              </div>
+                              <span style={{
+                                background: 'hsl(var(--amber-text) / 0.15)', color: 'hsl(var(--amber-text))',
+                                borderRadius: 9999, padding: '2px 8px', fontSize: 11, fontWeight: 600,
+                              }}>{absentNeeds.length}</span>
+                            </div>
+                            <div>
+                              {/* Pending first */}
+                              {absentNeeds.map(s => (
+                                <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 14px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'hsl(var(--foreground))' }}>{s.name}</span>
+                                    <span style={{
+                                      background: 'hsl(var(--danger-bg))', color: 'hsl(var(--score-red))',
+                                      borderRadius: 9999, padding: '2px 8px', fontSize: 11, fontWeight: 600,
+                                    }}>Needs make-up</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => openMakeupModal(s.id, dd.day_number)}
+                                    style={{
+                                      background: 'transparent', border: '1px solid hsl(var(--amber-border))',
+                                      color: 'hsl(var(--amber-text))', borderRadius: 6,
+                                      padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                    }}
+                                  >Schedule</button>
+                                </div>
+                              ))}
+                              {/* Then scheduled, dimmed */}
+                              {absentScheduled.map(({ student, makeup }) => (
+                                <div key={student.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 14px', opacity: 0.7 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'hsl(var(--foreground))' }}>{student.name}</span>
+                                    <span style={{
+                                      background: 'hsl(var(--amber-bg))', color: 'hsl(var(--amber-text))',
+                                      borderRadius: 9999, padding: '2px 8px', fontSize: 11, fontWeight: 600,
+                                    }}>Made up {fmtMakeupDate(makeup.date)}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => openMakeupModal(student.id, dd.day_number)}
+                                    style={{
+                                      background: 'transparent', border: '1px solid hsl(var(--amber-border))',
+                                      color: 'hsl(var(--amber-text))', borderRadius: 6,
+                                      padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                    }}
+                                  >Edit</button>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
                     {/* Scoring rubric */}
                     <ScoringRubric />
                     <div className="overflow-x-auto" style={{ padding: '0 16px 14px' }}>
@@ -2295,49 +2538,79 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         <thead>
                           <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                             <th className="text-left py-2 pr-3 font-medium text-muted-foreground" style={{ fontSize: 12, width: 140 }}>Criteria</th>
-                            {students.map(s => (
-                              <th key={s.id} className="text-center px-2 py-2 font-medium text-muted-foreground" style={{ fontSize: 12 }}>
-                                {s.name}
-                                {isStudentAbsentOnDemoDay(s.id, dd.day_number) && (
-                                  <span style={{
-                                    display: 'inline-block', marginLeft: 5, fontSize: 11,
-                                    padding: '1px 5px', borderRadius: 9999,
-                                    background: 'hsl(var(--danger-bg))', color: 'hsl(var(--score-red))',
-                                    border: '1px solid #4a2424', fontWeight: 500, verticalAlign: 'middle',
-                                  }}>absent</span>
-                                )}
-                              </th>
-                            ))}
+                            {students.map(s => {
+                              const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
+                              const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
+                              return (
+                                <th key={s.id} className="text-center px-2 py-2 font-medium text-muted-foreground" style={{ fontSize: 12 }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, verticalAlign: 'middle' }}>
+                                    <span>{s.name}</span>
+                                    {isAbsent && makeup && (
+                                      <button
+                                        type="button"
+                                        onClick={readOnly ? undefined : () => openMakeupModal(s.id, dd.day_number)}
+                                        title={`Made up ${fmtMakeupDate(makeup.date)}${makeup.note ? ` · ${makeup.note}` : ''}`}
+                                        style={{
+                                          width: 10, height: 10, borderRadius: '50%',
+                                          background: 'hsl(var(--score-amber))',
+                                          boxShadow: '0 0 0 2px hsl(var(--card))',
+                                          border: 'none', padding: 0, cursor: readOnly ? 'default' : 'pointer',
+                                          display: 'inline-block',
+                                        }}
+                                      />
+                                    )}
+                                    {isAbsent && !makeup && (
+                                      <span style={{
+                                        marginLeft: 0, fontSize: 11,
+                                        padding: '1px 5px', borderRadius: 9999,
+                                        background: 'hsl(var(--danger-bg))', color: 'hsl(var(--score-red))',
+                                        border: '1px solid hsl(var(--danger-bg))', fontWeight: 500,
+                                      }}>absent</span>
+                                    )}
+                                  </span>
+                                </th>
+                              );
+                            })}
                           </tr>
                         </thead>
                         <tbody>
                           {CRITERIA.map(criterion => (
                             <tr key={criterion} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                               <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>{criterion}</td>
-                              {students.map(s => (
-                                <td key={s.id} className="text-center px-2 py-2">
-                                  {isStudentAbsentOnDemoDay(s.id, dd.day_number) ? (
-                                    <div
-                                      title="Student was absent on this demo day. Mark them as present on the attendance grid to score them."
-                                      style={{
-                                        width: 44, height: 26, background: 'hsl(var(--card))',
-                                        border: '1px dashed #2a2a2a', borderRadius: 6,
-                                        color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '24px',
-                                        fontSize: 12, cursor: 'not-allowed', userSelect: 'none',
-                                        margin: '0 auto',
-                                      }}
-                                    >—</div>
-                                  ) : (
+                              {students.map(s => {
+                                const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
+                                const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
+                                if (isAbsent && !makeup) {
+                                  return (
+                                    <td key={s.id} className="text-center px-2 py-2">
+                                      <div
+                                        title="Student was absent on this demo day. Schedule a make-up to enter scores."
+                                        style={{
+                                          width: 44, height: 26, background: 'hsl(var(--card))',
+                                          border: '1px dashed hsl(var(--input-border))', borderRadius: 6,
+                                          color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '24px',
+                                          fontSize: 12, cursor: 'not-allowed', userSelect: 'none', margin: '0 auto',
+                                        }}
+                                      >—</div>
+                                    </td>
+                                  );
+                                }
+                                return (
+                                  <td key={s.id} className="text-center px-2 py-2"
+                                    style={isAbsent && makeup ? { background: 'hsl(var(--amber-bg) / 0.35)' } : undefined}
+                                  >
                                     <ScoreInput value={getScoreValue(dd.id, s.id, criterion)} onChange={(val) => updateScoreValue(dd.id, s.id, criterion, val)} disabled={readOnly} />
-                                  )}
-                                </td>
-                              ))}
+                                  </td>
+                                );
+                              })}
                             </tr>
                           ))}
                           <tr className="font-medium" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                             <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Total (/ 20)</td>
                             {students.map(s => {
-                              if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
+                              const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
+                              const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
+                              if (isAbsent && !makeup) {
                                 return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--score-red))' }}>Absent</td>;
                               }
                               const total = getStudentDemoTotal(dd.id, s.id);
@@ -2347,11 +2620,13 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           <tr>
                             <td className="py-2 pr-3 text-foreground" style={{ fontSize: 12 }}>Individual feedback</td>
                             {students.map(s => {
-                               if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
+                               const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
+                               const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
+                               if (isAbsent && !makeup) {
                                  return (
                                    <td key={s.id} className="text-center px-2 py-2">
                                      <div title="Student was absent on this demo day." style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'not-allowed', userSelect: 'none', opacity: 0.5 }}>
-                                       <div style={{ width: 22, height: 22, background: 'hsl(var(--card))', border: '1px dashed #2a2a2a', borderRadius: 4, color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '20px', fontSize: 12 }}>—</div>
+                                       <div style={{ width: 22, height: 22, background: 'hsl(var(--card))', border: '1px dashed hsl(var(--input-border))', borderRadius: 4, color: 'hsl(var(--muted-foreground))', textAlign: 'center', lineHeight: '20px', fontSize: 12 }}>—</div>
                                        <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>absent</span>
                                      </div>
                                    </td>
@@ -2372,7 +2647,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                       </table>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -2399,6 +2675,80 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       ) : (
         <div className="flex items-center justify-center h-96 text-muted-foreground" style={{ paddingTop: 48 }}>
           <p>No batches yet. Click "+" to create your first batch.</p>
+        </div>
+      )}
+
+      {/* Schedule make-up modal */}
+      {makeupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }}
+          onClick={closeMakeupModal}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 20, maxWidth: 420, width: '100%' }}>
+            <div style={{ fontSize: 15, color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 4 }}>
+              Schedule {makeupModal.studentName.split(' ')[0]}'s make-up
+            </div>
+            <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 14 }}>
+              {makeupModal.studentName} was absent on Demo Day {makeupModal.dayNumber}
+              {makeupModal.demoDayDate ? ` (${makeupModal.demoDayDate})` : ''}.
+            </div>
+
+            <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Make-up date</label>
+            <input
+              type="date"
+              value={makeupDate}
+              onChange={(e) => setMakeupDate(e.target.value)}
+              style={{
+                width: '100%', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input-border))', borderRadius: 6,
+                padding: '8px 10px', fontSize: 13, color: 'hsl(var(--foreground))', outline: 'none', marginBottom: 12,
+              }}
+            />
+
+            <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Note (optional)</label>
+            <textarea
+              value={makeupNote}
+              onChange={(e) => setMakeupNote(e.target.value)}
+              placeholder="e.g. doing make-up next Tuesday"
+              rows={2}
+              style={{
+                width: '100%', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input-border))', borderRadius: 6,
+                padding: '8px 10px', fontSize: 12, color: 'hsl(var(--foreground))', resize: 'none', outline: 'none',
+                fontFamily: 'Inter, sans-serif', marginBottom: 12,
+              }}
+            />
+
+            <div style={{
+              background: 'hsl(var(--amber-bg))', border: '1px solid hsl(var(--amber-border))',
+              color: 'hsl(var(--amber-text))', borderRadius: 8, padding: '8px 12px', fontSize: 12, marginBottom: 16,
+            }}>
+              Demo scoring will unlock once you save. You can score after the make-up happens.
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                {makeupModal.isEdit && (
+                  <button
+                    type="button"
+                    onClick={removeMakeup}
+                    disabled={makeupSaving}
+                    style={{
+                      background: 'transparent', border: '1px solid hsl(var(--border))',
+                      color: 'hsl(var(--score-red))', borderRadius: 8,
+                      padding: '8px 12px', fontSize: 12, fontWeight: 500, cursor: makeupSaving ? 'wait' : 'pointer',
+                    }}
+                  >Remove make-up</button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={closeMakeupModal} style={cancelBtnStyle}>Cancel</button>
+                <button
+                  type="button"
+                  onClick={saveMakeup}
+                  disabled={makeupSaving}
+                  style={{ ...primaryBtnStyle, opacity: makeupSaving ? 0.7 : 1, cursor: makeupSaving ? 'wait' : 'pointer' }}
+                >Save</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
