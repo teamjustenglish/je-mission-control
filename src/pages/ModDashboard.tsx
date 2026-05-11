@@ -2816,6 +2816,23 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                 const makeup = state === 'x' ? getStudentMakeup(s.id, dd.day_number) : null;
                                 const canScore = state === 'c' || (state === 'x' && !!makeup);
                                 if (!canScore) {
+                                  const scoreVal = getScoreValue(dd.id, s.id, criterion);
+                                  const hasScore = scoreVal !== '' && scoreVal !== '.';
+                                  if (hasScore) {
+                                    return (
+                                      <td key={s.id} className="text-center px-2 py-2">
+                                        <div
+                                          title="Mark attendance to edit"
+                                          style={{
+                                            width: 44, height: 26, background: 'hsl(var(--card))',
+                                            border: '1px dashed hsl(var(--input-border))', borderRadius: 6,
+                                            color: 'hsl(var(--foreground))', textAlign: 'center', lineHeight: '24px',
+                                            fontSize: 12, cursor: 'not-allowed', userSelect: 'none', margin: '0 auto',
+                                          }}
+                                        >{scoreVal}</div>
+                                      </td>
+                                    );
+                                  }
                                   const tip = state === 'e'
                                     ? 'Mark attendance first'
                                     : 'Student was absent on this demo day. Record a make-up to enter scores.';
@@ -2849,13 +2866,16 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               const state = getStudentDemoDayState(s.id, dd.day_number);
                               const makeup = state === 'x' ? getStudentMakeup(s.id, dd.day_number) : null;
                               const canScore = state === 'c' || (state === 'x' && !!makeup);
+                              const total = getStudentDemoTotal(dd.id, s.id);
                               if (!canScore) {
+                                if (total !== '—') {
+                                  return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 700, color: getTotalColor(total) }}>{total}</td>;
+                                }
                                 if (state === 'e') {
                                   return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>—</td>;
                                 }
                                 return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--score-red))' }}>Absent</td>;
                               }
-                              const total = getStudentDemoTotal(dd.id, s.id);
                               return <td key={s.id} className="text-center px-2 py-2" style={{ fontSize: 12, fontWeight: 700, color: getTotalColor(total) }}>{total}</td>;
                             })}
                           </tr>
@@ -2865,7 +2885,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                const state = getStudentDemoDayState(s.id, dd.day_number);
                                const makeup = state === 'x' ? getStudentMakeup(s.id, dd.day_number) : null;
                                const canScore = state === 'c' || (state === 'x' && !!makeup);
+                               const fb = getFeedback(dd.id, s.id);
+                               const hasFeedback = !!fb?.feedback && fb.feedback.trim() !== '';
                                if (!canScore) {
+                                 if (hasFeedback) {
+                                   return (
+                                     <td key={s.id} className="text-center px-2 py-2">
+                                       <div title="Mark attendance to edit" style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2, cursor: 'not-allowed', userSelect: 'none' }}>
+                                         <span style={{ fontSize: 20, fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' }}>📝</span>
+                                       </div>
+                                     </td>
+                                   );
+                                 }
                                  const tip = state === 'e' ? 'Mark attendance first' : 'Student was absent on this demo day.';
                                  const label = state === 'e' ? '' : 'absent';
                                  return (
@@ -2877,7 +2908,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                    </td>
                                  );
                                }
-                               const fb = getFeedback(dd.id, s.id);
                                return (
                                  <td key={s.id} className="text-center px-2 py-2" style={{ cursor: readOnly ? 'default' : 'pointer' }} onClick={readOnly ? undefined : () => openFeedbackModal(dd.id, s.id, dd)}>
                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
