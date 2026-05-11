@@ -116,6 +116,26 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
         </div>
       )}
 
+      {/* Dropped-out status banner */}
+      {isDropped && (
+        <div style={{
+          background: 'hsl(var(--danger-bg))', border: '1px solid hsl(var(--score-red) / 0.4)',
+          borderRadius: 8, padding: '10px 12px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+            <span style={{ color: 'hsl(var(--score-red))', fontWeight: 600 }}>⚠ Dropped out{droppedDateLabel ? ` on ${droppedDateLabel}` : ''}</span>
+            <span style={{ color: 'hsl(var(--muted-foreground))' }}> · {statusReason || 'No reason provided'}</span>
+          </div>
+          {onReverseDropout && (
+            <button onClick={onReverseDropout}
+              style={{ background: 'none', border: 'none', color: 'hsl(var(--amber-text))', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+              Reverse drop-out
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
         <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
