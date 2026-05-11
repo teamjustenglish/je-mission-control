@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
-import { Plus, Trash2, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
-import StudentReport from '@/components/StudentReport';
+import { Plus, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
 import ToDoSidebar, { AdminSummaryPanel } from '@/components/ToDoSidebar';
