@@ -1125,7 +1125,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         logActivity(
           user.id, profile?.name || '',
           'demo_makeup_scheduled',
-          `${makeupModal.isEdit ? 'Updated' : 'Scheduled'} make-up for ${studentName} on Demo Day ${dayNumber} for ${fmtMakeupDate(makeupIso)}`,
+          `Recorded make-up for ${studentName} on Demo Day ${dayNumber} (made up on ${fmtMakeupDate(makeupIso)})`,
           activeBatch.name,
         );
       }
@@ -2723,18 +2723,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         </div>
       )}
 
-      {/* Schedule make-up modal */}
+      {/* Make-up demo modal */}
       {makeupModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }}
           onClick={closeMakeupModal}>
           <div onClick={(e) => e.stopPropagation()}
             style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 20, maxWidth: 420, width: '100%' }}>
             <div style={{ fontSize: 15, color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 4 }}>
-              Schedule {makeupModal.studentName.split(' ')[0]}'s make-up
+              Mark {makeupModal.studentName.split(' ')[0]}'s make-up demo
             </div>
             <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 14 }}>
               {makeupModal.studentName} was absent on Demo Day {makeupModal.dayNumber}
-              {makeupModal.demoDayDate ? ` (${makeupModal.demoDayDate})` : ''}.
+              {makeupModal.demoDayDate ? ` (${makeupModal.demoDayDate})` : ''}. Enter the date the make-up demo was done.
             </div>
 
             <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Make-up date</label>
@@ -2765,7 +2765,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               background: 'hsl(var(--amber-bg))', border: '1px solid hsl(var(--amber-border))',
               color: 'hsl(var(--amber-text))', borderRadius: 8, padding: '8px 12px', fontSize: 12, marginBottom: 16,
             }}>
-              Demo scoring will unlock once you save. You can score after the make-up happens.
+              Saving will unlock scoring for {makeupModal.studentName.split(' ')[0]} on Demo Day {makeupModal.dayNumber}.
             </div>
 
             <div className="flex items-center justify-between gap-2">
@@ -2790,7 +2790,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   onClick={saveMakeup}
                   disabled={makeupSaving}
                   style={{ ...primaryBtnStyle, opacity: makeupSaving ? 0.7 : 1, cursor: makeupSaving ? 'wait' : 'pointer' }}
-                >Save</button>
+                >Save make-up date</button>
               </div>
             </div>
           </div>
