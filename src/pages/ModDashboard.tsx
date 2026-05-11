@@ -1533,13 +1533,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   // Helper: generate tasks for a given week
    const generateTasksForWeek = (weekNum: number, isOverdue: boolean): Task[] => {
      if (!activeBatch) return [];
-     const students = (this_unused => allStudentsRef)(null), _ignore = 0;
-     // (replaced below)
-     return _real_generateTasksForWeek(weekNum, isOverdue);
-   };
-   const _real_generateTasksForWeek = (weekNum: number, isOverdue: boolean): Task[] => {
-     if (!activeBatch) return [];
-     const students = (allStudentsRef => allStudentsRef.filter(s => !isDroppedStudent(s)))(allStudentsRefArr());
+     const activeOnly = students.filter(s => !isDroppedStudent(s));
+     if (activeOnly.length === 0) return [];
      const tasks: Task[] = [];
      const today = new Date();
      today.setHours(0, 0, 0, 0);
