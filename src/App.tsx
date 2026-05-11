@@ -25,9 +25,12 @@ const AppRoutes = () => {
     );
   }
 
-  // While we have a user but the role is still being fetched, show a loading
-  // state instead of falling through to a login page.
-  if (user && roleLoading) {
+  // While we have a user but the role is still being fetched for the FIRST
+  // time, show a loading state. Once we have a role, ignore transient
+  // roleLoading flips (e.g. supabase TOKEN_REFRESHED on tab refocus triggers
+  // a re-fetch) — otherwise the dashboard unmounts and loses all UI state
+  // (selected batch, scroll position, expanded sections, open modals).
+  if (user && roleLoading && !(role as any)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-muted-foreground text-sm">Loading…</p>
