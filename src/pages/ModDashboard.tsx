@@ -1689,7 +1689,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Current week tasks
   const detectedTasks: Task[] = useMemo(() => {
-    if (!isDevTester) return [];
     if (!activeBatch || students.length === 0) return [];
     const cw = computedCurrentWeek;
     const tasks = generateTasksForWeek(cw, false);
@@ -1712,7 +1711,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Overdue tasks (previous weeks that are 'open' or 'closed' — not 'finalised' or 'reopened')
   const overdueTasks: Task[] = useMemo(() => {
-    if (!isDevTester) return [];
     if (!activeBatch || students.length === 0) return [];
     const cw = computedCurrentWeek;
     const allOverdue: Task[] = [];
@@ -2898,15 +2896,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             )}
           </div>
         </div>
-        {/* Right sidebar — only for dev tester */}
-        {isDevTester && readOnly && hideTopNav ? (
+        {/* Right sidebar */}
+        {readOnly && hideTopNav ? (
           <AdminSummaryPanel
             modName={displayModName}
             weekNumber={computedCurrentWeek}
             taskCount={detectedTasks.filter(t => t.type !== 'finalise').length}
             weekCompletionPct={completionPct}
           />
-        ) : isDevTester && !readOnly ? (
+        ) : !readOnly ? (
           <ToDoSidebar
             tasks={detectedTasks}
             overdueTasks={overdueTasks}
