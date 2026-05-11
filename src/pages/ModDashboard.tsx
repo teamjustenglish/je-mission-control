@@ -2339,13 +2339,23 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map(student => (
-                      <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                    {sortedStudents.map((student, idx) => {
+                      const dropped = isDroppedStudent(student);
+                      const prev = sortedStudents[idx - 1];
+                      const showDivider = dropped && prev && !isDroppedStudent(prev);
+                      return (
+                      <React.Fragment key={student.id}>
+                        {showDivider && (
+                          <tr aria-hidden="true"><td colSpan={26} style={{ borderTop: '1px solid hsl(var(--border))', padding: 0, height: 1 }} /></tr>
+                        )}
+                      <tr style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}>
                         <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12, whiteSpace: 'nowrap' }}>
-                          <span style={{ cursor: 'pointer' }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
+                          <span style={{ cursor: 'pointer', textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
                             {student.name || '(unnamed)'}
                           </span>
+                          {dropped && <DroppedTag />}
                           <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
+                          {!readOnly && <StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(studentMenuId === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} />}
                         </td>
                         {Array.from({ length: 24 }, (_, i) => {
                           const info = getSessionLabel(i);
@@ -2376,7 +2386,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           return cell;
                         })}
                       </tr>
-                    ))}
+                      </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
