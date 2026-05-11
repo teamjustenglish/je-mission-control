@@ -186,7 +186,8 @@ const StudentRowMenu: React.FC<{
       >⋮</button>
       {open && (
         <div style={{
-          position: 'absolute', top: '100%', left: 0, marginTop: 4, minWidth: 200,
+          position: 'absolute', left: 0, minWidth: 200,
+          ...(dropped ? { bottom: '100%', marginBottom: 4 } : { top: '100%', marginTop: 4 }),
           background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8,
           boxShadow: '0 8px 30px rgba(0,0,0,0.5)', zIndex: 50, padding: 5,
         }}>
