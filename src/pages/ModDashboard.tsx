@@ -1579,11 +1579,13 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
      // 2. Absences without reason
      const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
+     const activeIdSet = new Set(activeOnly.map(s => s.id));
      for (const a of attendance) {
        if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '')) {
          if (a.session_index < wStart || a.session_index >= wStart + 4) continue;
+         if (!activeIdSet.has(a.student_id)) continue;
          if (!absencesBySession[a.session_index]) absencesBySession[a.session_index] = [];
-         const student = students.find(s => s.id === a.student_id);
+         const student = activeOnly.find(s => s.id === a.student_id);
          absencesBySession[a.session_index].push({ studentId: a.student_id, name: student?.name?.split(' ')[0] || 'Student' });
        }
      }
