@@ -1873,13 +1873,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const si = wedSessionIndex(week);
     const state = getAttendanceState(studentId, si);
     const note = getAbsenceNote(studentId, si);
+    const studentRec = students.find(s => s.id === studentId);
+    const isDropped = studentRec?.status === 'dropped';
+    if (isDropped && state === 'e') {
+      return <div style={{ background: 'hsl(var(--success-bg))', textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))', opacity: 0.55 }}>—</div>;
+    }
     return (
-      <div style={{ background: 'hsl(var(--success-bg))' }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
+      <div style={{ background: 'hsl(var(--success-bg))', ...(isDropped ? { opacity: 0.55 } : {}) }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
         <AttendanceCell
           state={state}
           isDemo={false}
           absenceNote={note}
-          onClick={() => cycleAttendance(studentId, si)}
+          onClick={isDropped ? () => {} : () => cycleAttendance(studentId, si)}
           onNoteClick={() => openNoteModal(studentId, si)}
         />
       </div>
