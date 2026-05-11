@@ -74,9 +74,9 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
 
   return (
     <div style={{
-      width: 320, minWidth: 320, position: 'sticky', top: 16, height: 'calc(100vh - 32px)',
-      maxHeight: 'calc(100vh - 32px)', background: 'hsl(var(--card))', borderLeft: '1px solid hsl(var(--border))',
-      borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: 16,
+      width: 320, minWidth: 320, position: 'sticky', top: 64, height: 'calc(100vh - 96px)',
+      maxHeight: 'calc(100vh - 96px)', background: 'hsl(var(--card))', borderLeft: '1px solid hsl(var(--border))',
+      borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: 16, paddingBottom: 16,
     }}>
       {/* Header */}
       <div style={{
