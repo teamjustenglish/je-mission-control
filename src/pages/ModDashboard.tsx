@@ -1256,13 +1256,16 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const activeStudents = useMemo(() => students.filter(s => !isDroppedStudent(s)), [students]);
   const droppedStudents = useMemo(() => students.filter(isDroppedStudent), [students]);
   const sortedStudents = useMemo(() => {
+    const named = activeStudents.filter(s => (s.name || '').trim() !== '');
+    const unnamed = activeStudents.filter(s => (s.name || '').trim() === '');
     const dropped = [...droppedStudents].sort((a, b) => {
       const ad = a.status_changed_at ? new Date(a.status_changed_at).getTime() : 0;
       const bd = b.status_changed_at ? new Date(b.status_changed_at).getTime() : 0;
       return bd - ad;
     });
-    return [...activeStudents, ...dropped];
+    return [...named, ...dropped, ...unnamed];
   }, [activeStudents, droppedStudents]);
+  const droppedCount = droppedStudents.length;
 
   const openDropoutModal = (s: Student) => {
     if (readOnly) return;
