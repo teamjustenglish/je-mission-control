@@ -1379,12 +1379,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const { avgDemoScore, absentDemoCount } = (() => {
-    if (demoDays.length === 0 || students.length === 0) return { avgDemoScore: 0, absentDemoCount: 0 };
+    if (demoDays.length === 0 || activeStudents.length === 0) return { avgDemoScore: 0, absentDemoCount: 0 };
     let totalScore = 0;
     let studentDayCount = 0;
     let absentCount = 0;
     for (const dd of demoDays) {
-      for (const s of students) {
+      for (const s of activeStudents) {
         if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
           absentCount++;
           continue;
