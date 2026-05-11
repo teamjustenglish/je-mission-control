@@ -2678,6 +2678,80 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         </div>
       )}
 
+      {/* Schedule make-up modal */}
+      {makeupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }}
+          onClick={closeMakeupModal}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 20, maxWidth: 420, width: '100%' }}>
+            <div style={{ fontSize: 15, color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 4 }}>
+              Schedule {makeupModal.studentName.split(' ')[0]}'s make-up
+            </div>
+            <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 14 }}>
+              {makeupModal.studentName} was absent on Demo Day {makeupModal.dayNumber}
+              {makeupModal.demoDayDate ? ` (${makeupModal.demoDayDate})` : ''}.
+            </div>
+
+            <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Make-up date</label>
+            <input
+              type="date"
+              value={makeupDate}
+              onChange={(e) => setMakeupDate(e.target.value)}
+              style={{
+                width: '100%', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input-border))', borderRadius: 6,
+                padding: '8px 10px', fontSize: 13, color: 'hsl(var(--foreground))', outline: 'none', marginBottom: 12,
+              }}
+            />
+
+            <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Note (optional)</label>
+            <textarea
+              value={makeupNote}
+              onChange={(e) => setMakeupNote(e.target.value)}
+              placeholder="e.g. doing make-up next Tuesday"
+              rows={2}
+              style={{
+                width: '100%', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input-border))', borderRadius: 6,
+                padding: '8px 10px', fontSize: 12, color: 'hsl(var(--foreground))', resize: 'none', outline: 'none',
+                fontFamily: 'Inter, sans-serif', marginBottom: 12,
+              }}
+            />
+
+            <div style={{
+              background: 'hsl(var(--amber-bg))', border: '1px solid hsl(var(--amber-border))',
+              color: 'hsl(var(--amber-text))', borderRadius: 8, padding: '8px 12px', fontSize: 12, marginBottom: 16,
+            }}>
+              Demo scoring will unlock once you save. You can score after the make-up happens.
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                {makeupModal.isEdit && (
+                  <button
+                    type="button"
+                    onClick={removeMakeup}
+                    disabled={makeupSaving}
+                    style={{
+                      background: 'transparent', border: '1px solid hsl(var(--border))',
+                      color: 'hsl(var(--score-red))', borderRadius: 8,
+                      padding: '8px 12px', fontSize: 12, fontWeight: 500, cursor: makeupSaving ? 'wait' : 'pointer',
+                    }}
+                  >Remove make-up</button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={closeMakeupModal} style={cancelBtnStyle}>Cancel</button>
+                <button
+                  type="button"
+                  onClick={saveMakeup}
+                  disabled={makeupSaving}
+                  style={{ ...primaryBtnStyle, opacity: makeupSaving ? 0.7 : 1, cursor: makeupSaving ? 'wait' : 'pointer' }}
+                >Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Student progress modal */}
       {progressModalStudent && activeBatch && (
         <StudentProgressModal
