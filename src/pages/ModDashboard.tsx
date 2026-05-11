@@ -1618,7 +1618,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
        if (ddDate > today) continue;
        const dateStr = formatShortDate(ddDate);
        let missing = 0;
-       for (const s of students) {
+        for (const s of activeOnly) {
          if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
          const hasScores = CRITERIA.some(c => {
            const key = `${dd.id}|${s.id}|${c}`;
