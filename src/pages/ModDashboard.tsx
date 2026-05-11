@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
@@ -164,19 +165,44 @@ const StudentRowMenu: React.FC<{
   onDelete: () => void;
 }> = ({ open, dropped, onToggle, onEdit, onDrop, onReverse, onDelete }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  const updateMenuPosition = useCallback(() => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const menuHeight = dropped ? 128 : 128;
+    const top = dropped ? rect.top - menuHeight - 4 : rect.bottom + 4;
+    setMenuPos({ top: Math.max(8, top), left: rect.left });
+  }, [dropped]);
 
   useEffect(() => {
     if (!open) return;
+    updateMenuPosition();
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onToggle();
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
+      onToggle();
     };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onToggle(); };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open, onToggle]);
+    document.addEventListener('keydown', keyHandler);
+    window.addEventListener('scroll', updateMenuPosition, true);
+    window.addEventListener('resize', updateMenuPosition);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', keyHandler);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+      window.removeEventListener('resize', updateMenuPosition);
+    };
+  }, [open, onToggle, updateMenuPosition]);
   return (
     <div ref={ref} style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', marginLeft: 4 }}>
       <button
-        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        ref={buttonRef}
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onToggle(); }}
+        onClick={(e) => e.stopPropagation()}
         style={{
           width: 20, height: 20, border: '1px solid hsl(var(--border))', borderRadius: 4,
           background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))',
@@ -184,12 +210,11 @@ const StudentRowMenu: React.FC<{
         }}
         title="Student options"
       >⋮</button>
-      {open && (
-        <div style={{
-          position: 'absolute', left: 0, minWidth: 200,
-          ...(dropped ? { bottom: '100%', marginBottom: 4 } : { top: '100%', marginTop: 4 }),
+      {open && menuPos && createPortal(
+        <div ref={menuRef} style={{
+          position: 'fixed', top: menuPos.top, left: menuPos.left, minWidth: 200,
           background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.5)', zIndex: 50, padding: 5,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.5)', zIndex: 9999, padding: 5,
         }}>
           <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={menuItemStyle}>Edit details</button>
           <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
@@ -201,6 +226,7 @@ const StudentRowMenu: React.FC<{
           <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Danger zone</div>
           <button onClick={(e) => { e.stopPropagation(); onDelete(); onToggle(); }} style={{ ...menuItemStyle, color: 'hsl(var(--score-red))' }}>Delete student</button>
         </div>
+        , document.body
       )}
     </div>
   );
