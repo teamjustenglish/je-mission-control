@@ -26,7 +26,8 @@ function generateSlug(name: string): string {
 }
 
 const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
-  student, batchName, modName, weekNumber, startDate, attendance, demoDays, demoScores, demoFeedback, onClose,
+  student, batchName, modName, weekNumber, startDate, attendance, demoDays, demoScores, demoFeedback,
+  studentStatus, statusReason, statusChangedAt, onReverseDropout, onClose,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
