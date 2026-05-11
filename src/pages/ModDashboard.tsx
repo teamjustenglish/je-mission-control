@@ -920,10 +920,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return { date: (scoreRow as any).makeup_date as string, note: ((scoreRow as any).makeup_note as string | null) ?? null };
   };
   const getAbsentNeedsScheduling = (dayNumber: number): Student[] =>
-    students.filter(s => isStudentAbsentOnDemoDay(s.id, dayNumber) && !getStudentMakeup(s.id, dayNumber));
+    students.filter(s => !isDroppedStudent(s) && isStudentAbsentOnDemoDay(s.id, dayNumber) && !getStudentMakeup(s.id, dayNumber));
   const getAbsentScheduled = (dayNumber: number): Array<{ student: Student; makeup: { date: string; note: string | null } }> =>
     students
-      .filter(s => isStudentAbsentOnDemoDay(s.id, dayNumber))
+      .filter(s => !isDroppedStudent(s) && isStudentAbsentOnDemoDay(s.id, dayNumber))
       .map(s => ({ student: s, makeup: getStudentMakeup(s.id, dayNumber) }))
       .filter((x): x is { student: Student; makeup: { date: string; note: string | null } } => x.makeup !== null);
   const fmtMakeupDate = (iso: string): string => {
