@@ -1265,7 +1265,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     });
     return [...named, ...dropped, ...unnamed];
   }, [activeStudents, droppedStudents]);
-  const droppedCount = droppedStudents.length;
 
   const openDropoutModal = (s: Student) => {
     if (readOnly) return;
