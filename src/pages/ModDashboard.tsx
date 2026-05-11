@@ -1861,8 +1861,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
           state={state}
           isDemo={isDemo}
           absenceNote={note}
-          onClick={isDropped ? undefined : () => cycleAttendance(studentId, sessionIndex)}
-          onNoteClick={isDropped ? undefined : () => openNoteModal(studentId, sessionIndex)}
+          onClick={isDropped ? () => {} : () => cycleAttendance(studentId, sessionIndex)}
+          onNoteClick={isDropped ? () => {} : () => openNoteModal(studentId, sessionIndex)}
         />
       </div>
     );
