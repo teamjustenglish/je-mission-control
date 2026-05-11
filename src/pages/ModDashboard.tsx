@@ -2503,7 +2503,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                             <>
                               <span
                                 className={readOnly || dropped ? '' : 'cursor-pointer hover:underline'}
-                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined, opacity: dropped ? 0.55 : 1 }}
+                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }}
                                 onClick={readOnly || dropped ? undefined : () => setEditingStudentId(student.id)}
                               >
                                 {student.name || (readOnly ? '(unnamed)' : '(click to name)')}
