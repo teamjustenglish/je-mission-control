@@ -76,7 +76,7 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
     <div style={{
       width: 320, minWidth: 320, position: 'sticky', top: 16, height: 'calc(100vh - 32px)',
       maxHeight: 'calc(100vh - 32px)', background: 'hsl(var(--card))', borderLeft: '1px solid hsl(var(--border))',
-      borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: 16,
     }}>
       {/* Header */}
       <div style={{
@@ -125,13 +125,19 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
             onClick={() => setActiveTab('overdue')}
             style={{
               fontSize: 12, padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
-              color: activeTab === 'overdue' ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
-              fontWeight: activeTab === 'overdue' ? 500 : 400,
+              position: 'relative',
+              color: isAmnestyActive ? 'hsl(var(--score-red))' : (activeTab === 'overdue' ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))'),
+              fontWeight: isAmnestyActive || activeTab === 'overdue' ? 500 : 400,
               borderBottom: activeTab === 'overdue' ? '2px solid hsl(var(--foreground))' : '2px solid transparent',
               marginBottom: -1,
             }}
           >
             Overdue ({overdueTasks.length})
+            <span className="overdue-pulse-dot" style={{
+              position: 'absolute', top: 4, right: 4,
+              width: 7, height: 7, borderRadius: '50%',
+              background: 'hsl(var(--score-red))',
+            }} />
           </button>
         )}
       </div>
