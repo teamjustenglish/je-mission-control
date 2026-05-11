@@ -107,6 +107,9 @@ const StudentShare: React.FC = () => {
           demoFeedback={demoFeedback}
           showLiveBanner={true}
           lastUpdatedAt={lastFetched ?? undefined}
+          studentStatus={student?.status}
+          statusReason={student?.status_reason}
+          statusChangedAt={student?.status_changed_at}
         />
       </div>
     </div>
