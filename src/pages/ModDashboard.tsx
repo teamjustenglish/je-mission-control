@@ -1513,15 +1513,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     showSaved();
   };
 
-  if (reportStudent && activeBatch) {
-    return (
-      <StudentReport
-        student={reportStudent} batch={activeBatch} students={students}
-        attendance={attendance} demoDays={demoDays} demoScores={demoScores}
-        modName={profile?.name || ''} onBack={() => setReportStudent(null)}
-      />
-    );
-  }
 
   const weekSessions = getWeekSessions(selectedWeek);
   const attendanceColor = avgAttendance === null ? 'hsl(var(--muted-foreground))' : avgAttendance >= 70 ? 'hsl(var(--score-green))' : avgAttendance >= 50 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
