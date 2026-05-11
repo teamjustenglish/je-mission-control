@@ -15,6 +15,10 @@ export interface StudentProgressViewProps {
   showLiveBanner?: boolean;
   lastUpdatedAt?: Date;
   hideHeader?: boolean;
+  studentStatus?: string;
+  statusReason?: string | null;
+  statusChangedAt?: string | null;
+  onReverseDropout?: () => void;
 }
 
 const scoreColor = (n: number) => n >= 14 ? 'hsl(var(--score-green))' : n >= 9 ? 'hsl(var(--score-amber))' : 'hsl(var(--score-red))';
@@ -24,7 +28,10 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
   student, batchName, modName, weekNumber, startDate,
   attendance, demoDays, demoScores, demoFeedback,
   showLiveBanner, lastUpdatedAt, hideHeader,
+  studentStatus, statusReason, statusChangedAt, onReverseDropout,
 }) => {
+  const isDropped = studentStatus === 'dropped';
+  const droppedDateLabel = statusChangedAt ? new Date(statusChangedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   // Time ago ticker
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -106,6 +113,26 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
           <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
             {batchName} · Moderator: {modName} · Week {weekNumber} of 6
           </div>
+        </div>
+      )}
+
+      {/* Dropped-out status banner */}
+      {isDropped && (
+        <div style={{
+          background: 'hsl(var(--danger-bg))', border: '1px solid hsl(var(--score-red) / 0.4)',
+          borderRadius: 8, padding: '10px 12px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+            <span style={{ color: 'hsl(var(--score-red))', fontWeight: 600 }}>⚠ Dropped out{droppedDateLabel ? ` on ${droppedDateLabel}` : ''}</span>
+            <span style={{ color: 'hsl(var(--muted-foreground))' }}> · {statusReason || 'No reason provided'}</span>
+          </div>
+          {onReverseDropout && (
+            <button onClick={onReverseDropout}
+              style={{ background: 'none', border: 'none', color: 'hsl(var(--amber-text))', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+              Reverse drop-out
+            </button>
+          )}
         </div>
       )}
 

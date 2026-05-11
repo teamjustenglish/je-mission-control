@@ -420,18 +420,27 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          status: string
+          status_changed_at: string | null
+          status_reason: string | null
         }
         Insert: {
           batch_id: string
           created_at?: string
           id?: string
           name?: string
+          status?: string
+          status_changed_at?: string | null
+          status_reason?: string | null
         }
         Update: {
           batch_id?: string
           created_at?: string
           id?: string
           name?: string
+          status?: string
+          status_changed_at?: string | null
+          status_reason?: string | null
         }
         Relationships: [
           {

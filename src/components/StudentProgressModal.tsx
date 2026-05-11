@@ -12,6 +12,10 @@ interface StudentProgressModalProps {
   demoDays: { id: string; title: string; date: string | null; day_number: number }[];
   demoScores: { id: string; demo_day_id: string; student_id: string; criterion: string; score: number }[];
   demoFeedback?: { id: string; demo_day_id: string; student_id: string; feedback: string }[];
+  studentStatus?: string;
+  statusReason?: string | null;
+  statusChangedAt?: string | null;
+  onReverseDropout?: () => void;
   onClose: () => void;
 }
 
@@ -22,7 +26,8 @@ function generateSlug(name: string): string {
 }
 
 const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
-  student, batchName, modName, weekNumber, startDate, attendance, demoDays, demoScores, demoFeedback, onClose,
+  student, batchName, modName, weekNumber, startDate, attendance, demoDays, demoScores, demoFeedback,
+  studentStatus, statusReason, statusChangedAt, onReverseDropout, onClose,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -210,6 +215,10 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
               demoFeedback={demoFeedback}
               showLiveBanner={false}
               hideHeader={true}
+              studentStatus={studentStatus}
+              statusReason={statusReason}
+              statusChangedAt={statusChangedAt}
+              onReverseDropout={onReverseDropout}
             />
           </div>
         </div>

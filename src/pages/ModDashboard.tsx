@@ -14,7 +14,8 @@ import {
 import { toast } from 'sonner';
 
 interface Batch { id: string; name: string; mod_id: string; month: number; year: number; start_date?: string | null; }
-interface Student { id: string; batch_id: string; name: string; }
+interface Student { id: string; batch_id: string; name: string; status?: string | null; status_reason?: string | null; status_changed_at?: string | null; }
+const isDroppedStudent = (s: Pick<Student, 'status'>) => s.status === 'dropped';
 interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
@@ -132,6 +133,71 @@ const AttendanceCell: React.FC<{
             background: 'transparent',
           }}
         />
+      )}
+    </div>
+  );
+};
+
+const DroppedTag: React.FC = () => (
+  <span style={{
+    marginLeft: 6, background: 'hsl(var(--danger-bg))', color: 'hsl(var(--score-red))',
+    border: '1px solid hsl(var(--score-red) / 0.4)', fontSize: 9, padding: '1px 6px',
+    borderRadius: 9999, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600,
+    display: 'inline-block', verticalAlign: 'middle',
+  }}>Dropped</span>
+);
+
+const menuItemStyle: React.CSSProperties = {
+  display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+  padding: '6px 10px', fontSize: 12, color: 'hsl(var(--foreground))', cursor: 'pointer', borderRadius: 4,
+};
+
+const StudentRowMenu: React.FC<{
+  student: { id: string; name: string };
+  open: boolean;
+  dropped: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDrop: () => void;
+  onReverse: () => void;
+}> = ({ open, dropped, onToggle, onEdit, onDrop, onReverse }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onToggle();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open, onToggle]);
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block', marginLeft: 4 }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        style={{
+          width: 20, height: 20, border: '1px solid hsl(var(--border))', borderRadius: 4,
+          background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))',
+          fontSize: 14, lineHeight: '14px', cursor: 'pointer', padding: 0,
+        }}
+        title="Student options"
+      >⋮</button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 4, minWidth: 200,
+          background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 6,
+          boxShadow: '0 4px 16px hsl(var(--background) / 0.6)', zIndex: 50, padding: 4,
+        }}>
+          <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={menuItemStyle}>Edit details</button>
+          <button disabled style={{ ...menuItemStyle, opacity: 0.5, cursor: 'not-allowed' }} title="Coming soon">Add note</button>
+          <div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0', fontSize: 10, color: 'hsl(var(--muted-foreground))', padding: '4px 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</div>
+          {dropped ? (
+            <button onClick={(e) => { e.stopPropagation(); onReverse(); onToggle(); }} style={{ ...menuItemStyle, color: 'hsl(var(--amber-text))' }}>Reverse drop-out</button>
+          ) : (
+            <button onClick={(e) => { e.stopPropagation(); onDrop(); }} style={{ ...menuItemStyle, color: 'hsl(var(--score-red))' }}>Mark as dropped out</button>
+          )}
+          <button disabled style={{ ...menuItemStyle, opacity: 0.5, cursor: 'not-allowed' }} title="Coming soon">Move to another batch</button>
+          <button disabled style={{ ...menuItemStyle, opacity: 0.5, cursor: 'not-allowed' }} title="Coming soon">Pause temporarily</button>
+        </div>
       )}
     </div>
   );
@@ -413,6 +479,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   
   // Absence note reminder banner
   const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // Student row ⋮ menu
+  const [studentMenuId, setStudentMenuId] = useState<string | null>(null);
+
+  // Drop-out modal
+  const [dropoutModal, setDropoutModal] = useState<Student | null>(null);
+  const [dropoutReason, setDropoutReason] = useState('');
+  const [dropoutDate, setDropoutDate] = useState('');
+  const [dropoutSaving, setDropoutSaving] = useState(false);
+
+  // Reverse drop-out confirm
+  const [reverseDropConfirm, setReverseDropConfirm] = useState<Student | null>(null);
 
   const activeBatch = batches.find(b => b.id === activeBatchId);
 
@@ -724,6 +802,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const cycleAttendance = async (studentId: string, sessionIndex: number) => {
     if (readOnly) return;
     if (!activeBatchId) return;
+    const studentRec = students.find(s => s.id === studentId);
+    if (studentRec && isDroppedStudent(studentRec)) return;
     const existing = attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex);
     let newState: string;
     if (!existing || existing.state === 'e') newState = 'c';
@@ -907,10 +987,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return { date: (scoreRow as any).makeup_date as string, note: ((scoreRow as any).makeup_note as string | null) ?? null };
   };
   const getAbsentNeedsScheduling = (dayNumber: number): Student[] =>
-    students.filter(s => isStudentAbsentOnDemoDay(s.id, dayNumber) && !getStudentMakeup(s.id, dayNumber));
+    students.filter(s => !isDroppedStudent(s) && isStudentAbsentOnDemoDay(s.id, dayNumber) && !getStudentMakeup(s.id, dayNumber));
   const getAbsentScheduled = (dayNumber: number): Array<{ student: Student; makeup: { date: string; note: string | null } }> =>
     students
-      .filter(s => isStudentAbsentOnDemoDay(s.id, dayNumber))
+      .filter(s => !isDroppedStudent(s) && isStudentAbsentOnDemoDay(s.id, dayNumber))
       .map(s => ({ student: s, makeup: getStudentMakeup(s.id, dayNumber) }))
       .filter((x): x is { student: Student; makeup: { date: string; note: string | null } } => x.makeup !== null);
   const fmtMakeupDate = (iso: string): string => {
@@ -1172,14 +1252,87 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
 
+  // ===== Drop-out helpers =====
+  const activeStudents = useMemo(() => students.filter(s => !isDroppedStudent(s)), [students]);
+  const droppedStudents = useMemo(() => students.filter(isDroppedStudent), [students]);
+  const sortedStudents = useMemo(() => {
+    const dropped = [...droppedStudents].sort((a, b) => {
+      const ad = a.status_changed_at ? new Date(a.status_changed_at).getTime() : 0;
+      const bd = b.status_changed_at ? new Date(b.status_changed_at).getTime() : 0;
+      return bd - ad;
+    });
+    return [...activeStudents, ...dropped];
+  }, [activeStudents, droppedStudents]);
+
+  const openDropoutModal = (s: Student) => {
+    if (readOnly) return;
+    setDropoutReason('');
+    setDropoutDate(new Date().toISOString().slice(0, 10));
+    setDropoutModal(s);
+    setStudentMenuId(null);
+  };
+  const closeDropoutModal = () => { setDropoutModal(null); setDropoutReason(''); setDropoutSaving(false); };
+
+  const saveDropout = async () => {
+    if (!dropoutModal || readOnly) return;
+    setDropoutSaving(true);
+    try {
+      const dateIso = dropoutDate ? new Date(dropoutDate).toISOString() : new Date().toISOString();
+      const { error } = await supabase.from('students').update({
+        status: 'dropped',
+        status_reason: dropoutReason || null,
+        status_changed_at: dateIso,
+      } as any).eq('id', dropoutModal.id);
+      if (error) throw error;
+      setStudents(prev => prev.map(s => s.id === dropoutModal.id
+        ? { ...s, status: 'dropped', status_reason: dropoutReason || null, status_changed_at: dateIso }
+        : s));
+      if (user && activeBatch) {
+        await logActivity(user.id, profile?.name || '', 'student_dropped', `Marked ${dropoutModal.name} as dropped out`, activeBatch.name);
+      }
+      showSaved();
+      closeDropoutModal();
+    } catch (e) {
+      console.error('saveDropout', e);
+      toast.error('Failed to save — please try again');
+      setDropoutSaving(false);
+    }
+  };
+
+  const reverseDropout = async (s: Student) => {
+    if (readOnly) return;
+    try {
+      const nowIso = new Date().toISOString();
+      const { error } = await supabase.from('students').update({
+        status: 'active', status_reason: null, status_changed_at: nowIso,
+      } as any).eq('id', s.id);
+      if (error) throw error;
+      setStudents(prev => prev.map(x => x.id === s.id
+        ? { ...x, status: 'active', status_reason: null, status_changed_at: nowIso }
+        : x));
+      if (user && activeBatch) {
+        await logActivity(user.id, profile?.name || '', 'student_reactivated', `Reversed ${s.name}'s drop-out`, activeBatch.name);
+      }
+      showSaved();
+      setReverseDropConfirm(null);
+    } catch (e) {
+      console.error('reverseDropout', e);
+      toast.error('Failed to save — please try again');
+    }
+  };
+
   // Stats
-  const totalStudents = students.length;
+  const enrolledStudents = students.length;
+  const activeStudentCount = activeStudents.length;
+  const droppedCount = droppedStudents.length;
+  const totalStudents = activeStudentCount;
   const totalSessions = 24;
   const avgAttendance: number | null = (() => {
-    if (students.length === 0) return null;
+    if (activeStudents.length === 0) return null;
     const sessionsOccurred = getSessionsOccurred(activeBatch?.start_date);
-    const present = attendance.filter(a => a.state === 'c').length;
-    return computeAttendancePct(present, students.length, sessionsOccurred);
+    const activeIds = new Set(activeStudents.map(s => s.id));
+    const present = attendance.filter(a => a.state === 'c' && activeIds.has(a.student_id)).length;
+    return computeAttendancePct(present, activeStudents.length, sessionsOccurred);
   })();
   // avgDemoScore computed below after getStudentDemoTotal is defined
   const sessionsCompleted = (() => {
@@ -1293,12 +1446,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   const { avgDemoScore, absentDemoCount } = (() => {
-    if (demoDays.length === 0 || students.length === 0) return { avgDemoScore: 0, absentDemoCount: 0 };
+    if (demoDays.length === 0 || activeStudents.length === 0) return { avgDemoScore: 0, absentDemoCount: 0 };
     let totalScore = 0;
     let studentDayCount = 0;
     let absentCount = 0;
     for (const dd of demoDays) {
-      for (const s of students) {
+      for (const s of activeStudents) {
         if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
           absentCount++;
           continue;
@@ -2134,10 +2287,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             </div>
           )}
           {/* Stats row */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
-              <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{totalStudents}</div>
-              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Students</div>
+              <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">
+                {droppedCount > 0 ? `${activeStudentCount} / ${enrolledStudents}` : activeStudentCount}
+              </div>
+              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Active students</div>
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500, color: attendanceColor }}>{avgAttendance === null ? '—' : `${avgAttendance}%`}</div>
@@ -2149,6 +2304,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               {absentDemoCount > 0 && (
                 <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2, fontStyle: 'italic' }}>
                   {absentDemoCount} absent (excluded)
+                </div>
+              )}
+            </div>
+            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
+              <div style={{ fontSize: 22, fontWeight: 500, color: droppedCount >= 1 ? 'hsl(var(--score-red))' : 'hsl(var(--muted-foreground))' }}>{droppedCount}</div>
+              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Dropouts</div>
+              {enrolledStudents > 0 && (
+                <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2, fontStyle: 'italic' }}>
+                  {Math.round((droppedCount / enrolledStudents) * 100)}% of batch
                 </div>
               )}
             </div>
@@ -2240,13 +2404,23 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map(student => (
-                      <tr key={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                    {sortedStudents.map((student, idx) => {
+                      const dropped = isDroppedStudent(student);
+                      const prev = sortedStudents[idx - 1];
+                      const showDivider = dropped && prev && !isDroppedStudent(prev);
+                      return (
+                      <React.Fragment key={student.id}>
+                        {showDivider && (
+                          <tr aria-hidden="true"><td colSpan={26} style={{ borderTop: '1px solid hsl(var(--border))', padding: 0, height: 1 }} /></tr>
+                        )}
+                      <tr style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}>
                         <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12, whiteSpace: 'nowrap' }}>
-                          <span style={{ cursor: 'pointer' }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
+                          <span style={{ cursor: 'pointer', textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
                             {student.name || '(unnamed)'}
                           </span>
+                          {dropped && <DroppedTag />}
                           <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
+                          {!readOnly && <StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(studentMenuId === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} />}
                         </td>
                         {Array.from({ length: 24 }, (_, i) => {
                           const info = getSessionLabel(i);
@@ -2277,7 +2451,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           return cell;
                         })}
                       </tr>
-                    ))}
+                      </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2298,12 +2474,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map(student => (
-                    <tr key={student.id} className="group"
-                      style={{ borderBottom: '1px solid hsl(var(--row-border))' }}
+                  {sortedStudents.map((student, sIdx) => {
+                    const dropped = isDroppedStudent(student);
+                    const prev = sortedStudents[sIdx - 1];
+                    const showDivider = dropped && prev && !isDroppedStudent(prev);
+                    return (
+                    <React.Fragment key={student.id}>
+                      {showDivider && (
+                        <tr aria-hidden="true"><td colSpan={weekSessions.length + 1} style={{ borderTop: '1px solid hsl(var(--border))', padding: 0, height: 1 }} /></tr>
+                      )}
+                    <tr className="group"
+                      style={{ borderBottom: '1px solid hsl(var(--row-border))', opacity: dropped ? 0.55 : 1 }}
                       onMouseEnter={() => setHoveredStudentId(student.id)}
                       onMouseLeave={() => setHoveredStudentId(null)}>
-                      {/* BUG 3 fix: nowrap on name */}
                       <td className="py-1 font-medium text-foreground relative" style={{ width: 140, minWidth: 140, fontSize: 13, whiteSpace: 'nowrap' }}>
                         <div className="flex items-center gap-2">
                           {editingStudentId === student.id ? (
@@ -2315,15 +2498,18 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           ) : (
                             <>
                               <span
-                                className={readOnly ? '' : 'cursor-pointer hover:underline'}
-                                onClick={readOnly ? undefined : () => setEditingStudentId(student.id)}
+                                className={readOnly || dropped ? '' : 'cursor-pointer hover:underline'}
+                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }}
+                                onClick={readOnly || dropped ? undefined : () => setEditingStudentId(student.id)}
                               >
                                 {student.name || (readOnly ? '(unnamed)' : '(click to name)')}
                               </span>
+                              {dropped && <DroppedTag />}
                               <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }} onClick={() => setProgressModalStudent(student)}>📄</span>
+                              {!readOnly && <StudentRowMenu student={student} open={studentMenuId === student.id} onToggle={() => setStudentMenuId(studentMenuId === student.id ? null : student.id)} onEdit={() => { setEditingStudentId(student.id); setStudentMenuId(null); setTimeout(() => nameInputRef.current?.focus(), 50); }} onDrop={() => openDropoutModal(student)} dropped={dropped} onReverse={() => setReverseDropConfirm(student)} />}
                             </>
                           )}
-                          {hoveredStudentId === student.id && (
+                          {hoveredStudentId === student.id && !dropped && (
                             <div className="flex items-center gap-1" style={{ whiteSpace: 'nowrap' }}>
                               {!readOnly && (
                                 <button onClick={() => confirmRemoveStudent(student)} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'hsl(var(--danger-text))' }}>
@@ -2360,7 +2546,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         return cell;
                       })}
                     </tr>
-                  ))}
+                    </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -2797,6 +2985,51 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         </div>
       )}
 
+      {/* Dropout modal */}
+      {dropoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }} onClick={closeDropoutModal}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 20, maxWidth: 440, width: '90%' }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'hsl(var(--foreground))', marginBottom: 4 }}>Mark {dropoutModal.name} as dropped out</div>
+            <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 14, lineHeight: 1.5 }}>
+              They'll be moved to inactive status. Their past attendance and demo scores stay on record. You can reverse this anytime.
+            </div>
+            <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Reason (visible to admin)</label>
+            <textarea
+              value={dropoutReason}
+              onChange={(e) => setDropoutReason(e.target.value)}
+              placeholder="e.g. Career change, work hours conflicting with class."
+              rows={3}
+              style={{ width: '100%', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input-border))', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: 'hsl(var(--foreground))', resize: 'vertical', outline: 'none', fontFamily: 'Inter, sans-serif', marginBottom: 12 }}
+            />
+            <label style={{ display: 'block', fontSize: 12, color: 'hsl(var(--muted-foreground))', marginBottom: 6 }}>Drop-out date</label>
+            <input type="date" value={dropoutDate} onChange={(e) => setDropoutDate(e.target.value)}
+              style={{ width: '100%', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--input-border))', borderRadius: 6, padding: '8px 10px', fontSize: 13, color: 'hsl(var(--foreground))', outline: 'none', marginBottom: 16 }} />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={closeDropoutModal} style={cancelBtnStyle}>Cancel</button>
+              <button type="button" onClick={saveDropout} disabled={dropoutSaving}
+                style={{ background: 'hsl(var(--destructive))', border: '1px solid hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: dropoutSaving ? 'wait' : 'pointer', opacity: dropoutSaving ? 0.7 : 1 }}>
+                Mark dropped out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reverse drop-out confirm */}
+      {reverseDropConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }} onClick={() => setReverseDropConfirm(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 20, maxWidth: 400, width: '90%' }}>
+            <div style={{ fontSize: 14, color: 'hsl(var(--foreground))', marginBottom: 16, lineHeight: 1.5 }}>
+              Reverse {reverseDropConfirm.name}'s drop-out? They'll return to active status and start counting in batch stats again.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setReverseDropConfirm(null)} style={cancelBtnStyle}>Cancel</button>
+              <button type="button" onClick={() => reverseDropout(reverseDropConfirm)} style={primaryBtnStyle}>Reverse drop-out</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Student progress modal */}
       {progressModalStudent && activeBatch && (
         <StudentProgressModal
@@ -2809,6 +3042,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
           demoDays={demoDays}
           demoScores={demoScores}
           demoFeedback={demoFeedback}
+          studentStatus={progressModalStudent.status || 'active'}
+          statusReason={progressModalStudent.status_reason || null}
+          statusChangedAt={progressModalStudent.status_changed_at || null}
+          onReverseDropout={readOnly ? undefined : () => { setReverseDropConfirm(progressModalStudent); setProgressModalStudent(null); }}
           onClose={() => setProgressModalStudent(null)}
         />
       )}
