@@ -88,13 +88,13 @@ const AttendanceCell: React.FC<{
               onMouseLeave={handleMouseLeave}
               style={{
                 position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                marginBottom: -8, paddingBottom: 14,
-                zIndex: 50, pointerEvents: 'auto',
+                marginBottom: 4,
+                zIndex: 50, pointerEvents: 'none',
               }}
             >
               <div style={{
                 background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: 8,
-                padding: '12px 12px', minWidth: 185, maxWidth: 220,
+                padding: '12px 12px', minWidth: 185, maxWidth: 220, pointerEvents: 'auto',
               }}
                 onClick={(e) => e.stopPropagation()}
               >
