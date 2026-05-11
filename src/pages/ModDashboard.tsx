@@ -52,14 +52,16 @@ const AttendanceCell: React.FC<{
     <div
       style={{ position: 'relative' }}
       className="flex items-center justify-center cursor-pointer w-full h-full py-2"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
       {state === 'c' ? (
         <span style={emojiStyle} className="text-[18px] leading-none" onClick={onClick}>✅</span>
       ) : state === 'x' ? (
         <>
-          <span style={{ position: 'relative', display: 'inline-block', paddingBottom: 8, marginBottom: -8 }}>
+          <span
+            style={{ position: 'relative', display: 'inline-block' }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
             <span style={emojiStyle} className="text-[18px] leading-none" onClick={onClick}>❌</span>
             {absenceNote ? (
               <span style={{
@@ -86,13 +88,13 @@ const AttendanceCell: React.FC<{
               onMouseLeave={handleMouseLeave}
               style={{
                 position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                marginBottom: -8, paddingBottom: 14,
-                zIndex: 50, pointerEvents: 'auto',
+                marginBottom: 4,
+                zIndex: 50, pointerEvents: 'none',
               }}
             >
               <div style={{
                 background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: 8,
-                padding: '12px 12px', minWidth: 185, maxWidth: 220,
+                padding: '12px 12px', minWidth: 185, maxWidth: 220, pointerEvents: 'auto',
               }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -1852,10 +1854,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const studentRec = students.find(s => s.id === studentId);
     const isDropped = studentRec?.status === 'dropped';
     if (isDropped && state === 'e') {
-      return <div style={{ textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))', opacity: 0.55 }}>—</div>;
+      return <div style={{ textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>—</div>;
     }
     return (
-      <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined} style={isDropped ? { opacity: 0.55 } : undefined}>
+      <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined}>
         <AttendanceCell
           state={state}
           isDemo={isDemo}
@@ -1875,10 +1877,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const studentRec = students.find(s => s.id === studentId);
     const isDropped = studentRec?.status === 'dropped';
     if (isDropped && state === 'e') {
-      return <div style={{ background: 'hsl(var(--success-bg))', textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))', opacity: 0.55 }}>—</div>;
+      return <div style={{ background: 'hsl(var(--success-bg))', textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>—</div>;
     }
     return (
-      <div style={{ background: 'hsl(var(--success-bg))', ...(isDropped ? { opacity: 0.55 } : {}) }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
+      <div style={{ background: 'hsl(var(--success-bg))' }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
         <AttendanceCell
           state={state}
           isDemo={false}
@@ -2419,7 +2421,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         )}
                       <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                         <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12, whiteSpace: 'nowrap' }}>
-                          <span style={{ cursor: 'pointer', textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined, opacity: dropped ? 0.55 : 1 }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
+                          <span style={{ cursor: 'pointer', textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
                             {student.name || '(unnamed)'}
                           </span>
                           {dropped && <DroppedTag />}
@@ -2501,7 +2503,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                             <>
                               <span
                                 className={readOnly || dropped ? '' : 'cursor-pointer hover:underline'}
-                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined, opacity: dropped ? 0.55 : 1 }}
+                                style={{ textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }}
                                 onClick={readOnly || dropped ? undefined : () => setEditingStudentId(student.id)}
                               >
                                 {student.name || (readOnly ? '(unnamed)' : '(click to name)')}
