@@ -1551,10 +1551,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
        const si = wStart + i;
        const sessionDate = getSessionDateObj(si);
        if (!sessionDate) continue;
+       const activeIds = new Set(activeOnly.map(s => s.id));
        const studentsWithAttendance = attendance.filter(a =>
-         a.session_index === si && a.batch_id === activeBatch.id && a.state !== 'e'
+         a.session_index === si && a.batch_id === activeBatch.id && a.state !== 'e' && activeIds.has(a.student_id)
        ).length;
-       const totalStudents = students.length;
+       const totalStudents = activeOnly.length;
        const isPastSession = sessionDate < today;
        const hasStarted = studentsWithAttendance > 0;
        // Overdue tabs are always past weeks, so show all. Current week: only past or started.
