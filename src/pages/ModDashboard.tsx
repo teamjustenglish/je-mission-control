@@ -424,7 +424,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [allWeeksView, setAllWeeksView] = useState(false);
   const [showCreateBatch, setShowCreateBatch] = useState(false);
-  const [demoDaysExpanded, setDemoDaysExpanded] = useState(false);
+  const [demoDaysExpanded, setDemoDaysExpanded] = useState(true);
   const [newBatchMonth, setNewBatchMonth] = useState(new Date().getMonth() + 1);
   const [newBatchYear, setNewBatchYear] = useState(new Date().getFullYear());
   
@@ -2662,6 +2662,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 <span style={{ background: 'hsl(var(--pill-success-bg))', color: 'hsl(var(--pill-success-text))', borderRadius: 9999, padding: '2px 8px', fontSize: 11 }}>
                   {demoDays.length} days
                 </span>
+                {!demoDaysExpanded && (
+                  <span style={{ marginLeft: 6, fontStyle: 'italic', fontSize: 11, color: 'hsl(var(--muted-foreground))', opacity: 0.7 }}>
+                    click to expand
+                  </span>
+                )}
               </div>
               <span className="text-muted-foreground" style={{ fontSize: 13 }}>{activeBatch.name}</span>
             </button>
