@@ -174,7 +174,7 @@ const StudentRowMenu: React.FC<{
   }, [open, onToggle]);
 
   return (
-    <div ref={ref} style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', marginLeft: 4, zIndex: open ? 10 : 1 }}>
+    <div ref={ref} style={{ display: 'inline-flex', alignItems: 'center', position: 'relative', marginLeft: 4, zIndex: open ? 50 : 1 }}>
       <button
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
         style={{
@@ -2672,7 +2672,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   const absentNeeds = readOnly ? [] : getAbsentNeedsScheduling(dd.day_number);
                   const absentScheduled = getAbsentScheduled(dd.day_number);
                   const totalAbsent = absentNeeds.length + absentScheduled.length;
-                  const showBanner = !readOnly && absentNeeds.length > 0;
+                  const showBanner = !readOnly && (absentNeeds.length > 0 || absentScheduled.length > 0);
+                  const allDone = absentNeeds.length === 0 && absentScheduled.length > 0;
                   return (
                   <div key={dd.id} id={`demo-day-${dd.id}`} className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, overflow: 'hidden' }}>
                     <div className="flex items-center justify-between" style={{ padding: '14px 16px' }}>
@@ -2683,11 +2684,48 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                     {/* Absent-students banner (only shown if at least one needs scheduling) */}
                     {showBanner && (
                       <div style={{
-                        margin: '0 16px 12px', background: 'hsl(var(--amber-bg))',
-                        border: '1px solid hsl(var(--amber-border))', borderRadius: 8,
-                        color: 'hsl(var(--amber-text))', overflow: 'hidden',
+                        margin: '0 16px 12px',
+                        background: allDone ? 'hsl(var(--success-bg))' : 'hsl(var(--amber-bg))',
+                        border: allDone ? '1px solid hsl(var(--score-green) / 0.4)' : '1px solid hsl(var(--amber-border))',
+                        borderRadius: 8,
+                        color: allDone ? 'hsl(var(--score-green))' : 'hsl(var(--amber-text))',
+                        overflow: 'hidden',
                       }}>
-                        {absentNeeds.length === 1 && absentScheduled.length === 0 ? (
+                        {allDone ? (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid hsl(var(--score-green) / 0.3)' }}>
+                              <div style={{ fontSize: 13, fontWeight: 500 }}>
+                                ✓ All {absentScheduled.length} make-up{absentScheduled.length > 1 ? 's' : ''} recorded
+                              </div>
+                              <span style={{
+                                background: 'hsl(var(--score-green) / 0.15)', color: 'hsl(var(--score-green))',
+                                borderRadius: 9999, padding: '2px 8px', fontSize: 11, fontWeight: 600,
+                              }}>{absentScheduled.length} done</span>
+                            </div>
+                            <div>
+                              {absentScheduled.map(({ student, makeup }) => (
+                                <div key={student.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 14px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <span style={{ fontSize: 13, fontWeight: 500, color: 'hsl(var(--foreground))' }}>{student.name}</span>
+                                    <span style={{
+                                      background: 'hsl(var(--success-bg))', color: 'hsl(var(--score-green))',
+                                      borderRadius: 9999, padding: '2px 8px', fontSize: 11, fontWeight: 600,
+                                    }}>Made up {fmtMakeupDate(makeup.date)}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => openMakeupModal(student.id, dd.day_number)}
+                                    style={{
+                                      background: 'transparent', border: '1px solid hsl(var(--score-green) / 0.4)',
+                                      color: 'hsl(var(--score-green))', borderRadius: 6,
+                                      padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                    }}
+                                  >Edit</button>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : absentNeeds.length === 1 && absentScheduled.length === 0 ? (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px' }}>
                             <div style={{ fontSize: 13, fontWeight: 500 }}>
                               ⚠ {absentNeeds[0].name} was absent on demo day. Make up the demo and add the scores.
@@ -2785,7 +2823,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                                         onClick={readOnly ? undefined : () => openMakeupModal(s.id, dd.day_number)}
                                         title={`Made up on ${fmtMakeupDate(makeup.date)}${makeup.note ? ` · ${makeup.note}` : ''}`}
                                         style={{
-                                          width: 10, height: 10, borderRadius: '50%',
+                                          width: 7, height: 7, borderRadius: '50%',
                                           background: 'hsl(var(--score-amber))',
                                           boxShadow: '0 0 0 2px hsl(var(--card))',
                                           border: 'none', padding: 0, cursor: readOnly ? 'default' : 'pointer',
