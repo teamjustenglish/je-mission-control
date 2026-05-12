@@ -1562,6 +1562,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
      // For overdue weeks: all past sessions are shown regardless.
      for (let i = 0; i < 4; i++) {
        const si = wStart + i;
+       if (isSessionRescheduled(si)) continue; // moved → attendance lives on destination Wed
        const sessionDate = getSessionDateObj(si);
        if (!sessionDate) continue;
        const activeIds = new Set(activeOnly.map(s => s.id));
@@ -1590,11 +1591,42 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
        }
      }
 
+     // 1b. Rescheduled-into Wed for this week — attendance lives at synthetic session_index 1000 + (week-1)
+     const wedReschedule = rescheduledSessions.find(r => (r.to_week ?? null) === weekNum);
+     const wedSi = wedReschedule ? 1000 + (weekNum - 1) : null;
+     if (wedReschedule && wedSi !== null) {
+       const wedDate = new Date(wedReschedule.new_date + 'T00:00:00');
+       const activeIds = new Set(activeOnly.map(s => s.id));
+       const wedMarked = attendance.filter(a =>
+         a.session_index === wedSi && a.batch_id === activeBatch.id && a.state !== 'e' && activeIds.has(a.student_id)
+       ).length;
+       const totalStudents = activeOnly.length;
+       const isPastSession = wedDate < today;
+       const hasStarted = wedMarked > 0;
+       if ((isPastSession || hasStarted) && wedMarked < totalStudents) {
+         const remaining = totalStudents - wedMarked;
+         const dateStr = formatShortDate(wedDate);
+         tasks.push({
+           id: `untouched-${wedSi}`,
+           type: 'untouched_session',
+           severity: isOverdue ? 'default' : 'urgent',
+           title: `Mark Wed ${dateStr} attendance`,
+           meta: `${remaining} of ${totalStudents} students missing`,
+           targetSessionIndex: wedSi,
+           isOverdue,
+           weekNumber: weekNum,
+         });
+       }
+     }
+
      // 2. Absences without reason — include dropped students (their past ✕ marks still need reasons)
      const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
      for (const a of attendance) {
        if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '')) {
-         if (a.session_index < wStart || a.session_index >= wStart + 4) continue;
+         const inSourceRange = a.session_index >= wStart && a.session_index < wStart + 4;
+         const isWedDest = wedSi !== null && a.session_index === wedSi;
+         if (!inSourceRange && !isWedDest) continue;
+         if (inSourceRange && isSessionRescheduled(a.session_index)) continue; // defensive: source slot moved
          const student = students.find(s => s.id === a.student_id);
          if (!student) continue;
          if (!absencesBySession[a.session_index]) absencesBySession[a.session_index] = [];
@@ -1603,8 +1635,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
      }
      for (const [siStr, items] of Object.entries(absencesBySession)) {
        const si = parseInt(siStr);
-       const dayIdx = si % 4;
-       const sessionDate = getSessionDateObj(si);
+       const isWed = wedSi !== null && si === wedSi;
+       const dayLabel = isWed ? 'Wed' : shortDayNames[si % 4];
+       const sessionDate = isWed && wedReschedule
+         ? new Date(wedReschedule.new_date + 'T00:00:00')
+         : getSessionDateObj(si);
        const dateStr = sessionDate ? ` ${formatShortDate(sessionDate)}` : '';
        const n = items.length;
        const names = items.slice(0, 3).map(ii => ii.name);
@@ -1613,7 +1648,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
          id: `absence-note-${si}`,
          type: 'absence_no_reason',
          severity: isOverdue ? 'default' : 'warn',
-         title: `${shortDayNames[dayIdx]}${dateStr} absence reasons`,
+         title: `${dayLabel}${dateStr} absence reasons`,
          meta: names.join(', ') + extra,
          targetSessionIndex: si,
          isOverdue,
