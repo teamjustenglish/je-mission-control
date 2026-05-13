@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
-import { Plus, ChevronDown, ChevronRight, Grid3X3, List } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Grid3X3, List, Rocket } from 'lucide-react';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
 import ToDoSidebar, { AdminSummaryPanel, AMNESTY_END } from '@/components/ToDoSidebar';
@@ -1979,19 +1979,27 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   {isActive && !readOnly && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setDeleteBatchConfirm(batch); }}
-                      title="Delete batch"
-                      aria-label="Delete batch"
-                      style={{ flexShrink: 0, marginLeft: 6, marginRight: 4, width: 14, height: 14, padding: 0, color: 'hsl(var(--muted-foreground))', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 14, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--score-red))'; }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = e.currentTarget.parentElement!.getBoundingClientRect();
+                        setBatchContextMenu({ batchId: batch.id, x: rect.left, y: rect.bottom + 4 });
+                      }}
+                      title="Batch options"
+                      aria-label="Batch options"
+                      style={{ flexShrink: 0, marginLeft: 6, marginRight: 4, width: 18, height: 18, padding: 0, color: 'hsl(var(--muted-foreground))', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--foreground))'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = 'hsl(var(--muted-foreground))'; }}
-                    >✕</button>
+                    >⋮</button>
                   )}
                 </div>
               );
             })}
             {!readOnly && (
-              <button onClick={() => { const d = new Date(); const day = d.getDay(); const diff = day === 0 ? 1 : (day === 1 ? 7 : 8 - day); d.setDate(d.getDate() + diff); setNewBatchStartDate(d.toISOString().split('T')[0]); setShowCreateBatch(true); }} className="px-3 py-3 text-muted-foreground hover:text-foreground text-lg">+</button>
+              <button onClick={() => { setNewBatchStartDate(new Date().toISOString().split('T')[0]); setShowCreateBatch(true); }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', margin: '4px 0 4px 6px', fontSize: 13, fontWeight: 500, color: 'hsl(var(--muted-foreground))', background: 'transparent', border: '1px solid hsl(var(--border))', borderRadius: 6, cursor: 'pointer' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--foreground))'; e.currentTarget.style.borderColor = 'hsl(var(--foreground))'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'hsl(var(--muted-foreground))'; e.currentTarget.style.borderColor = 'hsl(var(--border))'; }}
+              ><Plus size={14} /> New batch</button>
             )}
           </div>
           <div className="flex items-center gap-3">
@@ -2854,8 +2862,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
                               const makeup = isAbsent ? getStudentMakeup(s.id, dd.day_number) : null;
                               return (
-                                <th key={s.id} className="text-center px-2 py-2 font-medium text-muted-foreground" style={{ fontSize: 12 }}>
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, verticalAlign: 'middle' }}>
+                                <th key={s.id} className="text-center px-2 py-2 font-medium text-muted-foreground" style={{ fontSize: 12, verticalAlign: 'bottom' }}>
+                                  <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                                     <span>{s.name}</span>
                                     {isAbsent && makeup && (
                                       <button
@@ -3026,8 +3034,22 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         ) : null}
         </div>
       ) : (
-        <div className="flex items-center justify-center h-96 text-muted-foreground" style={{ paddingTop: 48 }}>
-          <p>No batches yet. Click "+" to create your first batch.</p>
+        <div className="flex items-center justify-center" style={{ paddingTop: 80 }}>
+          <div style={{ background: 'hsl(var(--card))', border: '0.5px solid hsl(var(--border))', borderRadius: 10, padding: '48px 24px', textAlign: 'center', maxWidth: 440, width: '100%' }}>
+            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'hsl(var(--info-bg))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <Rocket size={24} style={{ color: 'hsl(var(--info-text))' }} />
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 500, color: 'hsl(var(--foreground))', marginBottom: 10 }}>
+              {displayModName ? `Hey ${displayModName.split(' ')[0]}, glad to see you here!` : 'Hey, glad to see you here!'}
+            </div>
+            <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', lineHeight: 1.55, maxWidth: 380, margin: '0 auto 24px' }}>
+              Start by creating a batch. That's where you'll track your students' attendance, demos, and feedback for the next 6 weeks. And every batch after.
+            </p>
+            <button
+              onClick={() => { setNewBatchStartDate(new Date().toISOString().split('T')[0]); setShowCreateBatch(true); }}
+              style={{ background: 'hsl(var(--info-bg))', color: 'hsl(var(--info-text))', border: '1px solid hsl(var(--info-text) / 0.3)', padding: '9px 18px', fontSize: 13, fontWeight: 500, borderRadius: 6, cursor: 'pointer' }}
+            >+ Create your first batch</button>
+          </div>
         </div>
       )}
 
