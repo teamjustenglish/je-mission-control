@@ -221,6 +221,7 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
           const scores = ddId ? demoScores.filter(s => s.demo_day_id === ddId && s.student_id === student.id) : [];
           const total = ddId ? demoDayTotal(ddId) : null;
           const wasAbsent = !isFuture && isAbsentOnDemo(dn);
+          const hasScores = scores.length > 0 && total !== null;
           const fb = ddId ? demoFeedback?.find(f => f.demo_day_id === ddId && f.student_id === student.id) : null;
 
           const renderRubric = (muted: boolean) => (
@@ -246,10 +247,16 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: 'hsl(var(--foreground))' }}>Demo Day {dn}</span>
-                  {wasAbsent && <span style={{ fontSize: 11, background: 'hsl(var(--danger-bg))', color: 'hsl(var(--score-red))', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>Absent</span>}
+                  {wasAbsent && !hasScores && <span style={{ fontSize: 11, background: 'hsl(var(--danger-bg))', color: 'hsl(var(--score-red))', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>Absent</span>}
+                  {wasAbsent && hasScores && <span style={{ fontSize: 11, background: 'hsl(var(--score-amber) / 0.15)', color: 'hsl(var(--score-amber))', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>Made up</span>}
                 </div>
                 <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{dd?.date || ''}</span>
               </div>
+              {wasAbsent && hasScores && (
+                <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic', marginTop: -6, marginBottom: 12 }}>
+                  You were absent on the original day · made up later
+                </div>
+              )}
 
               {/* Rubric + total */}
               {isFuture ? (
@@ -257,7 +264,7 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
                   {renderRubric(true)}
                   <div style={{ textAlign: 'right', fontSize: 12, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>Not yet</div>
                 </>
-              ) : wasAbsent ? (
+              ) : wasAbsent && !hasScores ? (
                 <>
                   {renderRubric(true)}
                   <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: 'hsl(var(--score-red))' }}>Absent</div>
