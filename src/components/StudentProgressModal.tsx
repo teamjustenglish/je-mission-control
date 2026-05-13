@@ -201,7 +201,7 @@ const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
           {/* Scrollable body */}
           <div data-scroll-container="true" style={{ flex: 1, overflowY: 'auto', padding: '0 20px 16px' }}>
             {/* Preview hint */}
-            <div style={{ padding: '8px 0', fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>👁 This is what the student / parent will see</div>
+            <div style={{ padding: '8px 0', fontSize: 11, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>👁 This is what the student will see</div>
 
             <StudentProgressView
               student={student}
