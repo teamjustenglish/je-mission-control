@@ -26,6 +26,7 @@ interface ToDoSidebarProps {
   adminInfo?: { modName: string; weekCompletionPct: number };
   onMarkDropped?: (studentId: string) => void;
   onStillActive?: (studentId: string) => void;
+  onCheckedIn?: (studentId: string, snoozeType: string) => void;
 }
 
 const getThisWeeksFriday = (): Date => {
@@ -146,7 +147,7 @@ function useCountPop(value: number): boolean {
   return popping;
 }
 
-const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumber, weekStatus, onTaskClick, onFinaliseClick, viewMode = 'mod', adminInfo, onMarkDropped, onStillActive }) => {
+const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumber, weekStatus, onTaskClick, onFinaliseClick, viewMode = 'mod', adminInfo, onMarkDropped, onStillActive, onCheckedIn }) => {
   const [countdown, setCountdown] = useState(() => formatCountdown(getThisWeeksFriday()));
   const [activeTab, setActiveTab] = useState<'current' | 'overdue'>('current');
   const isAmnestyActive = Date.now() < AMNESTY_END.getTime();
@@ -307,16 +308,27 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
                     {task.meta && (
                       <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4, marginLeft: 20 }}>{task.meta}</div>
                     )}
-                    {task.actions?.type === 'dropout_decision' && viewMode !== 'admin' && (
+                    {task.actions?.type === 'dropout_decision' && (
                       <div style={{ display: 'flex', gap: 8, marginTop: 8, marginLeft: 20 }}>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onMarkDropped?.(task.actions!.studentId); }}
-                          style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', background: 'hsl(var(--score-red))', color: '#fff', cursor: 'pointer' }}
-                        >Mark as dropped</button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onStillActive?.(task.actions!.studentId); }}
-                          style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: '1px solid hsl(var(--border))', background: 'transparent', color: 'hsl(var(--muted-foreground))', cursor: 'pointer' }}
-                        >Still active</button>
+                        {task.type === 'dropout_force_decide' ? (
+                          <>
+                            <button onClick={(e) => { e.stopPropagation(); onMarkDropped?.(task.actions!.studentId); }}
+                              style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', background: 'hsl(var(--score-red))', color: '#fff', cursor: 'pointer' }}
+                            >Mark as dropped</button>
+                            <button onClick={(e) => { e.stopPropagation(); onStillActive?.(task.actions!.studentId); }}
+                              style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: '1px solid hsl(var(--border))', background: 'transparent', color: 'hsl(var(--muted-foreground))', cursor: 'pointer' }}
+                            >Still active</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={(e) => { e.stopPropagation(); onCheckedIn?.(task.actions!.studentId, task.type); }}
+                              style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: '1px solid hsl(var(--border))', background: 'transparent', color: 'hsl(var(--foreground))', cursor: 'pointer' }}
+                            >I've checked in</button>
+                            <button onClick={(e) => { e.stopPropagation(); onMarkDropped?.(task.actions!.studentId); }}
+                              style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', background: 'hsl(var(--score-red))', color: '#fff', cursor: 'pointer' }}
+                            >Mark as dropped</button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
