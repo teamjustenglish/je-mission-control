@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 interface Task {
   id: string;
-  type: 'untouched_session' | 'absence_no_reason' | 'demo_scores_missing' | 'demo_feedback_missing' | 'finalise';
+  type: 'untouched_session' | 'absence_no_reason' | 'demo_scores_missing' | 'demo_feedback_missing' | 'finalise' | 'dropout_check_in' | 'dropout_red_flag' | 'dropout_force_decide';
   severity: 'urgent' | 'warn' | 'default';
   title: string;
   meta: string | null;
@@ -11,6 +11,8 @@ interface Task {
   targetStudentId?: string;
   isOverdue?: boolean;
   weekNumber?: number;
+  targetWeekNumber?: number;
+  actions?: { type: 'dropout_decision'; studentId: string };
 }
 
 interface ToDoSidebarProps {
@@ -20,6 +22,10 @@ interface ToDoSidebarProps {
   weekStatus: string;
   onTaskClick: (task: Task) => void;
   onFinaliseClick: () => void;
+  viewMode?: 'mod' | 'admin';
+  adminInfo?: { modName: string; weekCompletionPct: number };
+  onMarkDropped?: (studentId: string) => void;
+  onStillActive?: (studentId: string) => void;
 }
 
 const getThisWeeksFriday = (): Date => {
@@ -140,7 +146,7 @@ function useCountPop(value: number): boolean {
   return popping;
 }
 
-const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumber, weekStatus, onTaskClick, onFinaliseClick }) => {
+const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumber, weekStatus, onTaskClick, onFinaliseClick, viewMode = 'mod', adminInfo, onMarkDropped, onStillActive }) => {
   const [countdown, setCountdown] = useState(() => formatCountdown(getThisWeeksFriday()));
   const [activeTab, setActiveTab] = useState<'current' | 'overdue'>('current');
   const isAmnestyActive = Date.now() < AMNESTY_END.getTime();
@@ -171,6 +177,19 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
       maxHeight: 'calc(100vh - 96px)', background: 'hsl(var(--card))', borderLeft: '1px solid hsl(var(--border))',
       borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: 16, paddingBottom: 16,
     }}>
+      {/* Admin info header */}
+      {viewMode === 'admin' && adminInfo && (
+        <div style={{ flexShrink: 0, padding: '12px 12px 8px', borderBottom: '1px solid hsl(var(--border))' }}>
+          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'hsl(var(--muted-foreground))', fontWeight: 600, marginBottom: 6 }}>
+            Viewing as admin
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'hsl(var(--foreground))' }}>{adminInfo.modName || 'Moderator'}</div>
+          <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+            Week {weekNumber} of 6 · {adminInfo.weekCompletionPct}% complete
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{
         flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8,
@@ -288,6 +307,18 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
                     {task.meta && (
                       <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4, marginLeft: 20 }}>{task.meta}</div>
                     )}
+                    {task.actions?.type === 'dropout_decision' && viewMode !== 'admin' && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8, marginLeft: 20 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onMarkDropped?.(task.actions!.studentId); }}
+                          style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', background: 'hsl(var(--score-red))', color: '#fff', cursor: 'pointer' }}
+                        >Mark as dropped</button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onStillActive?.(task.actions!.studentId); }}
+                          style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: '1px solid hsl(var(--border))', background: 'transparent', color: 'hsl(var(--muted-foreground))', cursor: 'pointer' }}
+                        >Still active</button>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -295,7 +326,7 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
           </div>
 
           {/* Finalise button — sticky bottom */}
-          {finaliseTask && (
+          {finaliseTask && viewMode !== 'admin' && (
             <div style={{ flexShrink: 0, padding: '12px 12px 16px', borderTop: '1px solid hsl(var(--border))' }}>
               {canFinalise ? (
                 <button

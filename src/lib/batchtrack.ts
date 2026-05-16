@@ -118,3 +118,131 @@ export const CRITERIA = [
   'Lexical resources',
   'Grammatical accuracy',
 ];
+
+// ── Absence-streak detection ──────────────────────────────────────────
+
+interface AttendanceRow {
+  student_id: string;
+  session_index: number;
+  state: string;
+}
+
+interface RescheduleRow {
+  from_week?: number | null;
+  from_day?: string | null;
+  week_number: number;
+  day_name: string;
+  new_date: string;
+  to_week?: number | null;
+}
+
+/** Date of a normal session (index 0-23) given the batch start Monday. */
+const sessionDate = (index: number, batchStart: Date): Date => {
+  const week = Math.floor(index / 4);
+  const dayInWeek = index % 4;
+  const offsets = [0, 1, 3, 4]; // Mon Tue Thu Fri
+  const d = new Date(batchStart);
+  d.setDate(batchStart.getDate() + week * 7 + offsets[dayInWeek]);
+  return d;
+};
+
+/** True when the original session slot was moved to a rescheduled Wednesday. */
+const isSourceRescheduled = (
+  index: number,
+  reschedules: RescheduleRow[],
+): boolean => {
+  const info = getSessionLabel(index);
+  const week = Math.floor(index / 4) + 1;
+  const dayName = info.isDemo ? 'Demo day' : info.day;
+  return reschedules.some(
+    r => ((r.from_week ?? r.week_number) === week) && ((r.from_day ?? r.day_name) === dayName),
+  );
+};
+
+/**
+ * Count consecutive absences at the END of a student's marked attendance timeline.
+ *
+ * - Skips 'e' / empty rows entirely (they neither break nor extend the streak).
+ * - Skips source slots that were rescheduled (attendance lives on the 1000+ index).
+ * - For 1000+ indices, uses the reschedule's new_date for chronological ordering.
+ */
+export const getAbsenceStreak = (
+  studentId: string,
+  attendance: AttendanceRow[],
+  reschedules: RescheduleRow[],
+  batchStartDate: string,
+): { length: number; lastAttendedDate: Date | null; startedAt: Date | null; latestAbsenceDate: Date | null } => {
+  const batchStart = new Date(batchStartDate + 'T00:00:00');
+
+  // 1. Gather marked rows (c or x) for this student, skipping rescheduled source slots
+  const rows: { state: string; date: Date }[] = [];
+  for (const a of attendance) {
+    if (a.student_id !== studentId) continue;
+    if (a.state !== 'c' && a.state !== 'x') continue;
+
+    if (a.session_index >= 1000) {
+      // Rescheduled Wednesday — find the matching reschedule for its date
+      const toWeek = a.session_index - 1000 + 1;
+      const r = reschedules.find(r => (r.to_week ?? null) === toWeek);
+      if (r) {
+        rows.push({ state: a.state, date: new Date(r.new_date + 'T00:00:00') });
+      }
+    } else if (a.session_index >= 0 && a.session_index < 24) {
+      // Normal slot — skip if it was moved to a rescheduled Wed
+      if (isSourceRescheduled(a.session_index, reschedules)) continue;
+      rows.push({ state: a.state, date: sessionDate(a.session_index, batchStart) });
+    }
+  }
+
+  if (rows.length === 0) {
+    return { length: 0, lastAttendedDate: null, startedAt: null, latestAbsenceDate: null };
+  }
+
+  // 2. Sort chronologically
+  rows.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // 3. Walk backwards counting consecutive 'x'
+  let streak = 0;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].state === 'x') streak++;
+    else break;
+  }
+
+  // 4. Derive outputs
+  const lastC = [...rows].reverse().find(r => r.state === 'c');
+  const lastAttendedDate = lastC?.date ?? null;
+  const startedAt = streak > 0 ? rows[rows.length - streak].date : null;
+
+  const latestAbsenceDate = streak > 0 ? rows[rows.length - 1].date : null;
+  return { length: streak, lastAttendedDate, startedAt, latestAbsenceDate };
+};
+
+// ── Snooze helpers ────────────────────────────────────────────────────
+
+interface SnoozeRow {
+  student_id: string;
+  snooze_type: string;
+  expires_at: string;
+}
+
+/** Check if a specific (student, type) has an active (non-expired) snooze. */
+export const hasActiveSnooze = (
+  studentId: string,
+  snoozeType: string,
+  snoozes: SnoozeRow[],
+  now: Date = new Date(),
+): boolean => {
+  return snoozes.some(
+    s => s.student_id === studentId && s.snooze_type === snoozeType && new Date(s.expires_at) > now,
+  );
+};
+
+/** Get all (student, type) pairs that currently have active snoozes. */
+export const getActiveSnoozes = (
+  snoozes: SnoozeRow[],
+  now: Date = new Date(),
+): Array<{ studentId: string; snoozeType: string }> => {
+  return snoozes
+    .filter(s => new Date(s.expires_at) > now)
+    .map(s => ({ studentId: s.student_id, snoozeType: s.snooze_type }));
+};
