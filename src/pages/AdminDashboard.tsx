@@ -87,6 +87,7 @@ const AdminDashboard: React.FC = () => {
   const { signOut, profile: currentProfile, session } = useAuth();
   const [activePage, setActivePage] = useState('dashboard');
   const [moderators, setModerators] = useState<Profile[]>([]);
+  const [modSearchQuery, setModSearchQuery] = useState('');
   const [modCodes, setModCodes] = useState<ModCode[]>([]);
   const [batchCount, setBatchCount] = useState(0);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
@@ -828,8 +829,24 @@ const AdminDashboard: React.FC = () => {
                 <Plus className="w-4 h-4" /> Add moderator
               </button>
             </div>
+            <div style={{ position: 'relative', marginBottom: 12 }}>
+              <input
+                type="text"
+                value={modSearchQuery}
+                onChange={(e) => setModSearchQuery(e.target.value)}
+                placeholder="Search moderators..."
+                className="w-full px-3 py-2 text-sm text-foreground"
+                style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))', outline: 'none' }}
+              />
+              {modSearchQuery && (
+                <button
+                  onClick={() => setModSearchQuery('')}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', fontSize: 14 }}
+                >✕</button>
+              )}
+            </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
-              {moderators.map(mod => {
+              {moderators.filter(mod => mod.name?.toLowerCase().includes(modSearchQuery.toLowerCase())).map(mod => {
                 const statusInfo = getModStatus(mod);
                 const code = modCodes.find(c => c.mod_id === mod.id);
                 const avatarColor = getModAvatarColor(mod.id);
