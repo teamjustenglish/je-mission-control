@@ -1801,7 +1801,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     }
     return tasks;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDevTester, activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, currentWeekStatus, rescheduledSessions]);
+  }, [isDevTester, activeBatch, students, attendance, demoDays, demoFeedback, scoreValues, computedCurrentWeek, currentWeekStatus, rescheduledSessions, snoozes]);
 
   // Overdue tasks (previous weeks that are 'open' or 'closed' — not 'finalised' or 'reopened')
   const overdueTasks: Task[] = useMemo(() => {
