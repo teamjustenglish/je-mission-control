@@ -1479,16 +1479,21 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return 'hsl(var(--score-red))';
   };
 
-  const { avgDemoScore, absentDemoCount } = (() => {
-    if (demoDays.length === 0 || activeStudents.length === 0) return { avgDemoScore: 0, absentDemoCount: 0 };
+  const { avgDemoScore, absentDemoCount, madeUpDemoCount } = (() => {
+    if (demoDays.length === 0 || activeStudents.length === 0) return { avgDemoScore: 0, absentDemoCount: 0, madeUpDemoCount: 0 };
     let totalScore = 0;
     let studentDayCount = 0;
     let absentCount = 0;
+    let madeUpCount = 0;
     for (const dd of demoDays) {
       for (const s of activeStudents) {
         if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) {
-          absentCount++;
-          continue;
+          if (getStudentMakeup(s.id, dd.day_number)) {
+            madeUpCount++;
+          } else {
+            absentCount++;
+            continue;
+          }
         }
         const t = getStudentDemoTotal(dd.id, s.id);
         if (t !== '—') {
@@ -1498,7 +1503,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       }
     }
     const avg = studentDayCount > 0 ? Math.round((totalScore / studentDayCount) * 10) / 10 : 0;
-    return { avgDemoScore: avg, absentDemoCount: absentCount };
+    return { avgDemoScore: avg, absentDemoCount: absentCount, madeUpDemoCount: madeUpCount };
   })();
 
   const getFeedback = (demoDayId: string, studentId: string): DemoFeedback | undefined => {
@@ -2470,9 +2475,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500, color: 'hsl(var(--score-amber))' }}>{avgDemoScore ? `${avgDemoScore} / 20` : '—'}</div>
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Avg demo score</div>
-              {absentDemoCount > 0 && (
+              {(madeUpDemoCount > 0 || absentDemoCount > 0) && (
                 <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2, fontStyle: 'italic' }}>
-                  {absentDemoCount} absent (excluded)
+                  {[
+                    madeUpDemoCount > 0 ? `${madeUpDemoCount} made up (counted)` : null,
+                    absentDemoCount > 0 ? `${absentDemoCount} absent (excluded)` : null,
+                  ].filter(Boolean).join(' · ')}
                 </div>
               )}
             </div>
