@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 interface Task {
   id: string;
-  type: 'untouched_session' | 'absence_no_reason' | 'demo_scores_missing' | 'demo_feedback_missing' | 'finalise' | 'dropout_check_in' | 'dropout_red_flag' | 'dropout_force_decide';
+  type: 'untouched_session' | 'absence_no_reason' | 'demo_scores_missing' | 'demo_feedback_missing' | 'finalise' | 'dropout_check_in' | 'dropout_red_flag' | 'dropout_force_decide' | 'demo_makeup_needed';
   severity: 'urgent' | 'warn' | 'default';
   title: string;
   meta: string | null;

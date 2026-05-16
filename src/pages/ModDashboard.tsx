@@ -1675,13 +1675,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
      for (const dd of demoDays) {
        const ddWeek = dd.day_number * 2;
        if (ddWeek !== weekNum) continue;
-       if (!dd.date) continue;
-       const ddDate = new Date(dd.date + 'T00:00:00');
+       const ddDate = dd.date ? new Date(dd.date + 'T00:00:00') : getSessionDateObj(getDemoDaySessionIndex(dd.day_number)!);
+       if (!ddDate) continue;
        if (ddDate > today) continue;
        const dateStr = formatShortDate(ddDate);
        let missing = 0;
         for (const s of activeOnly) {
-         if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
+         const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
+         const hasMakeup = isAbsent ? !!getStudentMakeup(s.id, dd.day_number) : false;
+         if (isAbsent && !hasMakeup) continue;
          const hasScores = CRITERIA.some(c => {
            const key = `${dd.id}|${s.id}|${c}`;
            return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
@@ -1702,17 +1704,54 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
        }
      }
 
+     // 3b. Demo scores missing for absent-with-makeup students (cross-week, current tab only)
+     if (!isOverdue) {
+       for (const dd of demoDays) {
+         const ddWeek = dd.day_number * 2;
+         if (ddWeek === weekNum) continue;
+         const ddDate = dd.date ? new Date(dd.date + 'T00:00:00') : getSessionDateObj(getDemoDaySessionIndex(dd.day_number)!);
+         if (!ddDate) continue;
+         if (ddDate > today) continue;
+         const dateStr = formatShortDate(ddDate);
+         let missing = 0;
+         for (const s of activeOnly) {
+           const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
+           if (!isAbsent) continue;
+           const hasMakeup = !!getStudentMakeup(s.id, dd.day_number);
+           if (!hasMakeup) continue;
+           const hasScores = CRITERIA.some(c => {
+             const key = `${dd.id}|${s.id}|${c}`;
+             return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
+           });
+           if (!hasScores) missing++;
+         }
+         if (missing > 0) {
+           tasks.push({
+             id: `demo-scores-makeup-${dd.id}`,
+             type: 'demo_scores_missing',
+             severity: 'warn',
+             title: `Demo Day ${dd.day_number} make-up scores · ${dateStr}`,
+             meta: `${missing} student${missing > 1 ? 's' : ''} made up but not scored`,
+             targetDemoDayId: dd.id,
+             weekNumber: ddWeek,
+           });
+         }
+       }
+     }
+
      // 4. Demo day feedback missing
      for (const dd of demoDays) {
        const ddWeek = dd.day_number * 2;
        if (ddWeek !== weekNum) continue;
-       if (!dd.date) continue;
-       const ddDate = new Date(dd.date + 'T00:00:00');
+       const ddDate = dd.date ? new Date(dd.date + 'T00:00:00') : getSessionDateObj(getDemoDaySessionIndex(dd.day_number)!);
+       if (!ddDate) continue;
        if (ddDate > today) continue;
        const dateStr = formatShortDate(ddDate);
        let missing = 0;
         for (const s of activeOnly) {
-         if (isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
+         const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
+         const hasMakeup = isAbsent ? !!getStudentMakeup(s.id, dd.day_number) : false;
+         if (isAbsent && !hasMakeup) continue;
          const hasScores = CRITERIA.some(c => {
            const key = `${dd.id}|${s.id}|${c}`;
            return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
@@ -1732,6 +1771,69 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
            isOverdue,
            weekNumber: weekNum,
          });
+       }
+     }
+
+     // 4b. Demo feedback missing for absent-with-makeup students (cross-week, current tab only)
+     if (!isOverdue) {
+       for (const dd of demoDays) {
+         const ddWeek = dd.day_number * 2;
+         if (ddWeek === weekNum) continue;
+         const ddDate = dd.date ? new Date(dd.date + 'T00:00:00') : getSessionDateObj(getDemoDaySessionIndex(dd.day_number)!);
+         if (!ddDate) continue;
+         if (ddDate > today) continue;
+         const dateStr = formatShortDate(ddDate);
+         let missing = 0;
+         for (const s of activeOnly) {
+           const isAbsent = isStudentAbsentOnDemoDay(s.id, dd.day_number);
+           if (!isAbsent) continue;
+           const hasMakeup = !!getStudentMakeup(s.id, dd.day_number);
+           if (!hasMakeup) continue;
+           const hasScores = CRITERIA.some(c => {
+             const key = `${dd.id}|${s.id}|${c}`;
+             return scoreValues[key] && scoreValues[key] !== '' && scoreValues[key] !== '.';
+           });
+           if (!hasScores) continue;
+           const fb = demoFeedback.find(f => f.demo_day_id === dd.id && f.student_id === s.id);
+           if (!fb || !fb.feedback || fb.feedback.trim() === '') missing++;
+         }
+         if (missing > 0) {
+           tasks.push({
+             id: `demo-feedback-makeup-${dd.id}`,
+             type: 'demo_feedback_missing',
+             severity: 'warn',
+             title: `Demo Day ${dd.day_number} make-up feedback · ${dateStr}`,
+             meta: `${missing} student${missing > 1 ? 's' : ''} made up but no feedback`,
+             targetDemoDayId: dd.id,
+             weekNumber: ddWeek,
+           });
+         }
+       }
+     }
+
+     // 5. Demo day make-up needed (cross-week, current tab only)
+     if (!isOverdue) {
+       for (const dd of demoDays) {
+         const ddDate = dd.date ? new Date(dd.date + 'T00:00:00') : getSessionDateObj(getDemoDaySessionIndex(dd.day_number)!);
+         if (!ddDate) continue;
+         if (ddDate > today) continue;
+         const dateStr = formatShortDate(ddDate);
+         const ddWeek = dd.day_number * 2;
+         for (const s of activeOnly) {
+           if (!isStudentAbsentOnDemoDay(s.id, dd.day_number)) continue;
+           if (getStudentMakeup(s.id, dd.day_number)) continue;
+           tasks.push({
+             id: `demo-makeup-${dd.id}-${s.id}`,
+             type: 'demo_makeup_needed',
+             severity: 'warn',
+             title: `Schedule a make-up for ${s.name}'s demo day`,
+             meta: `Absent on Demo Day ${dd.day_number} · ${dateStr}`,
+             targetDemoDayId: dd.id,
+             targetStudentId: s.id,
+             targetWeekNumber: ddWeek,
+             weekNumber: ddWeek,
+           });
+         }
        }
      }
 
