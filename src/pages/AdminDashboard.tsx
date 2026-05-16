@@ -589,7 +589,7 @@ const AdminDashboard: React.FC = () => {
     return (
       <div className="min-h-screen bg-background">
         {/* Admin chrome — Back button + Read-only badge */}
-        <div className="px-6 py-4 max-w-6xl mx-auto flex items-center justify-between">
+        <div className="px-6 py-4 flex items-center justify-between">
           <button
             onClick={() => setGridViewBatch(null)}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"

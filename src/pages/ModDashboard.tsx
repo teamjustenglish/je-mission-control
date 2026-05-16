@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
+import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek, getAbsenceStreak, hasActiveSnooze } from '@/lib/batchtrack';
 import { Plus, ChevronDown, ChevronRight, Grid3X3, List, Rocket } from 'lucide-react';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
@@ -20,6 +20,7 @@ interface AttendanceRecord { id: string; student_id: string; batch_id: string; s
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
 interface DemoFeedback { id: string; demo_day_id: string; student_id: string; feedback: string; }
+interface SnoozeRecord { id: string; student_id: string; snooze_type: string; expires_at: string; snoozed_by: string | null; reason: string | null; }
 interface RescheduledSession { id: string; batch_id: string; week_number: number; day_name: string; original_date: string | null; new_date: string; reason: string | null; created_by: string; from_week?: number | null; from_day?: string | null; to_week?: number | null; to_date?: string | null; }
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
@@ -421,6 +422,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [demoFeedback, setDemoFeedback] = useState<DemoFeedback[]>([]);
   const [rescheduledSessions, setRescheduledSessions] = useState<RescheduledSession[]>([]);
   const [weekStatuses, setWeekStatuses] = useState<{ id: string; batch_id: string; week_number: number; status: string }[]>([]);
+  const [snoozes, setSnoozes] = useState<SnoozeRecord[]>([]);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [allWeeksView, setAllWeeksView] = useState(false);
   const [showCreateBatch, setShowCreateBatch] = useState(false);
@@ -598,6 +600,14 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       });
     }
   }, [activeBatchId, applyCacheToState, fetchBatchData]);
+
+  // Fetch snoozes for current batch's students
+  useEffect(() => {
+    if (students.length === 0) { setSnoozes([]); return; }
+    const ids = students.map(s => s.id);
+    supabase.from('student_action_snoozes').select('*').in('student_id', ids)
+      .then(({ data }) => setSnoozes((data || []) as SnoozeRecord[]));
+  }, [students]);
 
   // Initial load: fetch batches, load first immediately, background-load rest
   useEffect(() => {
@@ -1720,6 +1730,54 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
        }
      }
 
+     // ── Dropout intervention tasks (current week only) ──
+     if (!isOverdue && activeBatch?.start_date) {
+       for (const s of activeOnly) {
+         const streak = getAbsenceStreak(s.id, attendance, rescheduledSessions, activeBatch.start_date);
+         if (streak.length < 2) continue;
+         const fmtDate = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+         const meta = streak.lastAttendedDate ? `Last attended on ${fmtDate(streak.lastAttendedDate)}` : 'Has not attended any session yet';
+         const targetWeekNumber = streak.latestAbsenceDate && activeBatch.start_date
+           ? Math.min(Math.max(Math.floor((streak.latestAbsenceDate.getTime() - new Date(activeBatch.start_date + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1, 1), 6)
+           : undefined;
+         if (streak.length >= 6) {
+           if (hasActiveSnooze(s.id, 'dropout_force_decide', snoozes)) continue;
+           tasks.push({
+             id: `dropout-${s.id}-${streak.length}`,
+             type: 'dropout_force_decide',
+             severity: 'urgent',
+             title: `${s.name} has missed ${streak.length} sessions in a row, decide if they're still active`,
+             meta,
+             targetStudentId: s.id,
+             targetWeekNumber,
+             actions: { type: 'dropout_decision', studentId: s.id },
+           });
+         } else if (streak.length >= 4) {
+           if (hasActiveSnooze(s.id, 'dropout_red_flag', snoozes)) continue;
+           tasks.push({
+             id: `dropout-${s.id}-${streak.length}`,
+             type: 'dropout_red_flag',
+             severity: 'urgent',
+             title: `${s.name} has missed ${streak.length} sessions in a row, that's a whole week, drop a text to check up`,
+             meta,
+             targetStudentId: s.id,
+             targetWeekNumber,
+           });
+         } else {
+           if (hasActiveSnooze(s.id, 'dropout_check_in', snoozes)) continue;
+           tasks.push({
+             id: `dropout-${s.id}-${streak.length}`,
+             type: 'dropout_check_in',
+             severity: 'warn',
+             title: `${s.name} has missed ${streak.length} sessions in a row, drop a text to check in`,
+             meta,
+             targetStudentId: s.id,
+             targetWeekNumber,
+           });
+         }
+       }
+     }
+
      return tasks;
    };
 
@@ -1783,6 +1841,25 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       setDemoDaysExpanded(true);
     }
 
+    // Dropout tasks — switch to correct week, then scroll to student row
+    if (task.targetStudentId && (task.type === 'dropout_check_in' || task.type === 'dropout_red_flag' || task.type === 'dropout_force_decide')) {
+      if (task.targetWeekNumber) {
+        if (allWeeksView) setAllWeeksView(false);
+        if (task.targetWeekNumber !== selectedWeek) setSelectedWeek(task.targetWeekNumber);
+      }
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const target = document.querySelector(`[data-student-row="${task.targetStudentId}"]`) as HTMLElement | null;
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('mc-pulse');
+            setTimeout(() => target.classList.remove('mc-pulse'), 2400);
+          }
+        }, 100);
+      });
+      return;
+    }
+
     requestAnimationFrame(() => {
       setTimeout(() => {
         const targetId = task.targetSessionIndex !== undefined
@@ -1805,6 +1882,27 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     toast('(this would finalise the week — coming next)');
   };
 
+  const handleMarkDropped = (studentId: string) => {
+    const s = students.find(st => st.id === studentId);
+    if (s) openDropoutModal(s);
+  };
+
+  const handleStillActive = async (studentId: string) => {
+    if (!user) return;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    await supabase.from('student_action_snoozes').insert({
+      student_id: studentId,
+      snooze_type: 'dropout_force_decide',
+      snoozed_by: user.id,
+      expires_at: expiresAt.toISOString(),
+    });
+    // Refetch snoozes
+    const ids = students.map(s => s.id);
+    const { data } = await supabase.from('student_action_snoozes').select('*').in('student_id', ids);
+    setSnoozes((data || []) as SnoozeRecord[]);
+  };
+
   // Compute completion pct for admin summary
   const completionPct = useMemo(() => {
     const nonFinalise = detectedTasks.filter(t => t.type !== 'finalise');
@@ -1824,9 +1922,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const rescheduled = isSessionRescheduled(si);
 
     return (
-      <th key={si} id={`session-col-${si}`} className="text-center py-2 font-medium" style={{
+      <th key={si} id={`session-col-${si}`} className={`text-center py-2 font-medium${rescheduled ? ' cell-amber-bg' : info.isDemo ? ' cell-demo-bg' : ''}`} style={{
         fontSize: 12, position: 'relative',
-        background: rescheduled ? 'hsl(var(--amber-bg))' : (info.isDemo ? 'hsl(var(--demo-col-bg))' : 'hsl(var(--grid-header-bg))'),
+        ...(!rescheduled && !info.isDemo ? { background: 'hsl(var(--grid-header-bg))' } : {}),
         color: rescheduled ? 'hsl(var(--amber-text))' : (info.isDemo ? 'hsl(var(--amber-text))' : 'hsl(var(--muted-foreground))'),
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -2484,7 +2582,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         {showDivider && (
                           <tr><td colSpan={26} style={{ borderTop: '1px solid hsl(var(--border))', padding: '6px 0 4px', fontSize: 10, color: 'hsl(var(--muted-foreground))', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dropped ({droppedCount})</td></tr>
                         )}
-                      <tr style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
+                      <tr data-student-row={student.id} style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                         <td className="py-1 font-medium text-foreground sticky left-0 bg-card" style={{ width: 160, minWidth: 160, fontSize: 12, whiteSpace: 'nowrap' }}>
                           <span style={{ cursor: 'pointer', textDecoration: dropped ? 'line-through' : 'none', color: dropped ? 'hsl(var(--muted-foreground))' : undefined }} className="hover:underline" onClick={() => setProgressModalStudent(student)}>
                             {student.name || '(unnamed)'}
@@ -2497,10 +2595,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           const info = getSessionLabel(i);
                           const rescheduled = isSessionRescheduled(i);
                           const cell = (
-                            <td key={i} className="text-center align-middle" style={{
+                            <td key={i} className={`text-center align-middle${rescheduled ? ' cell-amber-bg' : info.isDemo ? ' cell-demo-bg' : ''}`} style={{
                               minWidth: 60,
                               padding: '5px 10px',
-                              ...(rescheduled ? { background: 'hsl(var(--amber-bg))' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}),
                               ...(i % 4 === 0 && i > 0 ? { borderLeft: '2px solid #2e2e2e' } : {}),
                             }}>
                               {renderCell(student.id, i, info.isDemo)}
@@ -2512,7 +2609,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               return (
                                 <React.Fragment key={i}>
                                   {cell}
-                                  <td key={`wed-${w}`} className="text-center align-middle" style={{ minWidth: 60, padding: '5px 10px', background: 'hsl(var(--success-bg))' }}>
+                                  <td key={`wed-${w}`} className="text-center align-middle cell-success-bg" style={{ minWidth: 60, padding: '5px 10px' }}>
                                     {renderWedCell(student.id, w)}
                                   </td>
                                 </React.Fragment>
@@ -2554,7 +2651,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                       {showDivider && (
                         <tr><td colSpan={weekSessions.length + 1} style={{ borderTop: '1px solid hsl(var(--border))', padding: '6px 0 4px', fontSize: 10, color: 'hsl(var(--muted-foreground))', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dropped ({droppedCount})</td></tr>
                       )}
-                    <tr className="group"
+                    <tr className="group" data-student-row={student.id}
                       style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
                       <td className="py-1 font-medium text-foreground relative" style={{ width: 140, minWidth: 140, fontSize: 13, whiteSpace: 'nowrap' }}>
                         <div className="flex items-center gap-2">
@@ -2584,7 +2681,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                         const info = getSessionLabel(si);
                         const rescheduled = isSessionRescheduled(si);
                         const cell = (
-                          <td key={si} className="text-center align-middle" style={{ padding: '5px 10px', ...(rescheduled ? { background: 'hsl(var(--amber-bg))' } : info.isDemo ? { background: 'hsl(var(--demo-col-bg))' } : {}) }}>
+                          <td key={si} className={`text-center align-middle${rescheduled ? ' cell-amber-bg' : info.isDemo ? ' cell-demo-bg' : ''}`} style={{ padding: '5px 10px' }}>
                             {renderCell(student.id, si, info.isDemo)}
                           </td>
                         );
@@ -2592,7 +2689,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                           return (
                             <React.Fragment key={si}>
                               {cell}
-                              <td key={`wed-${selectedWeek}`} className="text-center align-middle" style={{ padding: '5px 10px', background: 'hsl(var(--success-bg))' }}>
+                              <td key={`wed-${selectedWeek}`} className="text-center align-middle cell-success-bg" style={{ padding: '5px 10px' }}>
                                 {renderWedCell(student.id, selectedWeek)}
                               </td>
                             </React.Fragment>
@@ -3016,11 +3113,17 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         </div>
         {/* Right sidebar */}
         {readOnly && hideTopNav ? (
-          <AdminSummaryPanel
-            modName={displayModName}
+          <ToDoSidebar
+            tasks={detectedTasks}
+            overdueTasks={overdueTasks}
             weekNumber={computedCurrentWeek}
-            taskCount={detectedTasks.filter(t => t.type !== 'finalise').length}
-            weekCompletionPct={completionPct}
+            weekStatus={currentWeekStatus}
+            onTaskClick={handleTaskClick}
+            onFinaliseClick={handleFinaliseClick}
+            viewMode="admin"
+            adminInfo={{ modName: displayModName, weekCompletionPct: completionPct }}
+            onMarkDropped={handleMarkDropped}
+            onStillActive={handleStillActive}
           />
         ) : !readOnly ? (
           <ToDoSidebar
@@ -3030,6 +3133,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             weekStatus={currentWeekStatus}
             onTaskClick={handleTaskClick}
             onFinaliseClick={handleFinaliseClick}
+            onMarkDropped={handleMarkDropped}
+            onStillActive={handleStillActive}
           />
         ) : null}
         </div>
