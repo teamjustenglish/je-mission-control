@@ -20,7 +20,7 @@ interface AttendanceRecord { id: string; student_id: string; batch_id: string; s
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
 interface DemoFeedback { id: string; demo_day_id: string; student_id: string; feedback: string; }
-interface SnoozeRecord { id: string; student_id: string; snooze_type: string; expires_at: string; snoozed_by: string | null; reason: string | null; }
+interface SnoozeRecord { id: string; student_id: string; snooze_type: string; expires_at: string; created_at: string; snoozed_by: string | null; reason: string | null; }
 interface RescheduledSession { id: string; batch_id: string; week_number: number; day_name: string; original_date: string | null; new_date: string; reason: string | null; created_by: string; from_week?: number | null; from_day?: string | null; to_week?: number | null; to_date?: string | null; }
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
@@ -1737,6 +1737,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
      // ── Dropout intervention tasks (current week only) ──
      if (!isOverdue && activeBatch?.start_date) {
+       const sessionDateFn = (idx: number) => getSessionDateObj(idx);
        for (const s of activeOnly) {
          const streak = getAbsenceStreak(s.id, attendance, rescheduledSessions, activeBatch.start_date);
          if (streak.length < 2) continue;
@@ -1758,7 +1759,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
              actions: { type: 'dropout_decision', studentId: s.id },
            });
          } else if (streak.length >= 4) {
-           if (hasActiveSnooze(s.id, 'dropout_red_flag', snoozes)) continue;
+           if (hasActiveSnooze(s.id, 'dropout_red_flag', snoozes, undefined, attendance, sessionDateFn)) continue;
            tasks.push({
              id: `dropout-${s.id}-${streak.length}`,
              type: 'dropout_red_flag',
@@ -1767,9 +1768,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
              meta,
              targetStudentId: s.id,
              targetWeekNumber,
+             actions: { type: 'dropout_decision', studentId: s.id },
            });
          } else {
-           if (hasActiveSnooze(s.id, 'dropout_check_in', snoozes)) continue;
+           if (hasActiveSnooze(s.id, 'dropout_check_in', snoozes, undefined, attendance, sessionDateFn)) continue;
            tasks.push({
              id: `dropout-${s.id}-${streak.length}`,
              type: 'dropout_check_in',
@@ -1778,6 +1780,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
              meta,
              targetStudentId: s.id,
              targetWeekNumber,
+             actions: { type: 'dropout_decision', studentId: s.id },
            });
          }
        }
@@ -1904,6 +1907,23 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     });
     // Refetch snoozes
     const ids = students.map(s => s.id);
+    const { data } = await supabase.from('student_action_snoozes').select('*').in('student_id', ids);
+    setSnoozes((data || []) as SnoozeRecord[]);
+  };
+
+  const handleCheckedIn = async (studentId: string, snoozeType: string) => {
+    if (!user) return;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+    await supabase.from('student_action_snoozes').insert({
+      student_id: studentId,
+      snooze_type: snoozeType,
+      snoozed_by: user.id,
+      expires_at: expiresAt.toISOString(),
+    });
+    const s = students.find(st => st.id === studentId);
+    toast(`Got it. Will reappear if ${s?.name || 'student'} misses the next session.`);
+    const ids = students.map(st => st.id);
     const { data } = await supabase.from('student_action_snoozes').select('*').in('student_id', ids);
     setSnoozes((data || []) as SnoozeRecord[]);
   };
@@ -3132,6 +3152,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             adminInfo={{ modName: displayModName, weekCompletionPct: completionPct }}
             onMarkDropped={handleMarkDropped}
             onStillActive={handleStillActive}
+            onCheckedIn={handleCheckedIn}
           />
         ) : !readOnly ? (
           <ToDoSidebar
@@ -3143,6 +3164,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             onFinaliseClick={handleFinaliseClick}
             onMarkDropped={handleMarkDropped}
             onStillActive={handleStillActive}
+            onCheckedIn={handleCheckedIn}
           />
         ) : null}
         </div>

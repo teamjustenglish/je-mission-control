@@ -223,15 +223,35 @@ interface SnoozeRow {
   student_id: string;
   snooze_type: string;
   expires_at: string;
+  created_at?: string;
 }
 
-/** Check if a specific (student, type) has an active (non-expired) snooze. */
+/**
+ * Check if a specific (student, type) has an active snooze.
+ * - For 'dropout_check_in' / 'dropout_red_flag': snooze is valid until a new 'x' occurs after created_at
+ * - For 'dropout_force_decide': snooze is valid until expires_at
+ */
 export const hasActiveSnooze = (
   studentId: string,
   snoozeType: string,
   snoozes: SnoozeRow[],
   now: Date = new Date(),
+  attendance?: { student_id: string; session_index: number; state: string }[],
+  sessionDateFn?: (index: number) => Date | null,
 ): boolean => {
+  if ((snoozeType === 'dropout_check_in' || snoozeType === 'dropout_red_flag') && attendance && sessionDateFn) {
+    const matching = snoozes.filter(s => s.student_id === studentId && s.snooze_type === snoozeType && s.created_at);
+    if (matching.length === 0) return false;
+    const latestSnooze = matching.sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())[0];
+    const snoozeTime = new Date(latestSnooze.created_at!);
+    const hasNewAbsence = attendance.some(a => {
+      if (a.student_id !== studentId || a.state !== 'x') return false;
+      if (a.session_index >= 1000) return false;
+      const d = sessionDateFn(a.session_index);
+      return d && d > snoozeTime;
+    });
+    return !hasNewAbsence;
+  }
   return snoozes.some(
     s => s.student_id === studentId && s.snooze_type === snoozeType && new Date(s.expires_at) > now,
   );
