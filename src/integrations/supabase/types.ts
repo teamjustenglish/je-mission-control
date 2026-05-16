@@ -369,6 +369,47 @@ export type Database = {
         }
         Relationships: []
       }
+      student_action_snoozes: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          reason: string | null
+          snooze_type: string
+          snoozed_at: string
+          snoozed_by: string | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          reason?: string | null
+          snooze_type: string
+          snoozed_at?: string
+          snoozed_by?: string | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          reason?: string | null
+          snooze_type?: string
+          snoozed_at?: string
+          snoozed_by?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_action_snoozes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_share_links: {
         Row: {
           created_at: string
