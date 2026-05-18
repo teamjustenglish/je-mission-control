@@ -312,19 +312,19 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
                       <div style={{ display: 'flex', gap: 8, marginTop: 8, marginLeft: 20 }}>
                         {task.type === 'dropout_force_decide' ? (
                           <>
-                            <button onClick={(e) => { e.stopPropagation(); onMarkDropped?.(task.actions!.studentId); }}
+                            <button disabled={viewMode === 'admin'} onClick={(e) => { e.stopPropagation(); onMarkDropped?.(task.actions!.studentId); }}
                               style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', background: 'hsl(var(--score-red))', color: '#fff', cursor: 'pointer' }}
                             >Mark as dropped</button>
-                            <button onClick={(e) => { e.stopPropagation(); onStillActive?.(task.actions!.studentId); }}
+                            <button disabled={viewMode === 'admin'} onClick={(e) => { e.stopPropagation(); onStillActive?.(task.actions!.studentId); }}
                               style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: '1px solid hsl(var(--border))', background: 'transparent', color: 'hsl(var(--muted-foreground))', cursor: 'pointer' }}
                             >Still active</button>
                           </>
                         ) : (
                           <>
-                            <button onClick={(e) => { e.stopPropagation(); onCheckedIn?.(task.actions!.studentId, task.type); }}
+                            <button disabled={viewMode === 'admin'} onClick={(e) => { e.stopPropagation(); onCheckedIn?.(task.actions!.studentId, task.type); }}
                               style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: '1px solid hsl(var(--border))', background: 'transparent', color: 'hsl(var(--foreground))', cursor: 'pointer' }}
                             >I've checked in</button>
-                            <button onClick={(e) => { e.stopPropagation(); onMarkDropped?.(task.actions!.studentId); }}
+                            <button disabled={viewMode === 'admin'} onClick={(e) => { e.stopPropagation(); onMarkDropped?.(task.actions!.studentId); }}
                               style={{ fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 4, border: 'none', background: 'hsl(var(--score-red))', color: '#fff', cursor: 'pointer' }}
                             >Mark as dropped</button>
                           </>
