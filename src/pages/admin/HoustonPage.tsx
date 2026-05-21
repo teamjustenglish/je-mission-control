@@ -1,0 +1,282 @@
+import React, { useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { ArrowUp, Sparkles, Loader2 } from 'lucide-react';
+
+type Phase = 'idle' | 'loading' | 'answered' | 'error';
+
+const SUGGESTIONS = [
+  "How is Yumi's batch going?",
+  "Who's about to drop this week?",
+  'Best demo scores in May',
+  'Compare Anne vs Vindi this month',
+];
+
+const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
+
+const HoustonPage: React.FC = () => {
+  const [input, setInput] = useState('');
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [askedQuestion, setAskedQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const ask = async (question: string) => {
+    const trimmed = question.trim();
+    if (!trimmed || phase === 'loading') return;
+
+    setAskedQuestion(trimmed);
+    setInput('');
+    setAnswer('');
+    setPhase('loading');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('ask-houston', {
+        body: { question: trimmed },
+      });
+      if (error) throw error;
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (!result || typeof result.answer !== 'string' || result.error) {
+        throw new Error(result?.error || 'No answer returned');
+      }
+      setAnswer(result.answer);
+      setPhase('answered');
+    } catch (err) {
+      console.error('ask-houston failed:', err);
+      setPhase('error');
+    }
+  };
+
+  const handleSubmit = () => ask(input);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const isIdle = phase === 'idle';
+  const isLoading = phase === 'loading';
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        minHeight: 'calc(100vh - 48px)',
+        justifyContent: isIdle ? 'center' : 'flex-start',
+        paddingTop: isIdle ? 0 : 16,
+        paddingBottom: 56,
+      }}
+    >
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{ fontSize: 36, lineHeight: 1, marginBottom: 12, ...emojiStyle }}>✨</div>
+        <h1 className="text-foreground" style={{ fontSize: 26, fontWeight: 600, margin: 0 }}>
+          Ask Houston
+        </h1>
+        <p className="text-muted-foreground" style={{ fontSize: 14, marginTop: 6 }}>
+          Anything about your batches, mods, students, or trends.
+        </p>
+      </div>
+
+      {/* Chat input */}
+      <div style={{ width: '100%', maxWidth: 600 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: 8,
+            background: 'hsl(var(--input-bg))',
+            border: '1px solid hsl(var(--input-border))',
+            borderRadius: 12,
+            padding: 8,
+          }}
+        >
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask Houston anything..."
+            rows={1}
+            disabled={isLoading}
+            className="text-foreground"
+            style={{
+              flex: 1,
+              resize: 'none',
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              fontSize: 14,
+              lineHeight: 1.5,
+              padding: '8px 8px',
+              maxHeight: 160,
+              fontFamily: 'Inter, sans-serif',
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isLoading || !input.trim()}
+            aria-label="Send"
+            className="disabled:opacity-40"
+            style={{
+              flexShrink: 0,
+              width: 36,
+              height: 36,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 8,
+              border: 'none',
+              background: 'hsl(var(--houston))',
+              color: 'hsl(var(--houston-foreground))',
+              cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <ArrowUp size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Suggestion chips — idle only */}
+      {isIdle && (
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 600,
+            marginTop: 16,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 10,
+          }}
+        >
+          {SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => ask(s)}
+              className="text-muted-foreground hover:text-foreground"
+              style={{
+                textAlign: 'left',
+                fontSize: 13,
+                padding: '12px 14px',
+                borderRadius: 10,
+                background: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                cursor: 'pointer',
+                transition: 'border-color 0.1s, color 0.1s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'hsl(var(--houston-border))'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'hsl(var(--border))'; }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Q&A area */}
+      {!isIdle && (
+        <div style={{ width: '100%', maxWidth: 600, marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* You asked */}
+          <div
+            style={{
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: 12,
+              padding: '14px 16px',
+            }}
+          >
+            <div className="text-muted-foreground" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>
+              You asked
+            </div>
+            <div className="text-foreground" style={{ fontSize: 14, lineHeight: 1.5 }}>{askedQuestion}</div>
+          </div>
+
+          {/* Loading */}
+          {isLoading && (
+            <div
+              style={{
+                background: 'hsl(var(--houston-bg))',
+                border: '1px solid hsl(var(--houston-border))',
+                borderRadius: 12,
+                padding: '14px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
+              <Loader2 size={16} className="animate-spin" style={{ color: 'hsl(var(--houston))' }} />
+              <span style={{ fontSize: 14, color: 'hsl(var(--houston))' }}>let me look into that...</span>
+            </div>
+          )}
+
+          {/* Answer */}
+          {phase === 'answered' && (
+            <div
+              style={{
+                background: 'hsl(var(--houston-bg))',
+                border: '1px solid hsl(var(--houston-border))',
+                borderRadius: 12,
+                padding: '16px 18px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+                <Sparkles size={15} style={{ color: 'hsl(var(--houston))' }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--houston))' }}>Houston</span>
+              </div>
+              <div
+                className="text-foreground"
+                style={{ fontSize: 14, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}
+              >
+                {answer}
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {phase === 'error' && (
+            <div
+              style={{
+                background: 'hsl(var(--danger-bg))',
+                border: '1px solid hsl(var(--danger-text) / 0.3)',
+                borderRadius: 12,
+                padding: '16px 18px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                <Sparkles size={15} style={{ color: 'hsl(var(--houston))' }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--houston))' }}>Houston</span>
+              </div>
+              <div className="text-foreground" style={{ fontSize: 14, lineHeight: 1.6 }}>
+                oh no something broke on my end <span style={emojiStyle}>🥲</span> try again in a sec?
+              </div>
+              <button
+                type="button"
+                onClick={() => ask(askedQuestion)}
+                style={{
+                  marginTop: 12,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: '7px 14px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'hsl(var(--houston))',
+                  color: 'hsl(var(--houston-foreground))',
+                  cursor: 'pointer',
+                }}
+              >
+                Try again
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default HoustonPage;

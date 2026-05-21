@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search } from 'lucide-react';
+import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search, Sparkles } from 'lucide-react';
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 
 import StudentProgressModal from '@/components/StudentProgressModal';
 import ModDashboard from './ModDashboard';
+import HoustonPage from './admin/HoustonPage';
 
 interface Profile {
   id: string;
@@ -540,11 +541,12 @@ const AdminDashboard: React.FC = () => {
     return map[type] || { bg: '#2a2a2a', text: '#888', label: type };
   };
 
-  const sidebarItems = [
+  const sidebarItems: { id: string; label: string; icon: typeof BarChart3; section: string; badge?: string }[] = [
     { id: 'dashboard', label: "Bird's eye", icon: BarChart3, section: 'OVERVIEW' },
     { id: 'moderators', label: 'Moderators', icon: Users, section: 'OVERVIEW' },
     { id: 'students', label: 'Students', icon: GraduationCap, section: 'OVERVIEW' },
     { id: 'batches', label: 'All batches', icon: BookOpen, section: 'OVERVIEW' },
+    { id: 'houston', label: 'Ask Houston', icon: Sparkles, section: 'INTELLIGENCE', badge: 'NEW' },
     { id: 'export', label: 'Export all', icon: Download, section: 'TOOLS' },
     { id: 'settings', label: 'Settings', icon: Settings, section: 'TOOLS' },
   ];
@@ -623,7 +625,7 @@ const AdminDashboard: React.FC = () => {
       {/* Sidebar */}
       <div className="w-52 flex flex-col p-4" style={{ background: 'hsl(var(--sidebar-background))', borderRight: '1px solid hsl(var(--border))' }}>
         <h1 className="text-base font-semibold text-foreground mb-6">Mission Control</h1>
-        {['OVERVIEW', 'TOOLS'].map(section => (
+        {['OVERVIEW', 'INTELLIGENCE', 'TOOLS'].map(section => (
           <div key={section} className="mb-4">
             <p className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase mb-2">{section}</p>
             {sidebarItems.filter(i => i.section === section).map(item => (
@@ -636,6 +638,22 @@ const AdminDashboard: React.FC = () => {
               >
                 <item.icon className="w-4 h-4" />
                 {item.label}
+                {item.badge && (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: '0.05em',
+                      padding: '2px 5px',
+                      borderRadius: 4,
+                      background: 'hsl(var(--houston))',
+                      color: 'hsl(var(--houston-foreground))',
+                    }}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -1265,6 +1283,8 @@ const AdminDashboard: React.FC = () => {
             <p className="text-sm text-muted-foreground">Export functionality coming soon.</p>
           </div>
         )}
+
+        {activePage === 'houston' && <HoustonPage />}
       </div>
 
       {/* Student progress modal */}

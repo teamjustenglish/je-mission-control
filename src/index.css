@@ -101,6 +101,12 @@ input[type="number"] {
     --score-green: 142 72% 60%;
     --score-amber: 45 96% 56%;
     --score-red: 0 90% 72%;
+
+    /* Houston (AI assistant) tokens */
+    --houston: 262 83% 67%;
+    --houston-foreground: 0 0% 98%;
+    --houston-bg: 262 45% 14%;
+    --houston-border: 262 40% 30%;
   }
 }
 
