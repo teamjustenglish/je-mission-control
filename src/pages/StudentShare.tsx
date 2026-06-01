@@ -21,48 +21,24 @@ const StudentShare: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!slug) { setError('No link provided'); setLoading(false); return; }
 
-    const { data: linkData, error: linkErr } = await supabase
-      .from('student_share_links')
-      .select('*')
-      .eq('slug', slug)
-      .maybeSingle();
+    const { data, error: rpcErr } = await supabase.rpc('get_student_share_data' as any, { p_slug: slug });
 
-    if (linkErr || !linkData || linkData.revoked_at) {
+    if (rpcErr || !data) {
       setError('This link is not found or has been revoked.');
       setLoading(false);
       return;
     }
 
-    const studentId = linkData.student_id;
-
-    const { data: stu } = await supabase.from('students').select('*').eq('id', studentId).single();
-    if (!stu) { setError('Student not found.'); setLoading(false); return; }
-    setStudent(stu);
-
-    const { data: b } = await supabase.from('batches').select('*').eq('id', stu.batch_id).single();
-    setBatch(b);
-
-    if (b?.mod_id) {
-      const { data: prof } = await supabase.from('profiles').select('name').eq('id', b.mod_id).single();
-      setModName(prof?.name || '');
-    }
-
-    const [attRes, ddRes, dsRes, dfRes] = await Promise.all([
-      supabase.from('attendance').select('*').eq('student_id', studentId),
-      supabase.from('demo_days').select('*').eq('batch_id', stu.batch_id),
-      supabase.from('demo_scores').select('*').eq('student_id', studentId),
-      supabase.from('demo_feedback').select('*').eq('student_id', studentId),
-    ]);
-
-    setAttendance(attRes.data || []);
-    setDemoDays(ddRes.data || []);
-    setDemoScores(dsRes.data || []);
-    setDemoFeedback(dfRes.data || []);
+    const payload = data as any;
+    setStudent(payload.student);
+    setBatch(payload.batch);
+    setModName(payload.mod_name || '');
+    setAttendance(payload.attendance || []);
+    setDemoDays(payload.demo_days || []);
+    setDemoScores(payload.demo_scores || []);
+    setDemoFeedback(payload.demo_feedback || []);
     setLastFetched(new Date());
     setLoading(false);
-
-    // Fire-and-forget: update last_viewed_at
-    supabase.from('student_share_links').update({ last_viewed_at: new Date().toISOString() } as any).eq('id', linkData.id).then(() => {});
   }, [slug]);
 
   useEffect(() => { fetchData(); }, [fetchData]);

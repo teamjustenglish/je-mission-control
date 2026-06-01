@@ -583,8 +583,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      batch_has_shared_student: { Args: { b_id: string }; Returns: boolean }
-      has_active_share_link: { Args: { s_id: string }; Returns: boolean }
+      get_student_share_data: { Args: { p_slug: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -592,7 +591,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      mod_has_shared_student: { Args: { m_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "moderator"

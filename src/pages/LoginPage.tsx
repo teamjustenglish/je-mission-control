@@ -21,80 +21,32 @@ const LoginPage: React.FC = () => {
     if (error) setError(error.message);
   };
 
-  const handleActivate = async (e: React.FormEvent) => {
+  const activateOrReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setLoading(true);
     try {
-      const { data: codeRow, error: codeErr } = await supabase
-        .from('moderator_codes')
-        .select('*')
-        .eq('email', email)
-        .eq('code', accessCode)
-        .eq('used', false)
-        .maybeSingle();
-      if (codeErr) throw new Error('Something went wrong, please try again');
-      if (!codeRow) throw new Error('Invalid or already used access code');
-
-      const tempPw = (codeRow as any).temp_password;
-      if (!tempPw) throw new Error('Something went wrong, please try again');
-      const { error: tempSignInErr } = await supabase.auth.signInWithPassword({ email, password: tempPw });
-      if (tempSignInErr) throw new Error('Something went wrong, please try again');
-
-      const { error: updateErr } = await supabase.auth.updateUser({ password });
-      if (updateErr) throw new Error('Something went wrong, please try again');
-
-      await supabase.from('moderator_codes').update({ used: true } as any).eq('id', codeRow.id);
-
+      // Make sure no stale session interferes with the new sign-in
       await supabase.auth.signOut();
+
+      const { data, error: fnErr } = await supabase.functions.invoke('activate-moderator', {
+        body: { email, code: accessCode, password },
+      });
+      if (fnErr) throw new Error(fnErr.message || 'Activation failed');
+      if (data?.error) throw new Error(data.error);
+
       const { error: finalSignInErr } = await signIn(email, password);
       if (finalSignInErr) throw finalSignInErr;
     } catch (err: any) {
-      setError(err.message || 'Activation failed');
+      setError(err.message || (mode === 'reset' ? 'Password reset failed' : 'Activation failed'));
     }
     setLoading(false);
   };
 
-  const handleReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
-    try {
-      // Step 1: Validate the code
-      const { data: codeRow, error: codeErr } = await supabase
-        .from('moderator_codes')
-        .select('*')
-        .eq('email', email)
-        .eq('code', accessCode)
-        .eq('used', false)
-        .maybeSingle();
-      if (codeErr) throw new Error('Something went wrong, please try again');
-      if (!codeRow) throw new Error('Invalid or expired code');
+  const handleActivate = activateOrReset;
+  const handleReset = activateOrReset;
 
-      // Step 2: Sign in with temp password
-      const tempPw = (codeRow as any).temp_password;
-      if (!tempPw) throw new Error('Something went wrong, please try again');
-      const { error: tempSignInErr } = await supabase.auth.signInWithPassword({ email, password: tempPw });
-      if (tempSignInErr) throw new Error('Invalid or expired code');
-
-      // Step 3: Update to new password
-      const { error: updateErr } = await supabase.auth.updateUser({ password });
-      if (updateErr) throw new Error('Something went wrong, please try again');
-
-      // Step 4: Mark code as used
-      await supabase.from('moderator_codes').update({ used: true } as any).eq('id', codeRow.id);
-
-      // Step 5: Sign out and re-sign in
-      await supabase.auth.signOut();
-      const { error: finalSignInErr } = await signIn(email, password);
-      if (finalSignInErr) throw finalSignInErr;
-    } catch (err: any) {
-      setError(err.message || 'Password reset failed');
-    }
-    setLoading(false);
-  };
 
   const inputStyle: React.CSSProperties = {
     background: 'hsl(var(--input-bg))',
