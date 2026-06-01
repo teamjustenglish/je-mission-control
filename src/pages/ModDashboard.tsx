@@ -6,7 +6,7 @@ import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRIT
 import { Plus, ChevronDown, ChevronRight, Grid3X3, List, Rocket } from 'lucide-react';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
-import ToDoSidebar, { AdminSummaryPanel, AMNESTY_END } from '@/components/ToDoSidebar';
+import ToDoSidebar, { AdminSummaryPanel } from '@/components/ToDoSidebar';
 import type { Task } from '@/components/ToDoSidebar';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -416,7 +416,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 }) => {
   const { user, profile, signOut } = useAuth();
   const isDevTester = profile?.email === 'dilinaedu@gmail.com';
-  const isAmnestyActive = Date.now() < AMNESTY_END.getTime();
   // When viewing another mod's data (admin read-only), we may need to display
   // that mod's name. Fetch it on demand and fall back to logged-in profile.
   const [overrideModName, setOverrideModName] = useState<string | null>(null);
@@ -2011,7 +2010,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   // Click handler for tasks — switch week, scroll + pulse
   const handleTaskClick = (task: Task) => {
     if (task.type === 'finalise') return;
-    if (task.isOverdue && !isAmnestyActive) return;
 
     let targetWeek: number | null = null;
     if (task.targetSessionIndex !== undefined) {
@@ -2848,7 +2846,20 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   else if (demo) style = { ...style, background: 'hsl(var(--week-demo-bg))', color: 'hsl(var(--week-demo-text))', border: '1px solid hsl(var(--week-demo-border))' };
                   else style = { ...style, background: 'hsl(var(--week-btn-bg))', color: 'hsl(var(--week-btn-text))', border: '1px solid hsl(var(--week-btn-border))' };
                   if (selected && hasWed) style = { ...style, background: 'hsl(var(--success-bg))', color: 'hsl(var(--score-green))', border: '2px solid #4ade80' };
-                  return <button key={w} onClick={() => setSelectedWeek(w)} style={style}>Week {w}{demo ? ' · Demo' : ''}{hasWed ? ' ↻' : ''}</button>;
+                  const isCurrentWeek = w === computedCurrentWeek;
+                  return (
+                    <button key={w} onClick={() => setSelectedWeek(w)} style={{ ...style, position: 'relative' }}>
+                      Week {w}{demo ? ' · Demo' : ''}{hasWed ? ' ↻' : ''}
+                      {isCurrentWeek && (
+                        <span style={{
+                          position: 'absolute', top: 2, right: 2,
+                          width: 6, height: 6, borderRadius: '50%',
+                          background: '#f5b800',
+                          border: '1.5px solid hsl(var(--card))',
+                        }} />
+                      )}
+                    </button>
+                  );
                 })}
               </div>
             )}
