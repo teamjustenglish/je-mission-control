@@ -70,7 +70,7 @@ interface ModBatchCard {
   lastUpdatedBy: string;
 }
 
-interface Student { id: string; batch_id: string; name: string; }
+interface Student { id: string; batch_id: string; name: string; status?: string | null; }
 interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; absence_category?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
@@ -214,7 +214,7 @@ const AdminDashboard: React.FC = () => {
       const batchStart = new Date(batch.start_date).getTime();
       const mod = mods.find(m => m.id === batch.mod_id);
       if (!mod) continue;
-      const batchStudents = allStudents.filter(s => s.batch_id === batch.id);
+      const batchStudents = allStudents.filter(s => s.batch_id === batch.id && s.status !== 'dropped');
       const batchAtt = allAttendance.filter(a => a.batch_id === batch.id);
       for (const student of batchStudents) {
         const studentAtt = batchAtt.filter(a => a.student_id === student.id && a.state === 'x' && !a.absence_note && !a.absence_category);

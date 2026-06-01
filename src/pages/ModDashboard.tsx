@@ -1713,7 +1713,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
        }
      }
 
-     // 2. Absences without reason — include dropped students (their past ✕ marks still need reasons)
+     // 2. Absences without reason — active students only
      const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
      for (const a of attendance) {
        if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '') && !a.absence_category) {
@@ -1722,7 +1722,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
          if (!inSourceRange && !isWedDest) continue;
          if (inSourceRange && isSessionRescheduled(a.session_index)) continue; // defensive: source slot moved
          const student = students.find(s => s.id === a.student_id);
-         if (!student) continue;
+         if (!student || isDroppedStudent(student)) continue;
          if (!absencesBySession[a.session_index]) absencesBySession[a.session_index] = [];
          absencesBySession[a.session_index].push({ studentId: a.student_id, name: student?.name?.split(' ')[0] || 'Student' });
        }
@@ -3046,7 +3046,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               const currentWeekSessions = getWeekSessions(selectedWeek);
               const missingNoteCells: { studentId: string; sessionIndex: number }[] = [];
               if (!allWeeksView) {
-                for (const s of students) {
+                for (const s of students.filter(s => !isDroppedStudent(s))) {
                   for (const si of currentWeekSessions) {
                     const state = getAttendanceState(s.id, si);
                     if (state === 'x') {
