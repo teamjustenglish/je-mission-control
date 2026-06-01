@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mission-control": {
+      "type": "http",
+      "url": "https://qeecmxazjeaknlhgwfou.supabase.co/functions/v1/mc-mcp"
+    }
+  }
+}
