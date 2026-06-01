@@ -18,12 +18,26 @@ interface Student { id: string; batch_id: string; name: string; status?: string 
 const isDroppedStudent = (s: Pick<Student, 'status'>) => s.status === 'dropped';
 interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; absence_category?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
+interface AnnouncementItem { id: string; title: string; body: string | null; has_poll: boolean; created_at: string; creator_name: string; }
+interface AnnPollOption { id: string; announcement_id: string; option_text: string; position: number; }
+interface AnnVote { announcement_id: string; user_id: string; option_id: string; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
 interface DemoFeedback { id: string; demo_day_id: string; student_id: string; feedback: string; }
 interface SnoozeRecord { id: string; student_id: string; snooze_type: string; expires_at: string; created_at: string; snoozed_by: string | null; reason: string | null; }
 interface RescheduledSession { id: string; batch_id: string; week_number: number; day_name: string; original_date: string | null; new_date: string; reason: string | null; created_by: string; from_week?: number | null; from_day?: string | null; to_week?: number | null; to_date?: string | null; }
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
+
+const timeAgoShort = (dateStr: string): string => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
 
 const btnPress = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = 'scale(0.98)'; };
 const btnRelease = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = ''; };
@@ -484,6 +498,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   } | null>(null);
   const [noteText, setNoteText] = useState('');
   const [noteCategory, setNoteCategory] = useState<string>('');
+
+  // Announcement state
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState<AnnouncementItem[]>([]);
+  const [annPollOptions, setAnnPollOptions] = useState<AnnPollOption[]>([]);
+  const [myAnnVotes, setMyAnnVotes] = useState<Record<string, string>>({}); // announcement_id -> option_id
+  const [dismissedAnnIds, setDismissedAnnIds] = useState<Set<string>>(new Set());
 
   // Reschedule modal state — new flow: pick a Wednesday from week 1-6
   const [rescheduleModal, setRescheduleModal] = useState<{
@@ -1421,6 +1441,57 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     initializedBatchRef.current = activeBatchId;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBatchId, demoScores]);
+
+  // Fetch unread announcements for this mod
+  useEffect(() => {
+    if (!user || readOnly) return;
+    const fetchAnnouncements = async () => {
+      const [annRes, readsRes] = await Promise.all([
+        supabase.from('announcements').select('*, profiles!created_by(name)').eq('archived', false).order('created_at', { ascending: false }),
+        supabase.from('announcement_reads').select('announcement_id').eq('user_id', user.id),
+      ]);
+      const readIds = new Set((readsRes.data || []).map((r: { announcement_id: string }) => r.announcement_id));
+      const unread: AnnouncementItem[] = (annRes.data || [])
+        .filter((a: { id: string }) => !readIds.has(a.id))
+        .map((a: { id: string; title: string; body: string | null; has_poll: boolean; created_at: string; profiles: { name: string } | null }) => ({
+          id: a.id, title: a.title, body: a.body, has_poll: a.has_poll, created_at: a.created_at,
+          creator_name: a.profiles?.name || 'Admin',
+        }));
+      setUnreadAnnouncements(unread);
+
+      const pollIds = unread.filter(a => a.has_poll).map(a => a.id);
+      if (pollIds.length > 0) {
+        const [optsRes, votesRes] = await Promise.all([
+          supabase.from('announcement_poll_options').select('*').in('announcement_id', pollIds).order('position'),
+          supabase.from('announcement_votes').select('*').eq('user_id', user.id),
+        ]);
+        setAnnPollOptions((optsRes.data || []) as AnnPollOption[]);
+        const voteMap: Record<string, string> = {};
+        for (const v of (votesRes.data || []) as AnnVote[]) voteMap[v.announcement_id] = v.option_id;
+        setMyAnnVotes(voteMap);
+      }
+    };
+    fetchAnnouncements();
+  }, [user, readOnly]);
+
+  const handleAnnGotIt = async (annId: string) => {
+    if (!user) return;
+    setDismissedAnnIds(prev => new Set([...prev, annId]));
+    await supabase.from('announcement_reads').insert({ announcement_id: annId, user_id: user.id });
+  };
+
+  const handleAnnVote = async (annId: string, optId: string) => {
+    if (!user) return;
+    const existing = myAnnVotes[annId];
+    if (existing === optId) return;
+    setMyAnnVotes(prev => ({ ...prev, [annId]: optId }));
+    if (existing) {
+      await supabase.from('announcement_votes').update({ option_id: optId, voted_at: new Date().toISOString() }).eq('announcement_id', annId).eq('user_id', user.id);
+    } else {
+      await supabase.from('announcement_votes').insert({ announcement_id: annId, option_id: optId, user_id: user.id });
+      await supabase.from('announcement_reads').insert({ announcement_id: annId, user_id: user.id }).then(() => {});
+    }
+  };
 
   const updateScoreValue = (demoDayId: string, studentId: string, criterion: string, rawVal: string) => {
     if (readOnly) return;
@@ -2648,6 +2719,90 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Sessions completed</div>
             </div>
           </div>
+
+          {/* Announcement cards */}
+          {!readOnly && unreadAnnouncements.filter(a => !dismissedAnnIds.has(a.id)).map(ann => {
+            const opts = annPollOptions.filter(o => o.announcement_id === ann.id).sort((a, b) => a.position - b.position);
+            const myVote = myAnnVotes[ann.id];
+            const totalVotes = opts.reduce((sum, o) => {
+              const localVotes = Object.entries(myAnnVotes).filter(([, oid]) => oid === o.id).length;
+              return sum + localVotes;
+            }, 0);
+            return (
+              <div key={ann.id} style={{
+                marginBottom: 12, borderRadius: 8,
+                background: 'hsl(var(--amber-bg))',
+                border: '1px solid hsl(var(--score-amber) / 0.25)',
+                borderLeft: '3px solid hsl(var(--score-amber))',
+                padding: '14px 16px',
+              }}>
+                {/* Header row */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'hsl(var(--score-amber))', ...emojiStyle }}>
+                    📣 New announcement · {timeAgoShort(ann.created_at)}
+                  </span>
+                  <span className="text-muted-foreground" style={{ fontSize: 11, flexShrink: 0, marginLeft: 8 }}>from {ann.creator_name}</span>
+                </div>
+                {/* Title */}
+                <div className="text-foreground" style={{ fontSize: 14, fontWeight: 500, marginBottom: ann.body || opts.length ? 6 : 0 }}>
+                  {ann.title}
+                </div>
+                {/* Body */}
+                {ann.body && (
+                  <p className="text-muted-foreground" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: opts.length ? 12 : 0 }}>
+                    {ann.body}
+                  </p>
+                )}
+                {/* Poll options */}
+                {ann.has_poll && opts.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    {opts.map(opt => {
+                      const voted = myVote === opt.id;
+                      const voteCount = myVote === opt.id ? 1 : 0;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => handleAnnVote(ann.id, opt.id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                            background: voted ? 'hsl(var(--score-green) / 0.08)' : 'hsl(var(--secondary))',
+                            border: voted ? '1px solid hsl(var(--score-green) / 0.4)' : '1px solid hsl(var(--border))',
+                            borderRadius: 6, padding: '8px 10px', marginBottom: 6,
+                            cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.1s, background 0.1s',
+                          }}
+                          onMouseEnter={e => { if (!voted) { e.currentTarget.style.borderColor = 'hsl(var(--score-amber) / 0.5)'; } }}
+                          onMouseLeave={e => { if (!voted) { e.currentTarget.style.borderColor = 'hsl(var(--border))'; } }}
+                        >
+                          <span style={{
+                            width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                            border: voted ? '4px solid hsl(var(--score-green))' : '2px solid hsl(var(--muted-foreground))',
+                            background: voted ? 'hsl(var(--score-green))' : 'transparent',
+                            transition: 'all 0.1s',
+                          }} />
+                          <span className="text-foreground" style={{ fontSize: 13, flex: 1 }}>{opt.option_text}</span>
+                          {voted && (
+                            <span style={{ fontSize: 11, color: 'hsl(var(--score-green))', flexShrink: 0 }}>✓ voted</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Got it button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleAnnGotIt(ann.id)}
+                    style={primaryBtnStyle}
+                    onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  >
+                    ✓ Got it
+                  </button>
+                </div>
+              </div>
+            );
+          })}
 
           {/* Attendance card */}
           <div className="bg-card mb-4" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
