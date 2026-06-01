@@ -47,6 +47,152 @@ export type Database = {
         }
         Relationships: []
       }
+      announcement_poll_options: {
+        Row: {
+          announcement_id: string
+          id: string
+          option_text: string
+          position: number
+        }
+        Insert: {
+          announcement_id: string
+          id?: string
+          option_text: string
+          position?: number
+        }
+        Update: {
+          announcement_id?: string
+          id?: string
+          option_text?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_poll_options_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcement_reads: {
+        Row: {
+          announcement_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          announcement_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          announcement_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_reads_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcement_votes: {
+        Row: {
+          announcement_id: string
+          option_id: string
+          user_id: string
+          voted_at: string
+        }
+        Insert: {
+          announcement_id: string
+          option_id: string
+          user_id: string
+          voted_at?: string
+        }
+        Update: {
+          announcement_id?: string
+          option_id?: string
+          user_id?: string
+          voted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_votes_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_votes_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "announcement_poll_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcements: {
+        Row: {
+          archived: boolean
+          body: string | null
+          created_at: string
+          created_by: string
+          has_poll: boolean
+          id: string
+          target_type: string
+          title: string
+        }
+        Insert: {
+          archived?: boolean
+          body?: string | null
+          created_at?: string
+          created_by: string
+          has_poll?: boolean
+          id?: string
+          target_type?: string
+          title: string
+        }
+        Update: {
+          archived?: boolean
+          body?: string | null
+          created_at?: string
+          created_by?: string
+          has_poll?: boolean
+          id?: string
+          target_type?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance: {
         Row: {
           absence_category: string | null
