@@ -1,0 +1,1 @@
+ALTER TABLE public.attendance ADD COLUMN absence_category TEXT;
