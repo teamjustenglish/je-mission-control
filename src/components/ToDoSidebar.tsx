@@ -197,7 +197,7 @@ const ToDoSidebar: React.FC<ToDoSidebarProps> = ({ tasks, overdueTasks, weekNumb
         padding: '12px 12px 8px', borderBottom: '1px solid hsl(var(--border))',
       }}>
         <span style={{ fontSize: 13, color: 'hsl(var(--foreground))', fontWeight: 500 }}>
-          📋 To do
+          📋 Loose ends
         </span>
         <span className={counterPopping ? 'counter-pop' : ''} style={{
           background: 'hsl(var(--amber-bg))', color: 'hsl(var(--score-amber))', padding: '2px 8px',
