@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 interface Batch { id: string; name: string; mod_id: string; month: number; year: number; start_date?: string | null; }
 interface Student { id: string; batch_id: string; name: string; status?: string | null; status_reason?: string | null; status_changed_at?: string | null; }
 const isDroppedStudent = (s: Pick<Student, 'status'>) => s.status === 'dropped';
-interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; }
+interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; absence_category?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
 interface DemoFeedback { id: string; demo_day_id: string; student_id: string; feedback: string; }
@@ -36,9 +36,10 @@ const AttendanceCell: React.FC<{
   state: string;
   isDemo: boolean;
   absenceNote?: string | null;
+  absenceCategory?: string | null;
   onClick: () => void;
   onNoteClick: () => void;
-}> = ({ state, isDemo, absenceNote, onClick, onNoteClick }) => {
+}> = ({ state, isDemo, absenceNote, absenceCategory, onClick, onNoteClick }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const hideTimeout = useRef<ReturnType<typeof setTimeout>>();
 
@@ -65,23 +66,13 @@ const AttendanceCell: React.FC<{
             onMouseLeave={handleMouseLeave}
           >
             <span style={emojiStyle} className="text-[18px] leading-none" onClick={onClick}>❌</span>
-            {absenceNote ? (
-              <span style={{
-                position: 'absolute', top: -3, right: -3,
-                width: 7, height: 7, borderRadius: '50%',
-                background: 'hsl(var(--score-green))',
-                border: '2px solid hsl(var(--card))',
-                zIndex: 10,
-              }} />
-            ) : (
-              <span className="pulse-dot" style={{
-                position: 'absolute', top: -3, right: -3,
-                width: 7, height: 7, borderRadius: '50%',
-                background: 'hsl(var(--score-amber))',
-                border: '2px solid hsl(var(--card))',
-                zIndex: 10,
-              }} />
-            )}
+            <span style={{
+              position: 'absolute', top: -3, right: -3,
+              width: 7, height: 7, borderRadius: '50%',
+              background: absenceCategory ? 'hsl(var(--score-green))' : 'hsl(var(--score-amber))',
+              border: '2px solid hsl(var(--card))',
+              zIndex: 10,
+            }} />
           </span>
           {/* Tooltip — BUG 2 fix: margin bridge */}
           {showTooltip && (
@@ -101,7 +92,17 @@ const AttendanceCell: React.FC<{
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.08em' }}>Absence note</div>
-                {absenceNote ? (
+                {absenceCategory ? (
+                  <>
+                    <div style={{ fontSize: 12, color: 'hsl(var(--foreground))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: absenceNote ? 4 : 8 }}>{absenceCategory}</div>
+                    {absenceNote && (
+                      <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic', lineHeight: 1.4, marginBottom: 8 }}>{absenceNote}</div>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: 'hsl(var(--score-amber))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      <span style={emojiStyle}>✏️</span> Edit note
+                    </button>
+                  </>
+                ) : absenceNote ? (
                   <>
                     <div style={{ fontSize: 13, color: 'hsl(var(--foreground))', lineHeight: 1.4, marginBottom: 8 }}>{absenceNote}</div>
                     <button onClick={(e) => { e.stopPropagation(); onNoteClick(); }} style={{ fontSize: 11, color: 'hsl(var(--score-amber))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
@@ -482,6 +483,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     studentId: string; sessionIndex: number; studentName: string; dayLabel: string; dateLabel: string;
   } | null>(null);
   const [noteText, setNoteText] = useState('');
+  const [noteCategory, setNoteCategory] = useState<string>('');
 
   // Reschedule modal state — new flow: pick a Wednesday from week 1-6
   const [rescheduleModal, setRescheduleModal] = useState<{
@@ -956,6 +958,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex)?.absence_note || null;
   };
 
+  const getAbsenceCategory = (studentId: string, sessionIndex: number): string | null => {
+    return attendance.find(a => a.student_id === studentId && a.session_index === sessionIndex)?.absence_category || null;
+  };
+
   // Demo day absence detection
   // Demo days happen on Friday of weeks 2, 4, 6 → session_index = (week-1)*4+3
   const getDemoDaySessionIndex = (dayNumber: number): number | null => {
@@ -1039,7 +1045,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const info = getSessionLabel(sessionIndex);
     const dateStr = getSessionDate(sessionIndex) || '';
     const existing = getAbsenceNote(studentId, sessionIndex);
+    const existingCategory = getAbsenceCategory(studentId, sessionIndex);
     setNoteText(existing || '');
+    setNoteCategory(existingCategory || '');
     setNoteModal({
       studentId, sessionIndex,
       studentName: student?.name || 'Student',
@@ -1053,8 +1061,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     if (!noteModal) return;
     const rec = attendance.find(a => a.student_id === noteModal.studentId && a.session_index === noteModal.sessionIndex);
     if (rec) {
-      await supabase.from('attendance').update({ absence_note: noteText || null }).eq('id', rec.id);
-      setAttendance(prev => prev.map(a => a.id === rec.id ? { ...a, absence_note: noteText || null } : a));
+      await supabase.from('attendance').update({ absence_note: noteText || null, absence_category: noteCategory || null }).eq('id', rec.id);
+      setAttendance(prev => prev.map(a => a.id === rec.id ? { ...a, absence_note: noteText || null, absence_category: noteCategory || null } : a));
     }
     setNoteModal(null);
     showSaved();
@@ -1637,7 +1645,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
      // 2. Absences without reason — include dropped students (their past ✕ marks still need reasons)
      const absencesBySession: Record<number, { studentId: string; name: string }[]> = {};
      for (const a of attendance) {
-       if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '')) {
+       if (a.state === 'x' && (!a.absence_note || a.absence_note.trim() === '') && !a.absence_category) {
          const inSourceRange = a.session_index >= wStart && a.session_index < wStart + 4;
          const isWedDest = wedSi !== null && a.session_index === wedSi;
          if (!inSourceRange && !isWedDest) continue;
@@ -2133,17 +2141,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     }
     const state = getAttendanceState(studentId, sessionIndex);
     const note = getAbsenceNote(studentId, sessionIndex);
+    const category = getAbsenceCategory(studentId, sessionIndex);
     const studentRec = students.find(s => s.id === studentId);
     const isDropped = studentRec?.status === 'dropped';
     if (isDropped && state === 'e') {
       return <div style={{ textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>—</div>;
     }
     return (
-      <div data-absence-cell={state === 'x' && !note ? `${studentId}-${sessionIndex}` : undefined}>
+      <div data-absence-cell={state === 'x' && !note && !category ? `${studentId}-${sessionIndex}` : undefined}>
         <AttendanceCell
           state={state}
           isDemo={isDemo}
           absenceNote={note}
+          absenceCategory={category}
           onClick={isDropped ? () => {} : () => cycleAttendance(studentId, sessionIndex)}
           onNoteClick={() => openNoteModal(studentId, sessionIndex)}
         />
@@ -2156,17 +2166,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const si = wedSessionIndex(week);
     const state = getAttendanceState(studentId, si);
     const note = getAbsenceNote(studentId, si);
+    const category = getAbsenceCategory(studentId, si);
     const studentRec = students.find(s => s.id === studentId);
     const isDropped = studentRec?.status === 'dropped';
     if (isDropped && state === 'e') {
       return <div style={{ background: 'hsl(var(--success-bg))', textAlign: 'center', fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>—</div>;
     }
     return (
-      <div style={{ background: 'hsl(var(--success-bg))' }} data-absence-cell={state === 'x' && !note ? `${studentId}-${si}` : undefined}>
+      <div style={{ background: 'hsl(var(--success-bg))' }} data-absence-cell={state === 'x' && !note && !category ? `${studentId}-${si}` : undefined}>
         <AttendanceCell
           state={state}
           isDemo={false}
           absenceNote={note}
+          absenceCategory={category}
           onClick={isDropped ? () => {} : () => cycleAttendance(studentId, si)}
           onNoteClick={() => openNoteModal(studentId, si)}
         />
@@ -2303,7 +2315,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       {/* Absence note modal */}
       {noteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'hsl(var(--background) / 0.7)' }}
-          onClick={() => setNoteModal(null)}>
+          onClick={() => { setNoteModal(null); setNoteCategory(''); }}>
           <div onClick={(e) => e.stopPropagation()}
             style={{ background: 'hsl(var(--card))', border: '1px solid #2A2A2A', borderRadius: 8, padding: 20, maxWidth: 320, width: '100%' }}>
             <div style={{ fontSize: 14, color: 'hsl(var(--foreground))', fontWeight: 500, marginBottom: 4 }}>Absence note for {noteModal.studentName}</div>
@@ -2315,6 +2327,22 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 return `${fullDay} · Week ${weekNum}`;
               })()}
             </div>
+            <label className="text-sm text-muted-foreground">Reason</label>
+            <select
+              value={noteCategory}
+              onChange={(e) => setNoteCategory(e.target.value)}
+              className="w-full mt-1 px-3 py-2 text-sm text-foreground"
+              style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))', marginBottom: 12 }}
+            >
+              <option value="">Select a category…</option>
+              <option value="Work">Work</option>
+              <option value="Sick">Sick</option>
+              <option value="Family">Family</option>
+              <option value="Personal">Personal</option>
+              <option value="Not given">Not given</option>
+              <option value="Other">Other</option>
+            </select>
+            <label className="text-sm text-muted-foreground" style={{ display: 'block', marginBottom: 4 }}>Notes (optional)</label>
             <textarea
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
@@ -2327,11 +2355,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               }}
             />
             <div className="flex justify-end gap-2 mt-3">
-              <button onClick={() => setNoteModal(null)}
+              <button onClick={() => { setNoteModal(null); setNoteCategory(''); }}
                 style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}>Cancel</button>
-              <button onClick={() => { setNoteModal(null); saveAbsenceNote(); }}
+              <button onClick={() => { saveAbsenceNote(); }}
                 style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}>Save</button>
@@ -2868,7 +2896,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                     const state = getAttendanceState(s.id, si);
                     if (state === 'x') {
                       const note = getAbsenceNote(s.id, si);
-                      if (!note) missingNoteCells.push({ studentId: s.id, sessionIndex: si });
+                      const cat = getAbsenceCategory(s.id, si);
+                      if (!note && !cat) missingNoteCells.push({ studentId: s.id, sessionIndex: si });
                     }
                   }
                 }
@@ -2900,6 +2929,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                               const dateLabel = sessionDate ? sessionDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
                               setNoteModal({ studentId: first.studentId, sessionIndex: si, studentName: student?.name || 'Student', dayLabel: dayNames[dayIdx], dateLabel });
                               setNoteText('');
+                              setNoteCategory('');
                             }
                           }}
                           style={{ background: 'hsl(var(--amber-border))', border: '1px solid #7a6a10', color: 'hsl(var(--score-amber))', borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
