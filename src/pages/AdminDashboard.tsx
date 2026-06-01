@@ -70,7 +70,7 @@ interface ModBatchCard {
 }
 
 interface Student { id: string; batch_id: string; name: string; }
-interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; }
+interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; absence_category?: string | null; }
 interface DemoDay { id: string; batch_id: string; title: string; date: string | null; day_number: number; }
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
 interface DemoFeedback { id: string; demo_day_id: string; student_id: string; feedback: string; }
@@ -216,7 +216,7 @@ const AdminDashboard: React.FC = () => {
       const batchStudents = allStudents.filter(s => s.batch_id === batch.id);
       const batchAtt = allAttendance.filter(a => a.batch_id === batch.id);
       for (const student of batchStudents) {
-        const studentAtt = batchAtt.filter(a => a.student_id === student.id && a.state === 'x' && !a.absence_note);
+        const studentAtt = batchAtt.filter(a => a.student_id === student.id && a.state === 'x' && !a.absence_note && !a.absence_category);
         for (const att of studentAtt) {
           // Estimate when this session occurred
           const weekNum = Math.floor(att.session_index / 4);
