@@ -95,13 +95,11 @@ function highlightBriefing(text: string, modNames: string[]): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // Highlight percentages
   result = result.replace(
     /(\d+\.?\d*%)/g,
     '<b style="font-weight:600;color:#f0a020">$1</b>',
   );
 
-  // Highlight mod names (longest first to avoid partial matches)
   const sorted = [...modNames].sort((a, b) => b.length - a.length);
   for (const name of sorted) {
     if (!name) continue;
@@ -210,7 +208,7 @@ function Priorities({ priorities }: { priorities: Priority[] }) {
   return (
     <div className="mb-9">
       <div className="mb-[14px] font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#6b6b6b]">
-        Top 3 priorities
+        Needs attention
       </div>
       <div className="flex flex-col gap-3">
         {priorities.map((p, i) => {
@@ -460,6 +458,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
 
     (async () => {
       const today = new Date();
+      // 90-day window for trend history; 49-day window (7 weeks) for active-batch logic
       const ninetyDaysAgo = new Date(today.getTime() - 90 * 86400000).toISOString();
       const fourteenDaysAgo = new Date(today.getTime() - 14 * 86400000);
       const todayMonday = getWeekMonday(today);
@@ -519,15 +518,16 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         studentsByBatch.get(s.batch_id)!.push(s);
       }
 
-      // ── Active batches: started, within 42-day window ──────────
+      // ── Active batches: started, within 49-day window (7 weeks) ─
       const activeBatches = batchList.filter((b: any) => {
         if (!b.start_date) return false;
         const start = new Date(b.start_date + 'T00:00:00');
         const days = Math.floor((today.getTime() - start.getTime()) / 86400000);
-        return days >= 0 && days < 42;
+        return days >= 0 && days < 49;
       });
+      const activeBatchIdSet = new Set(activeBatches.map((b: any) => b.id as string));
 
-      // ── Per-batch metrics ──────────────────────────────────────
+      // ── Per-batch metrics (active batches only) ────────────────
       type BM = {
         batchId: string; batchName: string; modName: string;
         week: number; totalAtt: number | null; looseEnds: number;
@@ -554,7 +554,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         const totalMarked = bAtt.filter((a: any) => (a.state === 'c' || a.state === 'x') && activeIds.has(a.student_id)).length;
         const totalAtt = totalMarked > 0 ? Math.round((present / totalMarked) * 100) : null;
 
-        // This week attendance
+        // This week sessions (current batch week, sessions that have occurred)
         const thisWeekIdxs = [(week - 1) * 4, (week - 1) * 4 + 1, (week - 1) * 4 + 2, (week - 1) * 4 + 3]
           .filter((s) => s < sessOccurred);
         const thisMarks = bAtt.filter((a: any) =>
@@ -563,7 +563,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         progThisPresent += thisMarks.filter((a: any) => a.state === 'c').length;
         progThisTotal += thisMarks.length;
 
-        // Last week attendance
+        // Last week sessions
         if (week > 1) {
           const lastWeekIdxs = [(week - 2) * 4, (week - 2) * 4 + 1, (week - 2) * 4 + 2, (week - 2) * 4 + 3];
           const lastMarks = bAtt.filter((a: any) =>
@@ -576,16 +576,22 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         batchMetrics.push({ batchId: batch.id, batchName: batch.name, modName, week, totalAtt, looseEnds });
       }
 
-      // ── A. STATS ───────────────────────────────────────────────
-      const allLE = attendanceRows.filter((a: any) => a.state === 'x' && !a.absence_note && !a.absence_category);
+      // ── A. STATS (all scoped to active batches) ────────────────
+      const allLE = attendanceRows.filter((a: any) =>
+        a.state === 'x' && !a.absence_note && !a.absence_category && activeBatchIdSet.has(a.batch_id)
+      );
       const openLeCount = allLE.length;
       const modsWithLE = new Set(
         allLE.map((a: any) => batchById.get(a.batch_id)?.mod_id).filter(Boolean)
       ).size;
 
-      const activeStudentCount = students.filter((s: any) => s.status !== 'dropped').length;
+      const activeStudentCount = students.filter((s: any) =>
+        s.status !== 'dropped' && activeBatchIdSet.has(s.batch_id)
+      ).length;
       const activeStudentBatchIds = new Set(
-        students.filter((s: any) => s.status !== 'dropped' && activeBatches.some((b: any) => b.id === s.batch_id)).map((s: any) => s.batch_id)
+        students
+          .filter((s: any) => s.status !== 'dropped' && activeBatchIdSet.has(s.batch_id))
+          .map((s: any) => s.batch_id)
       ).size;
 
       const activeModCount = modList.length;
@@ -595,6 +601,13 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
 
       const thisWeekAtt = progThisTotal > 0 ? Math.round((progThisPresent / progThisTotal) * 100) : null;
       const lastWeekAtt = progLastTotal > 0 ? Math.round((progLastPresent / progLastTotal) * 100) : null;
+
+      // "This week" date range label (Mon d – Today d Mon, e.g. "Mon 1 – Wed 3 Jun")
+      const weekMon = getWeekMonday(today);
+      const isSameDay = weekMon.toDateString() === today.toDateString();
+      const thisWeekRange = isSameDay
+        ? format(today, 'EEE d MMM')
+        : `${format(weekMon, 'EEE d')} – ${format(today, 'EEE d MMM')}`;
 
       if (!cancelled) {
         setStats([
@@ -620,98 +633,100 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
             ? {
                 lab: 'Attendance this week',
                 val: `${thisWeekAtt}%`,
-                sub: lastWeekAtt !== null ? `from ${lastWeekAtt}% last week` : 'first week of data',
+                sub: lastWeekAtt !== null
+                  ? `${thisWeekRange} · from ${lastWeekAtt}% last week`
+                  : thisWeekRange,
                 up: lastWeekAtt !== null ? thisWeekAtt > lastWeekAtt : undefined,
               }
-            : { lab: 'Attendance this week', val: '—', sub: 'no sessions marked yet' },
+            : { lab: 'Attendance this week', val: '—', sub: `${thisWeekRange} · no sessions marked yet` },
         ]);
       }
 
       // ── B. PRIORITIES ──────────────────────────────────────────
-      const p: (Priority | null)[] = [null, null, null];
-
-      // P1: worst batch (>15 LE or <75% att)
-      const p1Candidates = batchMetrics.filter(
-        (m) => m.looseEnds > 15 || (m.totalAtt !== null && m.totalAtt < 75)
-      );
-      if (p1Candidates.length > 0) {
-        const worst = p1Candidates.sort((a, b) => {
+      // P1: batches with <80% att or >8 LE, up to 4, ranked by combined score
+      const p1Sorted = batchMetrics
+        .filter((m) => m.looseEnds > 8 || (m.totalAtt !== null && m.totalAtt < 80))
+        .sort((a, b) => {
           const sa = a.looseEnds * 2 + (a.totalAtt !== null ? (100 - a.totalAtt) / 3 : 33);
           const sb = b.looseEnds * 2 + (b.totalAtt !== null ? (100 - b.totalAtt) / 3 : 33);
           return sb - sa;
-        })[0];
+        })
+        .slice(0, 4);
+      const p1BatchIdSet = new Set(p1Sorted.map((m) => m.batchId));
+
+      const p1Cards: Priority[] = p1Sorted.map((m, i) => {
         const parts: string[] = [];
-        if (worst.looseEnds > 15) parts.push(`${worst.looseEnds} loose ends`);
-        if (worst.totalAtt !== null && worst.totalAtt < 75) parts.push(`attendance at ${worst.totalAtt}%`);
-        p[0] = {
-          tone: 'red',
-          rank: '1 · highest',
-          title: `${worst.modName}'s ${worst.batchName} needs support`,
-          desc: `${parts.join(' and ')} — the single biggest drag on the numbers right now.`,
-          action: `DM ${worst.modName} on Discord · check what's going on`,
+        if (m.totalAtt !== null && m.totalAtt < 80) parts.push(`attendance at ${m.totalAtt}%`);
+        if (m.looseEnds > 8) parts.push(`${m.looseEnds} loose ends`);
+        return {
+          tone: 'red' as const,
+          rank: i === 0 ? 'highest' : 'at risk',
+          title: `${m.modName}'s ${m.batchName} needs support`,
+          desc: `${parts.join(' and ')}.`,
+          action: `DM ${m.modName} on Discord · check what's going on`,
           icon: MessageCircle,
         };
-      }
+      });
 
-      // P2: student with most absences in last 14 days (3+ min)
-      let atRisk: { name: string; count: number; batchName: string; modName: string } | null = null;
+      // P2: top 2 students with 3+ absences in last 14 days
+      type AtRiskEntry = { name: string; count: number; batchName: string; modName: string };
+      const atRiskAll: AtRiskEntry[] = [];
       for (const batch of activeBatches) {
         if (!batch.start_date) continue;
         const bActive = (studentsByBatch.get(batch.id) ?? []).filter((s: any) => s.status !== 'dropped');
-        const bAtt = attendanceByBatch.get(batch.id) ?? [];
+        // Exclude rescheduled session indices (≥1000) from 14-day window check
+        const bAtt = (attendanceByBatch.get(batch.id) ?? []).filter((a: any) => a.session_index < 1000);
         const modName: string = modById.get(batch.mod_id)?.name ?? 'Unknown';
         for (const student of bActive) {
           let recent = 0;
           for (const a of bAtt.filter((x: any) => x.student_id === student.id && x.state === 'x')) {
             if (getSessionDate(batch.start_date, a.session_index) >= fourteenDaysAgo) recent++;
           }
-          if (recent >= 3 && (!atRisk || recent > atRisk.count)) {
-            atRisk = { name: student.name, count: recent, batchName: batch.name, modName };
-          }
+          if (recent >= 3) atRiskAll.push({ name: student.name, count: recent, batchName: batch.name, modName });
         }
       }
-      if (atRisk) {
-        p[1] = {
-          tone: 'red',
-          rank: '2 · high',
-          title: `${atRisk.name} is on a drop trajectory`,
-          desc: `${atRisk.count} absences in the last two weeks (${atRisk.batchName}). At this pace they're likely to disengage before the term ends.`,
-          action: `Flag to ${atRisk.modName} · consider a check-in call`,
-          icon: Phone,
-        };
-      }
+      atRiskAll.sort((a, b) => b.count - a.count);
+      const p2Cards: Priority[] = atRiskAll.slice(0, 2).map((r) => ({
+        tone: 'red' as const,
+        rank: 'high',
+        title: `${r.name} is on a drop trajectory`,
+        desc: `${r.count} absences in the last two weeks (${r.batchName}). At this pace they're likely to disengage before the term ends.`,
+        action: `Flag to ${r.modName} · consider a check-in call`,
+        icon: Phone,
+      }));
 
-      // P3: early-week mod (weeks 1-3) with 5+ LE, not already flagged as P1
-      const p1BatchId = p1Candidates[0]?.batchId ?? null;
-      const p3Candidates = batchMetrics.filter(
-        (m) => m.week >= 1 && m.week <= 3 && m.looseEnds >= 5 && m.batchId !== p1BatchId
-      );
-      if (p3Candidates.length > 0) {
-        const w = p3Candidates.sort((a, b) => b.looseEnds - a.looseEnds)[0];
-        p[2] = {
-          tone: 'amber',
-          rank: '3 · watch',
-          title: `${w.modName}'s ${w.batchName} is starting to slide`,
-          desc: `${w.looseEnds} loose ends building in week ${w.week}${w.totalAtt !== null ? `, with attendance at ${w.totalAtt}%` : ''}. Worth a nudge now before it compounds.`,
-          action: `Message ${w.modName} · clear loose ends this week`,
+      // P3: mods with 2+ LE in weeks 1-4, not already in P1
+      const p3Cards: Priority[] = batchMetrics
+        .filter((m) => m.week >= 1 && m.week <= 4 && m.looseEnds >= 2 && !p1BatchIdSet.has(m.batchId))
+        .sort((a, b) => b.looseEnds - a.looseEnds)
+        .map((m) => ({
+          tone: 'amber' as const,
+          rank: 'watch',
+          title: `${m.modName}'s ${m.batchName} is starting to slide`,
+          desc: `${m.looseEnds} loose ends in week ${m.week}${m.totalAtt !== null ? `, attendance at ${m.totalAtt}%` : ''}. Worth a nudge now before it compounds.`,
+          action: `Message ${m.modName} · clear loose ends this week`,
           icon: MessageCircle,
-        };
-      }
+        }));
 
-      if (!cancelled) setPriorities(p.filter((x): x is Priority => x !== null));
+      // Combine, cap at 7, number sequentially
+      const allCards = [...p1Cards, ...p2Cards, ...p3Cards].slice(0, 7);
+      allCards.forEach((c, i) => { c.rank = `${i + 1} · ${c.rank}`; });
+
+      if (!cancelled) setPriorities(allCards);
 
       // ── C. BATCHES TABLE ───────────────────────────────────────
       const batchRows: (Batch & { sortScore: number })[] = batchMetrics.map((m) => {
+        // Health thresholds aligned with priority scoring
         const health =
-          (m.totalAtt !== null && m.totalAtt < 75) || m.looseEnds >= 15
+          (m.totalAtt !== null && m.totalAtt < 80) || m.looseEnds > 8
             ? 'at risk'
-            : (m.totalAtt !== null && m.totalAtt < 85) || m.looseEnds >= 5
+            : (m.totalAtt !== null && m.totalAtt < 85) || m.looseEnds >= 2
               ? 'watch'
               : 'healthy';
         const healthTone: Exclude<Tone, 'ink'> = health === 'at risk' ? 'red' : health === 'watch' ? 'amber' : 'green';
         const attTone: Tone =
-          m.totalAtt === null ? 'ink' : m.totalAtt < 75 ? 'red' : m.totalAtt < 85 ? 'amber' : m.totalAtt >= 90 ? 'green' : 'ink';
-        const leTone: Exclude<Tone, 'ink'> = m.looseEnds >= 15 ? 'red' : m.looseEnds >= 5 ? 'amber' : 'green';
+          m.totalAtt === null ? 'ink' : m.totalAtt < 75 ? 'red' : m.totalAtt < 80 ? 'amber' : m.totalAtt >= 90 ? 'green' : 'ink';
+        const leTone: Exclude<Tone, 'ink'> = m.looseEnds > 8 ? 'red' : m.looseEnds >= 2 ? 'amber' : 'green';
         const sortScore = health === 'at risk' ? 0 : health === 'watch' ? 1 : 2;
         return {
           mod: m.modName, batch: m.batchName, week: m.week,
@@ -731,7 +746,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         setExtraAllHealthy(remHealthy);
       }
 
-      // ── D. TREND (8 calendar weeks) ────────────────────────────
+      // ── D. TREND (8 calendar weeks, all 90-day batches for history) ─
       const weekMondays: Date[] = Array.from({ length: 8 }, (_, i) =>
         new Date(todayMonday.getTime() - (7 - i) * 7 * 86400000)
       );
@@ -742,6 +757,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         const bAtt = attendanceByBatch.get(batch.id) ?? [];
         for (const a of bAtt) {
           if (a.state !== 'c' && a.state !== 'x') continue;
+          if (a.session_index >= 1000) continue; // skip rescheduled session sentinel indices
           const sd = getSessionDate(batch.start_date, a.session_index);
           for (let w = 0; w < 8; w++) {
             const wStart = weekMondays[w];
