@@ -729,6 +729,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      exec_select_query: { Args: { query: string }; Returns: Json }
       get_student_share_data: { Args: { p_slug: string }; Returns: Json }
       has_role: {
         Args: {
