@@ -8,6 +8,7 @@ import StudentProgressModal from '@/components/StudentProgressModal';
 import ModDashboard from './ModDashboard';
 import HoustonPage from './admin/HoustonPage';
 import AnnouncementsPage from './admin/AnnouncementsPage';
+import AnalyticsDashboard from './admin/AnalyticsDashboard';
 
 interface Profile {
   id: string;
@@ -543,6 +544,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const sidebarItems: { id: string; label: string; icon: typeof BarChart3; section: string; badge?: string }[] = [
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, section: 'OVERVIEW' },
     { id: 'dashboard', label: "Bird's eye", icon: BarChart3, section: 'OVERVIEW' },
     { id: 'moderators', label: 'Moderators', icon: Users, section: 'OVERVIEW' },
     { id: 'students', label: 'Students', icon: GraduationCap, section: 'OVERVIEW' },
@@ -1286,6 +1288,7 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
 
+        {activePage === 'analytics' && <AnalyticsDashboard onOpenHouston={() => setActivePage('houston')} />}
         {activePage === 'announcements' && <AnnouncementsPage />}
         {activePage === 'houston' && <HoustonPage />}
       </div>
