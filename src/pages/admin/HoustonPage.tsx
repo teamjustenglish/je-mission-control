@@ -26,22 +26,31 @@ const HoustonPage: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref (not state) used in onend to decide whether to auto-restart.
+  // Must be set to false BEFORE calling rec.stop() to prevent restart.
+  const isRecordingRef = useRef(false);
   const savedInputRef = useRef('');
+
+  // Auto-expand textarea height on input change, capped at 200px
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = `${ta.scrollHeight}px`;
+  }, [input]);
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      isRecordingRef.current = false;
       if (recognitionRef.current) recognitionRef.current.abort();
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
   }, []);
 
   const stopRecording = () => {
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
+    // Set ref to false BEFORE stop() so onend doesn't trigger an auto-restart
+    isRecordingRef.current = false;
+    setIsRecording(false);
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
@@ -56,23 +65,21 @@ const HoustonPage: React.FC = () => {
     savedInputRef.current = input.trimEnd();
 
     const rec = new SpeechRecognitionAPI();
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     rec.lang = 'en-IN';
     rec.maxAlternatives = 1;
 
-    rec.onstart = () => setIsRecording(true);
+    rec.onstart = () => {
+      isRecordingRef.current = true;
+      setIsRecording(true);
+    };
 
     rec.onresult = (e: any) => {
-      // Reset 2-second silence timer on each partial result
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = setTimeout(() => rec.stop(), 2000);
-
-      // Accumulate all results into a single transcript string
+      // Accumulate all results (final + interim) into one transcript string
       const transcript: string = Array.from(e.results as any[])
         .map((r: any) => r[0].transcript)
         .join('');
-
       const prefix = savedInputRef.current;
       setInput(prefix + (prefix.length > 0 ? ' ' : '') + transcript);
     };
@@ -84,22 +91,32 @@ const HoustonPage: React.FC = () => {
       // All other errors: silent recovery — restore input to pre-recording value
       setInput(savedInputRef.current);
       savedInputRef.current = '';
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
+      isRecordingRef.current = false;
       recognitionRef.current = null;
       setIsRecording(false);
     };
 
     rec.onend = () => {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
+      if (isRecordingRef.current) {
+        // Chrome's ~60s session timeout fired mid-recording — user still wants
+        // to record, so restart transparently on the same instance.
+        if (textareaRef.current) {
+          // Update savedInput so the next session appends to what we have
+          savedInputRef.current = textareaRef.current.value.trimEnd();
+        }
+        try {
+          rec.start();
+        } catch {
+          // If restart fails, give up gracefully
+          isRecordingRef.current = false;
+          recognitionRef.current = null;
+          setIsRecording(false);
+        }
+      } else {
+        recognitionRef.current = null;
+        savedInputRef.current = '';
+        setIsRecording(false);
       }
-      recognitionRef.current = null;
-      savedInputRef.current = '';
-      setIsRecording(false);
     };
 
     recognitionRef.current = rec;
@@ -109,6 +126,9 @@ const HoustonPage: React.FC = () => {
   const ask = async (question: string) => {
     const trimmed = question.trim();
     if (!trimmed || phase === 'loading') return;
+
+    // Stop any active recording before sending
+    if (isRecordingRef.current) stopRecording();
 
     setAskedQuestion(trimmed);
     setInput('');
@@ -198,7 +218,8 @@ const HoustonPage: React.FC = () => {
               fontSize: 14,
               lineHeight: 1.5,
               padding: '8px 8px',
-              maxHeight: 160,
+              maxHeight: 200,
+              overflowY: 'auto',
               fontFamily: 'Inter, sans-serif',
             }}
           />
