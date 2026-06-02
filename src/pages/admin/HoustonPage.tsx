@@ -4,13 +4,6 @@ import { ArrowUp, Sparkles, Loader2 } from 'lucide-react';
 
 type Phase = 'idle' | 'loading' | 'answered' | 'error';
 
-const SUGGESTIONS = [
-  "How is Yumi's batch going?",
-  "Who's about to drop this week?",
-  'Best demo scores in May',
-  'Compare Anne vs Vindi this month',
-];
-
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
 
 const HoustonPage: React.FC = () => {
@@ -140,43 +133,6 @@ const HoustonPage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* Suggestion chips — idle only */}
-      {isIdle && (
-        <div
-          style={{
-            width: '100%',
-            maxWidth: 600,
-            marginTop: 16,
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 10,
-          }}
-        >
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => ask(s)}
-              className="text-muted-foreground hover:text-foreground"
-              style={{
-                textAlign: 'left',
-                fontSize: 13,
-                padding: '12px 14px',
-                borderRadius: 10,
-                background: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                cursor: 'pointer',
-                transition: 'border-color 0.1s, color 0.1s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'hsl(var(--houston-border))'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'hsl(var(--border))'; }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Q&A area */}
       {!isIdle && (
