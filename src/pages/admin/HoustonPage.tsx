@@ -1,17 +1,110 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowUp, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowUp, Sparkles, Loader2, Mic } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Phase = 'idle' | 'loading' | 'answered' | 'error';
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
+
+// Browser-native speech recognition — no backend or API key required.
+// NOTE: Accuracy varies for Sri Lankan English. Consider migrating to OpenAI
+// Whisper via a new transcribe-audio Edge Function if accent recognition
+// becomes a complaint.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SpeechRecognitionAPI: any =
+  typeof window !== 'undefined'
+    ? ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null)
+    : null;
 
 const HoustonPage: React.FC = () => {
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [askedQuestion, setAskedQuestion] = useState('');
   const [answer, setAnswer] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedInputRef = useRef('');
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.abort();
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    };
+  }, []);
+
+  const stopRecording = () => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+  };
+
+  const handleMicClick = () => {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
+    savedInputRef.current = input.trimEnd();
+
+    const rec = new SpeechRecognitionAPI();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.lang = 'en-IN';
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => setIsRecording(true);
+
+    rec.onresult = (e: any) => {
+      // Reset 2-second silence timer on each partial result
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => rec.stop(), 2000);
+
+      // Accumulate all results into a single transcript string
+      const transcript: string = Array.from(e.results as any[])
+        .map((r: any) => r[0].transcript)
+        .join('');
+
+      const prefix = savedInputRef.current;
+      setInput(prefix + (prefix.length > 0 ? ' ' : '') + transcript);
+    };
+
+    rec.onerror = (e: any) => {
+      if (e.error === 'not-allowed') {
+        toast.error('Mic access denied. Allow microphone in your browser settings to use voice input.');
+      }
+      // All other errors: silent recovery — restore input to pre-recording value
+      setInput(savedInputRef.current);
+      savedInputRef.current = '';
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      recognitionRef.current = null;
+      setIsRecording(false);
+    };
+
+    rec.onend = () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      recognitionRef.current = null;
+      savedInputRef.current = '';
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = rec;
+    rec.start();
+  };
 
   const ask = async (question: string) => {
     const trimmed = question.trim();
@@ -109,6 +202,48 @@ const HoustonPage: React.FC = () => {
               fontFamily: 'Inter, sans-serif',
             }}
           />
+
+          {/* Mic button — only rendered when browser supports SpeechRecognition */}
+          {SpeechRecognitionAPI && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              {/* Pulsing dot — visible only while recording */}
+              {isRecording && (
+                <span
+                  className="animate-pulse"
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: '#f0a020',
+                    display: 'inline-block',
+                  }}
+                />
+              )}
+              <button
+                type="button"
+                onClick={handleMicClick}
+                disabled={isLoading}
+                aria-label={isRecording ? 'Stop recording' : 'Start voice input'}
+                className="disabled:opacity-40"
+                style={{
+                  width: 36,
+                  height: 36,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 8,
+                  border: '1px solid hsl(var(--input-border))',
+                  background: 'transparent',
+                  color: isRecording ? '#f0a020' : 'hsl(var(--muted-foreground))',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  transition: 'color 0.15s',
+                }}
+              >
+                <Mic size={16} />
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleSubmit}
