@@ -549,8 +549,8 @@ const AdminDashboard: React.FC = () => {
     { id: 'moderators', label: 'Moderators', icon: Users, section: 'OVERVIEW' },
     { id: 'students', label: 'Students', icon: GraduationCap, section: 'OVERVIEW' },
     { id: 'batches', label: 'All batches', icon: BookOpen, section: 'OVERVIEW' },
-    { id: 'announcements', label: 'Announcements', icon: Megaphone, section: 'OPERATIONS', badge: 'NEW' },
-    { id: 'houston', label: 'Ask Houston', icon: Sparkles, section: 'INTELLIGENCE', badge: 'NEW' },
+    { id: 'announcements', label: 'Announcements', icon: Megaphone, section: 'OPERATIONS' },
+    { id: 'houston', label: 'Ask Houston', icon: Sparkles, section: 'INTELLIGENCE' },
     { id: 'export', label: 'Export all', icon: Download, section: 'TOOLS' },
     { id: 'settings', label: 'Settings', icon: Settings, section: 'TOOLS' },
   ];
