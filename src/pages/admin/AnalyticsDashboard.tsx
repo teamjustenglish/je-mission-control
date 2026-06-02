@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentWeek, getSessionsOccurred } from '@/lib/batchtrack';
+import { getCurrentWeek, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
 import { format } from 'date-fns';
 
 // ─────────────────────────── Types ───────────────────────────
@@ -35,7 +35,7 @@ interface Batch {
   mod: string;
   batch: string;
   week: number;
-  att: number;
+  att: number | null;
   attTone: Tone;
   le: number;
   leTone: Exclude<Tone, 'ink'>;
@@ -258,7 +258,7 @@ function BatchesTable({
                 Week {b.week}
               </td>
               <td className={`border-b border-white/[0.045] px-[22px] py-[13px] text-[14px] font-medium tabular-nums ${ATT_TONE[b.attTone]}`}>
-                {b.att > 0 ? `${b.att}%` : '—'}
+                {b.att !== null ? `${b.att}%` : '—'}
               </td>
               <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[14px]">
                 <span className={`inline-flex items-center gap-[6px] rounded-full px-[10px] py-[3px] text-[12px] font-medium tabular-nums ${PILL_TONE[b.leTone]}`}>
@@ -460,7 +460,8 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
           supabase
             .from('attendance')
             .select('student_id, batch_id, session_index, state, absence_note, absence_category')
-            .in('batch_id', batchIds),
+            .in('batch_id', batchIds)
+            .limit(10000),
           supabase
             .from('activity_log')
             .select('mod_id, action_type, created_at')
@@ -521,9 +522,9 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
           a.state === 'x' && !a.absence_note && !a.absence_category && activeIds.has(a.student_id)
         ).length;
 
+        // Same formula as mod view: present / (activeStudents × sessionsOccurred)
         const present = bAtt.filter((a: any) => a.state === 'c' && activeIds.has(a.student_id)).length;
-        const totalMarked = bAtt.filter((a: any) => (a.state === 'c' || a.state === 'x') && activeIds.has(a.student_id)).length;
-        const totalAtt = totalMarked > 0 ? Math.round((present / totalMarked) * 100) : null;
+        const totalAtt = computeAttendancePct(present, bActive.length, sessOccurred);
 
         // This week sessions (current batch week, sessions that have occurred)
         const thisWeekIdxs = [(week - 1) * 4, (week - 1) * 4 + 1, (week - 1) * 4 + 2, (week - 1) * 4 + 3]
@@ -701,11 +702,18 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         const sortScore = health === 'at risk' ? 0 : health === 'watch' ? 1 : 2;
         return {
           mod: m.modName, batch: m.batchName, week: m.week,
-          att: m.totalAtt ?? 0, attTone,
+          att: m.totalAtt, attTone,
           le: m.looseEnds, leTone,
           health, healthTone, sortScore,
         };
-      }).sort((a, b) => a.sortScore - b.sortScore || a.att - b.att);
+      }).sort((a, b) => {
+        const scoreDiff = a.sortScore - b.sortScore;
+        if (scoreDiff !== 0) return scoreDiff;
+        // Within same health tier: worst att first; null (no sessions yet) last
+        const attA = a.att ?? 101;
+        const attB = b.att ?? 101;
+        return attA - attB;
+      });
 
       const top5 = batchRows.slice(0, 5);
       const remaining = batchRows.slice(5);
