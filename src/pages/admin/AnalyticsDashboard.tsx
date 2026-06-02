@@ -455,21 +455,33 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
       let activityLog: any[] = [];
 
       if (batchIds.length > 0) {
-        const [studentsRes, attendanceRes, activityRes] = await Promise.all([
+        // Students and activity log fetched in parallel; attendance paginated separately
+        // because Supabase's server-side max-rows cap (default 1000) silently truncates
+        // a combined .limit() request. Paginating with .range() bypasses that cap.
+        const [studentsRes, activityRes] = await Promise.all([
           supabase.from('students').select('id, batch_id, name, status').in('batch_id', batchIds),
-          supabase
-            .from('attendance')
-            .select('student_id, batch_id, session_index, state, absence_note, absence_category')
-            .in('batch_id', batchIds)
-            .limit(10000),
           supabase
             .from('activity_log')
             .select('mod_id, action_type, created_at')
             .gte('created_at', todayMonday.toISOString()),
         ]);
         students = studentsRes.data ?? [];
-        attendanceRows = attendanceRes.data ?? [];
         activityLog = activityRes.data ?? [];
+
+        // Paginate attendance in 1000-row pages until exhausted
+        const PAGE = 1000;
+        let attPage = 0;
+        while (true) {
+          const { data: chunk } = await supabase
+            .from('attendance')
+            .select('student_id, batch_id, session_index, state, absence_note, absence_category')
+            .in('batch_id', batchIds)
+            .range(attPage * PAGE, attPage * PAGE + PAGE - 1);
+          if (!chunk || chunk.length === 0) break;
+          attendanceRows = attendanceRows.concat(chunk);
+          if (chunk.length < PAGE) break;
+          attPage++;
+        }
       }
 
       if (cancelled) return;
