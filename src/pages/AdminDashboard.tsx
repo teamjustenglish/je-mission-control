@@ -625,9 +625,9 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen bg-background flex overflow-hidden">
       {/* Sidebar */}
-      <div className="w-52 flex flex-col p-4" style={{ background: 'hsl(var(--sidebar-background))', borderRight: '1px solid hsl(var(--border))' }}>
+      <div className="w-52 flex-shrink-0 flex flex-col p-4 overflow-y-auto" style={{ background: 'hsl(var(--sidebar-background))', borderRight: '1px solid hsl(var(--border))' }}>
         <h1 className="text-base font-semibold text-foreground mb-6">Mission Control</h1>
         {['OVERVIEW', 'OPERATIONS', 'INTELLIGENCE', 'TOOLS'].map(section => (
           <div key={section} className="mb-4">
