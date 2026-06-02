@@ -8,7 +8,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { getCurrentWeek, getSessionsOccurred } from '@/lib/batchtrack';
 import { format } from 'date-fns';
 
@@ -114,32 +113,6 @@ function highlightBriefing(text: string, modNames: string[]): string {
 }
 
 // ─────────────────────────── Subcomponents ───────────────────────────
-function TopBar({ userName }: { userName: string }) {
-  const initial = (userName[0] ?? 'A').toUpperCase();
-  const dateStr = format(new Date(), "EEEE · d LLL yyyy");
-  return (
-    <div className="flex items-center justify-between pb-7">
-      <div className="flex items-center gap-[11px]">
-        <div className="flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-[#f5f5f5] text-[15px] font-semibold tracking-[-0.02em] text-[#0e0e0e]">
-          M
-        </div>
-        <div className="text-base font-semibold tracking-[-0.01em]">
-          Mission Control <span className="font-medium text-[#6b6b6b]">· dashboard</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-[18px]">
-        <div className="font-mono text-xs text-[#a3a3a3]">{dateStr}</div>
-        <div className="flex items-center gap-[9px] text-[13px] font-medium">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#ba7517]/25 bg-[#1d1408] text-xs font-semibold text-[#f0a020]">
-            {initial}
-          </div>
-          {userName}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function Hero({ stats }: { stats: Stat[] }) {
   return (
     <div className="mb-4 grid grid-cols-1 gap-[14px] sm:grid-cols-2 lg:grid-cols-4">
@@ -434,8 +407,6 @@ interface AnalyticsDashboardProps {
 }
 
 export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboardProps) {
-  const { profile } = useAuth();
-
   const [stats, setStats] = useState<Stat[]>([
     { lab: 'Open loose ends', val: '—', sub: 'loading…', amber: true },
     { lab: 'Active students', val: '—', sub: 'loading…' },
@@ -823,12 +794,9 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
     return () => { cancelled = true; };
   }, []);
 
-  const userName = (profile?.name ?? '').split(' ')[0] || 'Admin';
-
   return (
     <div className="min-h-screen bg-[#0e0e0e] font-sans text-[#f5f5f5] antialiased">
       <div className="mx-auto max-w-[1200px] px-8 pb-16 pt-7">
-        <TopBar userName={userName} />
         <Hero stats={stats} />
         <Briefing html={briefingHtml} />
         <Priorities priorities={priorities} />
