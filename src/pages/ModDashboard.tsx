@@ -2770,7 +2770,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 </div>
                 {/* Body */}
                 {ann.body && (
-                  <p className="text-muted-foreground" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: opts.length ? 12 : 0 }}>
+                  <p className="text-muted-foreground" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: opts.length ? 12 : 0, whiteSpace: 'pre-wrap' }}>
                     {renderAnnouncementContent(ann.body, { firstName, batchName: annBatchName })}
                   </p>
                 )}
