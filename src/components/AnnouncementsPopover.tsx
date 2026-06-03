@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Megaphone, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { renderAnnouncementContent, substitutePlaceholders } from '@/lib/announcementUtils';
 
 interface AnnouncementItem {
   id: string;
@@ -43,6 +44,8 @@ interface AnnouncementsPopoverProps {
   annPollOptions: AnnPollOption[];
   onGotIt: (annId: string) => void;
   onVote: (annId: string, optId: string) => void;
+  firstName: string;
+  batchName: string;
 }
 
 export default function AnnouncementsPopover({
@@ -53,6 +56,8 @@ export default function AnnouncementsPopover({
   annPollOptions,
   onGotIt,
   onVote,
+  firstName,
+  batchName,
 }: AnnouncementsPopoverProps) {
   const [open, setOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -196,7 +201,7 @@ export default function AnnouncementsPopover({
                       overflow: 'hidden', display: '-webkit-box',
                       WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                     }}>
-                      {ann.body}
+                      {substitutePlaceholders(ann.body, { firstName, batchName })}
                     </p>
                   )}
                 </button>
@@ -206,7 +211,7 @@ export default function AnnouncementsPopover({
                   <div style={{ padding: '4px 14px 12px', borderTop: '1px solid hsl(var(--border) / 0.5)' }}>
                     {ann.body && (
                       <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, marginBottom: opts.length ? 10 : 8, marginTop: 6 }}>
-                        {ann.body}
+                        {renderAnnouncementContent(ann.body, { firstName, batchName })}
                       </p>
                     )}
                     {ann.has_poll && opts.length > 0 && (

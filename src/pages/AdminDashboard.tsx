@@ -751,6 +751,8 @@ const AdminDashboard: React.FC = () => {
                   annPollOptions={annPollOptions}
                   onGotIt={handleAnnGotIt}
                   onVote={handleAnnVote}
+                  firstName={(currentProfile?.name || '').split(' ')[0] || ''}
+                  batchName=""
                 />
                 <AvatarMenu role="admin" />
               </div>
