@@ -200,6 +200,7 @@ export default function AnnouncementsPopover({
                       fontSize: 12, color: 'hsl(var(--muted-foreground))', margin: 0, lineHeight: 1.4,
                       overflow: 'hidden', display: '-webkit-box',
                       WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                      whiteSpace: 'pre-wrap',
                     }}>
                       {substitutePlaceholders(ann.body, { firstName, batchName })}
                     </p>
@@ -210,7 +211,7 @@ export default function AnnouncementsPopover({
                 {isExpanded && (
                   <div style={{ padding: '4px 14px 12px', borderTop: '1px solid hsl(var(--border) / 0.5)' }}>
                     {ann.body && (
-                      <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, marginBottom: opts.length ? 10 : 8, marginTop: 6 }}>
+                      <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, marginBottom: opts.length ? 10 : 8, marginTop: 6, whiteSpace: 'pre-wrap' }}>
                         {renderAnnouncementContent(ann.body, { firstName, batchName })}
                       </p>
                     )}
