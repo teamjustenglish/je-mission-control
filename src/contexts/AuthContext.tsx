@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: { id: string; email: string; name: string; role: string; avatar_url?: string | null } | null;
+  // Note: avatar_url is not yet a column on profiles — added in a follow-up PR.
   role: UserRole;
   loading: boolean;        // initial session check
   roleLoading: boolean;    // profile/role fetch in progress
