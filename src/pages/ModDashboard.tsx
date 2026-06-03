@@ -999,8 +999,10 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       ((r.from_day ?? r.day_name) === 'Demo day' || (r.from_day ?? r.day_name) === 'Fri')
     );
     if (reschedule) {
-      // Demo happened on rescheduled day — check the Wed synthetic index
-      const wedIdx = 1000 + (week - 1); // WED_BASE + (week - 1)
+      // Demo happened on rescheduled day — check the Wed synthetic index.
+      // Must use to_week (destination) not from_week (source): attendance is stored
+      // at 1000 + (to_week - 1), and the two differ when the demo moved weeks.
+      const wedIdx = 1000 + ((reschedule.to_week ?? week) - 1);
       const rescheduledAtt = attendance.find(a =>
         a.student_id === studentId && a.session_index === wedIdx && a.batch_id === activeBatchId
       );
@@ -1014,7 +1016,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   };
 
   // Returns student's attendance state on a demo day: 'c' (present), 'x' (absent), or 'e' (not marked).
-  // Honors rescheduled Friday demo days via synthetic Wed index (1000 + week-1).
+  // Honors rescheduled Friday demo days via synthetic Wed index (1000 + to_week - 1).
   const getStudentDemoDayState = (studentId: string, dayNumber: number): 'c' | 'x' | 'e' => {
     const baseIdx = getDemoDaySessionIndex(dayNumber);
     if (baseIdx === null) return 'e';
@@ -1024,7 +1026,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       ((r.from_day ?? r.day_name) === 'Demo day' || (r.from_day ?? r.day_name) === 'Fri')
     );
     if (reschedule) {
-      const wedIdx = 1000 + (week - 1);
+      // Use to_week (destination) — attendance is stored at 1000 + (to_week - 1)
+      const wedIdx = 1000 + ((reschedule.to_week ?? week) - 1);
       const ra = attendance.find(a =>
         a.student_id === studentId && a.session_index === wedIdx && a.batch_id === activeBatchId
       );
