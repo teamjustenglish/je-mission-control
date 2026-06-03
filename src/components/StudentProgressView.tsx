@@ -69,14 +69,15 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
 
   const demoDaysCompleted = demoDays.filter(dd => demoDayTotal(dd.id) !== null).length;
 
-  const lastDemoScore = (() => {
+  const lastDemoDay = (() => {
     const scored = demoDays.filter(dd => demoDayTotal(dd.id) !== null).sort((a, b) => b.day_number - a.day_number);
-    return scored.length > 0 ? demoDayTotal(scored[0].id) : null;
+    return scored.length > 0 ? scored[0] : null;
   })();
-  const lastDemoNumber = (() => {
-    const scored = demoDays.filter(dd => demoDayTotal(dd.id) !== null).sort((a, b) => b.day_number - a.day_number);
-    return scored.length > 0 ? scored[0].day_number : null;
-  })();
+  const lastDemoScore = lastDemoDay ? demoDayTotal(lastDemoDay.id) : null;
+  const lastDemoNumber = lastDemoDay?.day_number ?? null;
+  const lastDemoDateLabel = lastDemoDay?.date
+    ? new Date(lastDemoDay.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
 
   const getWeekAttendance = (w: number) => {
     const startIdx = (w - 1) * 4;
@@ -149,18 +150,27 @@ const StudentProgressView: React.FC<StudentProgressViewProps> = ({
             <span> · </span>
             <span>{toGo} to go</span>
           </div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+            out of {attended + missed + toGo} total sessions
+          </div>
         </div>
         <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: 'hsl(var(--foreground))' }}>{demoDaysCompleted} / 3</div>
           <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>Demo days</div>
-          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>completed so far</div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
+            {demoDaysCompleted < 3 ? `Demo Day ${demoDaysCompleted + 1} next` : 'all done'}
+          </div>
         </div>
         <div style={{ background: 'hsl(var(--card))', borderRadius: 8, padding: '14px 12px', textAlign: 'center', border: '1px solid hsl(var(--secondary))' }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: lastDemoScore !== null ? scoreColor(lastDemoScore) : 'hsl(var(--muted-foreground))' }}>
             {lastDemoScore !== null ? `${lastDemoScore} / 20` : '—'}
           </div>
-          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>Last demo</div>
-          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{lastDemoNumber !== null ? `Demo Day ${lastDemoNumber}` : '—'}</div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>
+            {lastDemoNumber !== null ? `Demo Day ${lastDemoNumber} score` : 'Last demo'}
+          </div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
+            {lastDemoDateLabel ?? (lastDemoNumber !== null ? `Demo Day ${lastDemoNumber}` : '—')}
+          </div>
         </div>
       </div>
 
