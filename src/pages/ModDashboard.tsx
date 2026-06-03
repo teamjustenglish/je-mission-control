@@ -8,6 +8,7 @@ import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
 import ToDoSidebar, { AdminSummaryPanel } from '@/components/ToDoSidebar';
 import AnnouncementsPopover from '@/components/AnnouncementsPopover';
+import AvatarMenu from '@/components/AvatarMenu';
 import type { Task } from '@/components/ToDoSidebar';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -415,7 +416,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   modIdOverride,
   hideTopNav = false,
 }) => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile } = useAuth();
   const isDevTester = profile?.email === 'dilinaedu@gmail.com';
   // When viewing another mod's data (admin read-only), we may need to display
   // that mod's name. Fetch it on demand and fall back to logged-in profile.
@@ -2320,7 +2321,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               ><Plus size={14} /> New batch</button>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <AnnouncementsPopover
               allAnnouncements={allAnnouncements}
               readAnnIds={readAnnIds}
@@ -2330,11 +2331,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               onGotIt={handleAnnGotIt}
               onVote={handleAnnVote}
             />
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-amber-bg text-amber-text">
-              {(profile?.name || 'M').slice(0, 2).toUpperCase()}
-            </div>
-            <span className="text-sm text-foreground">{profile?.name || 'Moderator'}</span>
-            <button onClick={async () => { try { await signOut(); } catch (e) { console.error(e); window.location.href = '/'; } }} className="text-xs text-muted-foreground hover:text-foreground ml-2">Logout</button>
+            <AvatarMenu role="moderator" batchLabel={activeBatch?.name} />
           </div>
         </div>
       </div>

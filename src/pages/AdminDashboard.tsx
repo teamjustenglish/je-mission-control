@@ -6,6 +6,7 @@ import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSess
 
 import StudentProgressModal from '@/components/StudentProgressModal';
 import AnnouncementsPopover from '@/components/AnnouncementsPopover';
+import AvatarMenu from '@/components/AvatarMenu';
 import ModDashboard from './ModDashboard';
 import HoustonPage from './admin/HoustonPage';
 import AnnouncementsPage from './admin/AnnouncementsPage';
@@ -298,19 +299,26 @@ const AdminDashboard: React.FC = () => {
       }
       setRunningBatches(batchInfos);
 
-      // Avg attendance across active batches: sum of present / sum of (students × sessions occurred)
+      // Avg attendance — active batches only (same 49-day/7-week window as AnalyticsDashboard),
+      // active students only. Uses computeAttendancePct for consistency with ModDashboard.
+      const todayMs = new Date();
       let totPresent = 0;
       let totDenom = 0;
       for (const batch of allBatches) {
-        const bStudents = allStudents.filter(s => s.batch_id === batch.id);
-        if (bStudents.length === 0) continue;
+        if (!batch.start_date) continue;
+        const start = new Date(batch.start_date + 'T00:00:00');
+        const days = Math.floor((todayMs.getTime() - start.getTime()) / 86400000);
+        if (days < 0 || days >= 49) continue; // skip batches outside the active window
+        const bActive = allStudents.filter(s => s.batch_id === batch.id && s.status !== 'dropped');
+        if (bActive.length === 0) continue;
+        const activeIds = new Set(bActive.map(s => s.id));
         const sessionsOccurred = getSessionsOccurred(batch.start_date);
         if (sessionsOccurred === 0) continue;
         const bAtt = allAttendance.filter(a => a.batch_id === batch.id);
-        totPresent += bAtt.filter(a => a.state === 'c').length;
-        totDenom += bStudents.length * sessionsOccurred;
+        totPresent += bAtt.filter(a => a.state === 'c' && activeIds.has(a.student_id)).length;
+        totDenom += bActive.length * sessionsOccurred;
       }
-      setAvgAttendance(totDenom > 0 ? Math.min(Math.round((totPresent / totDenom) * 100), 100) : 0);
+      setAvgAttendance(computeAttendancePct(totPresent, 1, totDenom) ?? 0);
 
       const flags: LowAttendanceFlag[] = [];
       for (const student of allStudents) {
@@ -744,10 +752,7 @@ const AdminDashboard: React.FC = () => {
                   onGotIt={handleAnnGotIt}
                   onVote={handleAnnVote}
                 />
-                <span className="text-xs px-2 py-1 rounded" style={{ background: '#1a3a1a', color: '#4ade80' }}>Admin</span>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style={{ background: '#2a1f00', color: '#fbbf24' }}>
-                  {getInitials(currentProfile?.name || 'A')}
-                </div>
+                <AvatarMenu role="admin" />
               </div>
             </div>
 
@@ -764,6 +769,7 @@ const AdminDashboard: React.FC = () => {
               <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 22, fontWeight: 500, color: attColor }}>{avgAttendance}%</div>
                 <div className="text-muted-foreground" style={{ fontSize: 12 }}>Avg attendance</div>
+                <div className="text-muted-foreground" style={{ fontSize: 10, marginTop: 2 }}>Active batches · active students</div>
               </div>
               <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 22, fontWeight: 500, color: '#fbbf24' }}>{avgDemoScore || '—'}</div>
