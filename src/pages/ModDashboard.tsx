@@ -7,6 +7,7 @@ import { Plus, ChevronDown, ChevronRight, Grid3X3, List, Rocket } from 'lucide-r
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
 import ToDoSidebar, { AdminSummaryPanel } from '@/components/ToDoSidebar';
+import AnnouncementsPopover from '@/components/AnnouncementsPopover';
 import type { Task } from '@/components/ToDoSidebar';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -499,7 +500,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [noteCategory, setNoteCategory] = useState<string>('');
 
   // Announcement state
+  const [allAnnouncements, setAllAnnouncements] = useState<AnnouncementItem[]>([]);
   const [unreadAnnouncements, setUnreadAnnouncements] = useState<AnnouncementItem[]>([]);
+  const [readAnnIds, setReadAnnIds] = useState<Set<string>>(new Set());
   const [annPollOptions, setAnnPollOptions] = useState<AnnPollOption[]>([]);
   const [myAnnVotes, setMyAnnVotes] = useState<Record<string, string>>({}); // announcement_id -> option_id
   const [dismissedAnnIds, setDismissedAnnIds] = useState<Set<string>>(new Set());
@@ -1444,7 +1447,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBatchId, demoScores]);
 
-  // Fetch unread announcements for this mod
+  // Fetch announcements for this mod
   useEffect(() => {
     if (!user || readOnly) return;
     const fetchAnnouncements = async () => {
@@ -1453,15 +1456,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         supabase.from('announcement_reads').select('announcement_id').eq('user_id', user.id),
       ]);
       const readIds = new Set((readsRes.data || []).map((r: { announcement_id: string }) => r.announcement_id));
-      const unread: AnnouncementItem[] = (annRes.data || [])
-        .filter((a: { id: string }) => !readIds.has(a.id))
+      setReadAnnIds(readIds);
+
+      const all: AnnouncementItem[] = (annRes.data || [])
         .map((a: { id: string; title: string; body: string | null; has_poll: boolean; created_at: string; profiles: { name: string } | null }) => ({
           id: a.id, title: a.title, body: a.body, has_poll: a.has_poll, created_at: a.created_at,
           creator_name: a.profiles?.name || 'Admin',
         }));
+      setAllAnnouncements(all);
+
+      const unread = all.filter(a => !readIds.has(a.id));
       setUnreadAnnouncements(unread);
 
-      const pollIds = unread.filter(a => a.has_poll).map(a => a.id);
+      const pollIds = all.filter(a => a.has_poll).map(a => a.id);
       if (pollIds.length > 0) {
         const [optsRes, votesRes] = await Promise.all([
           supabase.from('announcement_poll_options').select('*').in('announcement_id', pollIds).order('position'),
@@ -1479,6 +1486,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const handleAnnGotIt = async (annId: string) => {
     if (!user) return;
     setDismissedAnnIds(prev => new Set([...prev, annId]));
+    setReadAnnIds(prev => new Set([...prev, annId]));
     await supabase.from('announcement_reads').insert({ announcement_id: annId, user_id: user.id });
   };
 
@@ -1490,6 +1498,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     if (existing) {
       await supabase.from('announcement_votes').update({ option_id: optId, voted_at: new Date().toISOString() }).eq('announcement_id', annId).eq('user_id', user.id);
     } else {
+      setReadAnnIds(prev => new Set([...prev, annId]));
       await supabase.from('announcement_votes').insert({ announcement_id: annId, option_id: optId, user_id: user.id });
       await supabase.from('announcement_reads').insert({ announcement_id: annId, user_id: user.id }).then(() => {});
     }
@@ -2312,6 +2321,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             )}
           </div>
           <div className="flex items-center gap-3">
+            <AnnouncementsPopover
+              allAnnouncements={allAnnouncements}
+              readAnnIds={readAnnIds}
+              dismissedAnnIds={dismissedAnnIds}
+              myAnnVotes={myAnnVotes}
+              annPollOptions={annPollOptions}
+              onGotIt={handleAnnGotIt}
+              onVote={handleAnnVote}
+            />
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-amber-bg text-amber-text">
               {(profile?.name || 'M').slice(0, 2).toUpperCase()}
             </div>

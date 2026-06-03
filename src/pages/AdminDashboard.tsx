@@ -5,6 +5,7 @@ import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Tr
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 
 import StudentProgressModal from '@/components/StudentProgressModal';
+import AnnouncementsPopover from '@/components/AnnouncementsPopover';
 import ModDashboard from './ModDashboard';
 import HoustonPage from './admin/HoustonPage';
 import AnnouncementsPage from './admin/AnnouncementsPage';
@@ -77,6 +78,9 @@ interface DemoDay { id: string; batch_id: string; title: string; date: string | 
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
 interface DemoFeedback { id: string; demo_day_id: string; student_id: string; feedback: string; }
 interface RescheduledSession { id: string; batch_id: string; week_number: number; day_name: string; original_date: string | null; new_date: string; reason: string | null; created_by: string; }
+interface AnnouncementItem { id: string; title: string; body: string | null; has_poll: boolean; created_at: string; creator_name: string; }
+interface AnnPollOption { id: string; announcement_id: string; option_text: string; position: number; }
+interface AnnVote { announcement_id: string; user_id: string; option_id: string; }
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
 
@@ -87,7 +91,7 @@ const primaryBtnStyle: React.CSSProperties = { background: '#fff', border: '1px 
 const destructBtnStyle: React.CSSProperties = { background: '#7f1d1d', border: '1px solid #991b1b', color: '#fca5a5', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background 0.1s, transform 0.05s' };
 
 const AdminDashboard: React.FC = () => {
-  const { signOut, profile: currentProfile, session } = useAuth();
+  const { signOut, profile: currentProfile, session, user } = useAuth();
   const [activePage, setActivePage] = useState('dashboard');
   const [moderators, setModerators] = useState<Profile[]>([]);
   const [modSearchQuery, setModSearchQuery] = useState('');
@@ -149,6 +153,13 @@ const AdminDashboard: React.FC = () => {
   // Missing absence notes flags
   interface MissingNoteFlag { modName: string; modId: string; count: number; studentNames: string[]; batchName: string; }
   const [missingNoteFlags, setMissingNoteFlags] = useState<MissingNoteFlag[]>([]);
+
+  // Announcement state (for megaphone popover)
+  const [allAnnouncements, setAllAnnouncements] = useState<AnnouncementItem[]>([]);
+  const [readAnnIds, setReadAnnIds] = useState<Set<string>>(new Set());
+  const [annPollOptions, setAnnPollOptions] = useState<AnnPollOption[]>([]);
+  const [myAnnVotes, setMyAnnVotes] = useState<Record<string, string>>({});
+  const [dismissedAnnIds, setDismissedAnnIds] = useState<Set<string>>(new Set());
 
   useEffect(() => { loadData(); }, []);
 
@@ -333,6 +344,57 @@ const AdminDashboard: React.FC = () => {
     // Preload all batch data for grid views
     if (mods) preloadAllBatchData(mods as Profile[]);
   }, [preloadAllBatchData]);
+
+  // Fetch announcements for megaphone popover
+  useEffect(() => {
+    if (!user) return;
+    const fetchAnnouncements = async () => {
+      const [annRes, readsRes] = await Promise.all([
+        supabase.from('announcements').select('*, profiles!created_by(name)').eq('archived', false).order('created_at', { ascending: false }),
+        supabase.from('announcement_reads').select('announcement_id').eq('user_id', user.id),
+      ]);
+      const readIds = new Set((readsRes.data || []).map((r: { announcement_id: string }) => r.announcement_id));
+      setReadAnnIds(readIds);
+      const all: AnnouncementItem[] = (annRes.data || []).map((a: { id: string; title: string; body: string | null; has_poll: boolean; created_at: string; profiles: { name: string } | null }) => ({
+        id: a.id, title: a.title, body: a.body, has_poll: a.has_poll, created_at: a.created_at,
+        creator_name: a.profiles?.name || 'Admin',
+      }));
+      setAllAnnouncements(all);
+      const pollIds = all.filter(a => a.has_poll).map(a => a.id);
+      if (pollIds.length > 0) {
+        const [optsRes, votesRes] = await Promise.all([
+          supabase.from('announcement_poll_options').select('*').in('announcement_id', pollIds).order('position'),
+          supabase.from('announcement_votes').select('*').eq('user_id', user.id),
+        ]);
+        setAnnPollOptions((optsRes.data || []) as AnnPollOption[]);
+        const voteMap: Record<string, string> = {};
+        for (const v of (votesRes.data || []) as AnnVote[]) voteMap[v.announcement_id] = v.option_id;
+        setMyAnnVotes(voteMap);
+      }
+    };
+    fetchAnnouncements();
+  }, [user]);
+
+  const handleAnnGotIt = async (annId: string) => {
+    if (!user) return;
+    setDismissedAnnIds(prev => new Set([...prev, annId]));
+    setReadAnnIds(prev => new Set([...prev, annId]));
+    await supabase.from('announcement_reads').insert({ announcement_id: annId, user_id: user.id });
+  };
+
+  const handleAnnVote = async (annId: string, optId: string) => {
+    if (!user) return;
+    const existing = myAnnVotes[annId];
+    if (existing === optId) return;
+    setMyAnnVotes(prev => ({ ...prev, [annId]: optId }));
+    if (existing) {
+      await supabase.from('announcement_votes').update({ option_id: optId, voted_at: new Date().toISOString() }).eq('announcement_id', annId).eq('user_id', user.id);
+    } else {
+      setReadAnnIds(prev => new Set([...prev, annId]));
+      await supabase.from('announcement_votes').insert({ announcement_id: annId, option_id: optId, user_id: user.id });
+      await supabase.from('announcement_reads').insert({ announcement_id: annId, user_id: user.id }).then(() => {});
+    }
+  };
 
   // Load activity with filter
   useEffect(() => { loadActivity(); }, [activityFilter, customDateFrom, customDateTo, moderators]);
@@ -673,6 +735,15 @@ const AdminDashboard: React.FC = () => {
           <>
             <div className="flex items-center justify-end mb-6">
               <div className="flex items-center gap-2">
+                <AnnouncementsPopover
+                  allAnnouncements={allAnnouncements}
+                  readAnnIds={readAnnIds}
+                  dismissedAnnIds={dismissedAnnIds}
+                  myAnnVotes={myAnnVotes}
+                  annPollOptions={annPollOptions}
+                  onGotIt={handleAnnGotIt}
+                  onVote={handleAnnVote}
+                />
                 <span className="text-xs px-2 py-1 rounded" style={{ background: '#1a3a1a', color: '#4ade80' }}>Admin</span>
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style={{ background: '#2a1f00', color: '#fbbf24' }}>
                   {getInitials(currentProfile?.name || 'A')}
