@@ -291,6 +291,9 @@ const AnnouncementsPage: React.FC = () => {
                 rows={3}
                 style={{ width: '100%', background: 'hsl(var(--secondary))', border: '1px solid #333', borderRadius: 6, padding: '8px 10px', fontSize: 13, color: 'hsl(var(--foreground))', resize: 'none', outline: 'none', fontFamily: 'Inter, sans-serif' }}
               />
+              <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                Tip: use <code style={{ fontFamily: 'monospace', color: 'hsl(var(--foreground))' }}>{'{name}'}</code> for the mod's first name or <code style={{ fontFamily: 'monospace', color: 'hsl(var(--foreground))' }}>{'{batch}'}</code> for their batch
+              </div>
             </div>
 
             {/* Poll section — toggle only for new; locked for edits */}

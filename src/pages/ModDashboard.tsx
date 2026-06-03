@@ -8,6 +8,7 @@ import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
 import ToDoSidebar, { AdminSummaryPanel } from '@/components/ToDoSidebar';
 import AnnouncementsPopover from '@/components/AnnouncementsPopover';
+import { renderAnnouncementContent } from '@/lib/announcementUtils';
 import AvatarMenu from '@/components/AvatarMenu';
 import type { Task } from '@/components/ToDoSidebar';
 import {
@@ -542,6 +543,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [reverseDropConfirm, setReverseDropConfirm] = useState<Student | null>(null);
 
   const activeBatch = batches.find(b => b.id === activeBatchId);
+  const firstName = (profile?.name || '').split(' ')[0] || '';
+  const annBatchName = activeBatch?.name || 'your batch';
 
   const showSaved = () => {
     setSavedVisible(true);
@@ -2330,6 +2333,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               annPollOptions={annPollOptions}
               onGotIt={handleAnnGotIt}
               onVote={handleAnnVote}
+              firstName={firstName}
+              batchName={annBatchName}
             />
             <AvatarMenu role="moderator" batchLabel={activeBatch?.name} />
           </div>
@@ -2766,7 +2771,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                 {/* Body */}
                 {ann.body && (
                   <p className="text-muted-foreground" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: opts.length ? 12 : 0 }}>
-                    {ann.body}
+                    {renderAnnouncementContent(ann.body, { firstName, batchName: annBatchName })}
                   </p>
                 )}
                 {/* Poll options */}
