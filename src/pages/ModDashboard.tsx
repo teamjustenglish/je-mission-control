@@ -2759,8 +2759,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               }}>
                 {/* Header row */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'hsl(var(--score-amber))', ...emojiStyle }}>
-                    📣 New announcement · {timeAgoShort(ann.created_at)}
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'hsl(var(--score-amber))', ...emojiStyle }}>
+                    📣 {timeAgoShort(ann.created_at)}
                   </span>
                   <span className="text-muted-foreground" style={{ fontSize: 11, flexShrink: 0, marginLeft: 8 }}>from {ann.creator_name}</span>
                 </div>
