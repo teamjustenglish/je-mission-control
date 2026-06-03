@@ -1,0 +1,1 @@
+ALTER FUNCTION public.get_student_share_data(text) VOLATILE;
