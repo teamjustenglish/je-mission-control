@@ -310,8 +310,9 @@ Deno.serve(async (req) => {
     const tokensInput: number = completion?.usage?.input_tokens ?? 0
     const tokensOutput: number = completion?.usage?.output_tokens ?? 0
     const costUsd = (tokensInput * INPUT_COST_PER_TOKEN) + (tokensOutput * OUTPUT_COST_PER_TOKEN)
-    // Fire-and-forget — don't let a logging failure block the response
-    supabaseAdmin.from('houston_query_log').insert({
+    // Await before returning — Supabase Edge Functions (Deno Deploy) kill pending
+    // promises when the Response is sent, so fire-and-forget silently drops the insert.
+    await supabaseAdmin.from('houston_query_log').insert({
       user_id: caller.id,
       user_role: 'admin',
       houston_variant: 'admin',
@@ -320,7 +321,7 @@ Deno.serve(async (req) => {
       tokens_input: tokensInput,
       tokens_output: tokensOutput,
       cost_usd: costUsd,
-    }).then(() => {}).catch((err: unknown) => console.error('houston log error:', err))
+    }).catch((err: unknown) => console.error('houston log error:', err))
 
     return new Response(JSON.stringify({ answer }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
