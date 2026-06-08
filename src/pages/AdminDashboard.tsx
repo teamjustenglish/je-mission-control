@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle, Activity } from 'lucide-react';
+import { BarChart3, Users, BookOpen, Plus, Download, Settings, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle, Activity } from 'lucide-react';
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 
 import StudentProgressModal from '@/components/StudentProgressModal';
-import AnnouncementsPopover from '@/components/AnnouncementsPopover';
-import AvatarMenu from '@/components/AvatarMenu';
 import ModDashboard from './ModDashboard';
 import HoustonPage from './admin/HoustonPage';
 import HoustonUsagePage from './admin/HoustonUsagePage';
@@ -20,23 +18,6 @@ interface Profile {
   role: string;
   created_at: string;
   last_sign_in?: string | null;
-}
-
-interface ActivityLogEntry {
-  id: string;
-  mod_id: string;
-  mod_name: string;
-  action_type: string;
-  description: string;
-  batch_name: string;
-  created_at: string;
-}
-
-interface LowAttendanceFlag {
-  studentName: string;
-  batchName: string;
-  modName: string;
-  pct: number;
 }
 
 interface ModCode {
@@ -56,16 +37,6 @@ interface ModInvite {
   created_at: string;
   uses: number;
   revoked_at: string | null;
-}
-
-interface BatchInfo {
-  id: string;
-  name: string;
-  mod_id: string;
-  modName: string;
-  studentCount: number;
-  attendancePct: number | null;
-  weekNumber: number;
 }
 
 interface ModBatchCard {
@@ -90,10 +61,6 @@ interface DemoDay { id: string; batch_id: string; title: string; date: string | 
 interface DemoScore { id: string; demo_day_id: string; student_id: string; criterion: string; score: number; }
 interface DemoFeedback { id: string; demo_day_id: string; student_id: string; feedback: string; }
 interface RescheduledSession { id: string; batch_id: string; week_number: number; day_name: string; original_date: string | null; new_date: string; reason: string | null; created_by: string; }
-interface AnnouncementItem { id: string; title: string; body: string | null; has_poll: boolean; created_at: string; creator_name: string; }
-interface AnnPollOption { id: string; announcement_id: string; option_text: string; position: number; }
-interface AnnVote { announcement_id: string; user_id: string; option_id: string; }
-
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
 
 const btnPress = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.transform = 'scale(0.98)'; };
@@ -104,16 +71,10 @@ const destructBtnStyle: React.CSSProperties = { background: '#7f1d1d', border: '
 
 const AdminDashboard: React.FC = () => {
   const { signOut, profile: currentProfile, session, user } = useAuth();
-  const [activePage, setActivePage] = useState('dashboard');
+  const [activePage, setActivePage] = useState('analytics');
   const [moderators, setModerators] = useState<Profile[]>([]);
   const [modSearchQuery, setModSearchQuery] = useState('');
   const [modCodes, setModCodes] = useState<ModCode[]>([]);
-  const [batchCount, setBatchCount] = useState(0);
-  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
-  const [lowFlags, setLowFlags] = useState<LowAttendanceFlag[]>([]);
-  const [avgAttendance, setAvgAttendance] = useState(0);
-  const [avgDemoScore, setAvgDemoScore] = useState(0);
-  const [runningBatches, setRunningBatches] = useState<BatchInfo[]>([]);
   const [hoveredModId, setHoveredModId] = useState<string | null>(null);
 
   // Add mod modal
@@ -128,13 +89,6 @@ const AdminDashboard: React.FC = () => {
   // Delete mod modal
   const [deleteModConfirm, setDeleteModConfirm] = useState<Profile | null>(null);
 
-  // Activity filter
-  const [activityFilter, setActivityFilter] = useState<'today' | '7days' | 'custom'>('7days');
-  const [customDateFrom, setCustomDateFrom] = useState('');
-  const [customDateTo, setCustomDateTo] = useState('');
-
-  // Inactive mods warning
-  const [inactiveMods, setInactiveMods] = useState<Profile[]>([]);
 
   // FEATURE 1: Expanded mod rows
   const [expandedModId, setExpandedModId] = useState<string | null>(null);
@@ -167,16 +121,6 @@ const AdminDashboard: React.FC = () => {
   // Student progress modal
   const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; startDate?: string | null; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
 
-  // Missing absence notes flags
-  interface MissingNoteFlag { modName: string; modId: string; count: number; studentNames: string[]; batchName: string; }
-  const [missingNoteFlags, setMissingNoteFlags] = useState<MissingNoteFlag[]>([]);
-
-  // Announcement state (for megaphone popover)
-  const [allAnnouncements, setAllAnnouncements] = useState<AnnouncementItem[]>([]);
-  const [readAnnIds, setReadAnnIds] = useState<Set<string>>(new Set());
-  const [annPollOptions, setAnnPollOptions] = useState<AnnPollOption[]>([]);
-  const [myAnnVotes, setMyAnnVotes] = useState<Record<string, string>>({});
-  const [dismissedAnnIds, setDismissedAnnIds] = useState<Set<string>>(new Set());
 
   useEffect(() => { loadData(); }, []);
 
@@ -233,39 +177,6 @@ const AdminDashboard: React.FC = () => {
       };
     });
     setAllStudentsData(studentsPageData);
-
-    // Compute missing absence note flags (only for absences older than 24h based on batch schedule)
-    const now = Date.now();
-    const oneDayMs = 24 * 60 * 60 * 1000;
-    const flagsMap = new Map<string, MissingNoteFlag>();
-    for (const batch of allBatches) {
-      if (!batch.start_date) continue;
-      const batchStart = new Date(batch.start_date).getTime();
-      const mod = mods.find(m => m.id === batch.mod_id);
-      if (!mod) continue;
-      const batchStudents = allStudents.filter(s => s.batch_id === batch.id && s.status !== 'dropped');
-      const batchAtt = allAttendance.filter(a => a.batch_id === batch.id);
-      for (const student of batchStudents) {
-        const studentAtt = batchAtt.filter(a => a.student_id === student.id && a.state === 'x' && !a.absence_note && !a.absence_category);
-        for (const att of studentAtt) {
-          // Estimate when this session occurred
-          const weekNum = Math.floor(att.session_index / 4);
-          const dayInWeek = att.session_index % 4;
-          const dayOffsets = [0, 1, 3, 4]; // Mon, Tue, Thu, Fri
-          const sessionDate = batchStart + (weekNum * 7 + dayOffsets[dayInWeek]) * oneDayMs;
-          if (now - sessionDate > oneDayMs) {
-            const key = `${mod.id}-${batch.id}`;
-            if (!flagsMap.has(key)) {
-              flagsMap.set(key, { modName: mod.name || mod.email, modId: mod.id, count: 0, studentNames: [], batchName: batch.name });
-            }
-            const flag = flagsMap.get(key)!;
-            flag.count++;
-            if (!flag.studentNames.includes(student.name)) flag.studentNames.push(student.name);
-          }
-        }
-      }
-    }
-    setMissingNoteFlags(Array.from(flagsMap.values()));
   }, []);
 
   const loadData = useCallback(async () => {
@@ -275,191 +186,14 @@ const AdminDashboard: React.FC = () => {
     const { data: codes } = await supabase.from('moderator_codes').select('*').order('created_at', { ascending: false });
     if (codes) setModCodes(codes as ModCode[]);
 
-    const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: allBatches } = await supabase.from('batches').select('*').gte('created_at', threeMonthsAgo);
-    setBatchCount(allBatches?.length || 0);
-
-    const activeBatchIds = (allBatches || []).map(b => b.id);
-
-    let allStudents: any[] = [];
-    let allAttendance: any[] = [];
-    if (activeBatchIds.length > 0) {
-      const { data: s } = await supabase.from('students').select('*').in('batch_id', activeBatchIds);
-      allStudents = s || [];
-      const { data: a } = await supabase.from('attendance').select('*').in('batch_id', activeBatchIds);
-      allAttendance = a || [];
-    }
-
-    if (allBatches) {
-      const batchInfos: BatchInfo[] = [];
-      for (const batch of allBatches) {
-        const bStudents = allStudents.filter(s => s.batch_id === batch.id);
-        if (bStudents.length === 0) continue;
-        const bAttendance = allAttendance.filter(a => a.batch_id === batch.id);
-        let weekNum: number;
-        if (batch.start_date) {
-          weekNum = getCurrentWeek(batch.start_date) ?? 6;
-        } else {
-          const sessionsLogged = new Set(bAttendance.map(a => a.session_index)).size;
-          weekNum = Math.min(Math.ceil(sessionsLogged / 4), 6) || 1;
-        }
-        const sessionsOccurred = getSessionsOccurred(batch.start_date);
-        const present = bAttendance.filter(a => a.state === 'c').length;
-        const pct = computeAttendancePct(present, bStudents.length, sessionsOccurred);
-        const mod = mods?.find(m => m.id === batch.mod_id);
-        batchInfos.push({
-          id: batch.id, name: batch.name, mod_id: batch.mod_id,
-          modName: (mod as any)?.name || 'Unknown',
-          studentCount: bStudents.length, attendancePct: pct, weekNumber: weekNum,
-        });
-      }
-      setRunningBatches(batchInfos);
-
-      // Avg attendance — active batches only (same 49-day/7-week window as AnalyticsDashboard),
-      // active students only. Uses computeAttendancePct for consistency with ModDashboard.
-      const todayMs = new Date();
-      let totPresent = 0;
-      let totDenom = 0;
-      for (const batch of allBatches) {
-        if (!batch.start_date) continue;
-        const start = new Date(batch.start_date + 'T00:00:00');
-        const days = Math.floor((todayMs.getTime() - start.getTime()) / 86400000);
-        if (days < 0 || days >= 49) continue; // skip batches outside the active window
-        const bActive = allStudents.filter(s => s.batch_id === batch.id && s.status !== 'dropped');
-        if (bActive.length === 0) continue;
-        const activeIds = new Set(bActive.map(s => s.id));
-        const sessionsOccurred = getSessionsOccurred(batch.start_date);
-        if (sessionsOccurred === 0) continue;
-        const bAtt = allAttendance.filter(a => a.batch_id === batch.id);
-        totPresent += bAtt.filter(a => a.state === 'c' && activeIds.has(a.student_id)).length;
-        totDenom += bActive.length * sessionsOccurred;
-      }
-      setAvgAttendance(computeAttendancePct(totPresent, 1, totDenom) ?? 0);
-
-      const flags: LowAttendanceFlag[] = [];
-      for (const student of allStudents) {
-        const studentAtt = allAttendance.filter(a => a.student_id === student.id);
-        if (studentAtt.length === 0) continue;
-        const batch = allBatches.find(b => b.id === student.batch_id);
-        if (!batch?.start_date) continue;
-        const sessionsOccurred = getSessionsOccurred(batch.start_date);
-        if (sessionsOccurred === 0) continue;
-        const p = studentAtt.filter(a => a.state === 'c').length;
-        const pct = computeAttendancePct(p, 1, sessionsOccurred);
-        if (pct !== null && pct < 70) {
-          const mod = mods?.find(m => m.id === batch?.mod_id);
-          flags.push({ studentName: student.name, batchName: batch?.name || '', modName: (mod as any)?.name || '', pct });
-        }
-      }
-      setLowFlags(flags);
-    }
-
-    if (activeBatchIds.length > 0) {
-      const { data: demoDays } = await supabase.from('demo_days').select('id').in('batch_id', activeBatchIds);
-      const demoDayIds = (demoDays || []).map(d => d.id);
-      if (demoDayIds.length > 0) {
-        const { data: allScores } = await supabase.from('demo_scores').select('score').in('demo_day_id', demoDayIds);
-        if (allScores && allScores.length > 0) {
-          const avg = allScores.reduce((sum, s) => sum + Number(s.score), 0) / allScores.length;
-          setAvgDemoScore(Math.round(avg * 10) / 10);
-        } else { setAvgDemoScore(0); }
-      } else { setAvgDemoScore(0); }
-    } else { setAvgDemoScore(0); }
     // Invite links
     const { data: inviteData } = await (supabase as any).from('mod_invites').select('*').order('created_at', { ascending: false });
     if (inviteData) setInvites(inviteData as ModInvite[]);
 
-    // Preload all batch data for grid views
+    // Preload all batch data for grid views and Students page
     if (mods) preloadAllBatchData(mods as Profile[]);
   }, [preloadAllBatchData]);
 
-  // Fetch announcements for megaphone popover
-  useEffect(() => {
-    if (!user) return;
-    const fetchAnnouncements = async () => {
-      const [annRes, readsRes] = await Promise.all([
-        supabase.from('announcements').select('*, profiles!created_by(name)').eq('archived', false).order('created_at', { ascending: false }),
-        supabase.from('announcement_reads').select('announcement_id').eq('user_id', user.id),
-      ]);
-      const readIds = new Set((readsRes.data || []).map((r: { announcement_id: string }) => r.announcement_id));
-      setReadAnnIds(readIds);
-      const all: AnnouncementItem[] = (annRes.data || []).map((a: { id: string; title: string; body: string | null; has_poll: boolean; created_at: string; profiles: { name: string } | null }) => ({
-        id: a.id, title: a.title, body: a.body, has_poll: a.has_poll, created_at: a.created_at,
-        creator_name: a.profiles?.name || 'Admin',
-      }));
-      setAllAnnouncements(all);
-      const pollIds = all.filter(a => a.has_poll).map(a => a.id);
-      if (pollIds.length > 0) {
-        const [optsRes, votesRes] = await Promise.all([
-          supabase.from('announcement_poll_options').select('*').in('announcement_id', pollIds).order('position'),
-          supabase.from('announcement_votes').select('*').eq('user_id', user.id),
-        ]);
-        setAnnPollOptions((optsRes.data || []) as AnnPollOption[]);
-        const voteMap: Record<string, string> = {};
-        for (const v of (votesRes.data || []) as AnnVote[]) voteMap[v.announcement_id] = v.option_id;
-        setMyAnnVotes(voteMap);
-      }
-    };
-    fetchAnnouncements();
-  }, [user]);
-
-  const handleAnnGotIt = async (annId: string) => {
-    if (!user) return;
-    setDismissedAnnIds(prev => new Set([...prev, annId]));
-    setReadAnnIds(prev => new Set([...prev, annId]));
-    await supabase.from('announcement_reads').insert({ announcement_id: annId, user_id: user.id });
-  };
-
-  const handleAnnVote = async (annId: string, optId: string) => {
-    if (!user) return;
-    const existing = myAnnVotes[annId];
-    if (existing === optId) return;
-    setMyAnnVotes(prev => ({ ...prev, [annId]: optId }));
-    if (existing) {
-      await supabase.from('announcement_votes').update({ option_id: optId, voted_at: new Date().toISOString() }).eq('announcement_id', annId).eq('user_id', user.id);
-    } else {
-      setReadAnnIds(prev => new Set([...prev, annId]));
-      await supabase.from('announcement_votes').insert({ announcement_id: annId, option_id: optId, user_id: user.id });
-      await supabase.from('announcement_reads').insert({ announcement_id: annId, user_id: user.id }).then(() => {});
-    }
-  };
-
-  // Load activity with filter
-  useEffect(() => { loadActivity(); }, [activityFilter, customDateFrom, customDateTo, moderators]);
-
-  const loadActivity = async () => {
-    let query = supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(50);
-    const now = new Date();
-    if (activityFilter === 'today') {
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      query = query.gte('created_at', todayStart);
-    } else if (activityFilter === '7days') {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      query = query.gte('created_at', weekAgo);
-    } else if (activityFilter === 'custom' && customDateFrom) {
-      query = query.gte('created_at', customDateFrom + 'T00:00:00Z');
-      if (customDateTo) query = query.lte('created_at', customDateTo + 'T23:59:59Z');
-    }
-    const { data: logs } = await query;
-    if (logs) setActivityLog(logs);
-
-    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: allLogs } = await supabase.from('activity_log').select('mod_id, created_at').order('created_at', { ascending: false });
-    if (allLogs && moderators.length > 0) {
-      const modActivity = new Map<string, string>();
-      for (const log of allLogs) {
-        if (!modActivity.has(log.mod_id)) modActivity.set(log.mod_id, log.created_at);
-      }
-      const inactive = moderators.filter(m => {
-        const latest = modActivity.get(m.id);
-        if (!latest) return false;
-        return latest < threeDaysAgo;
-      });
-      setInactiveMods(inactive);
-    } else {
-      setInactiveMods([]);
-    }
-  };
 
   const handleAddModerator = async () => {
     if (!newModEmail.trim() || !newModName.trim()) return;
@@ -634,29 +368,8 @@ const AdminDashboard: React.FC = () => {
     return `${days} day${days > 1 ? 's' : ''} ago`;
   };
 
-  const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  };
-
-  const getActionBadge = (type: string) => {
-    const map: Record<string, { bg: string; text: string; label: string }> = {
-      attendance_marked: { bg: '#1a3a1a', text: '#4ade80', label: 'marked' },
-      demo_score_added: { bg: '#2a2000', text: '#fbbf24', label: 'demo scores' },
-      absence_note_added: { bg: '#2a1a3a', text: '#c084fc', label: 'absence note' },
-      student_added: { bg: '#1a2a3a', text: '#60a5fa', label: 'new student' },
-      student_removed: { bg: '#2a2a2a', text: '#888', label: 'removed' },
-      batch_created: { bg: '#1a2a3a', text: '#60a5fa', label: 'new batch' },
-      session_rescheduled: { bg: '#2a1f00', text: '#f97316', label: 'rescheduled' },
-      report_exported: { bg: '#1a2a2a', text: '#22d3ee', label: 'report' },
-      batch_edited: { bg: '#2a2a2a', text: '#888', label: 'edited' },
-      batch_deleted: { bg: '#2a2a2a', text: '#888', label: 'deleted' },
-    };
-    return map[type] || { bg: '#2a2a2a', text: '#888', label: type };
-  };
-
   const sidebarItems: { id: string; label: string; icon: typeof BarChart3; section: string; badge?: string }[] = [
     { id: 'analytics', label: 'Analytics', icon: BarChart3, section: 'OVERVIEW' },
-    { id: 'dashboard', label: "Bird's eye", icon: BarChart3, section: 'OVERVIEW' },
     { id: 'moderators', label: 'Moderators', icon: Users, section: 'OVERVIEW' },
     { id: 'students', label: 'Students', icon: GraduationCap, section: 'OVERVIEW' },
     { id: 'batches', label: 'All batches', icon: BookOpen, section: 'OVERVIEW' },
@@ -682,8 +395,6 @@ const AdminDashboard: React.FC = () => {
     for (let i = 0; i < modId.length; i++) hash = ((hash << 5) - hash) + modId.charCodeAt(i);
     return colors[Math.abs(hash) % colors.length];
   };
-
-  const attColor = avgAttendance >= 70 ? '#4ade80' : avgAttendance >= 50 ? '#fbbf24' : '#f87171';
 
   const getModStatus = (mod: Profile): { status: 'pending' | 'active' | 'inactive'; label: string; bg: string; text: string } => {
     const code = modCodes.find(c => c.mod_id === mod.id);
@@ -781,187 +492,6 @@ const AdminDashboard: React.FC = () => {
 
       {/* Main */}
       <div className="flex-1 p-6 overflow-y-auto">
-        {activePage === 'dashboard' && (
-          <>
-            <div className="flex items-center justify-end mb-6">
-              <div className="flex items-center gap-2">
-                <AnnouncementsPopover
-                  allAnnouncements={allAnnouncements}
-                  readAnnIds={readAnnIds}
-                  dismissedAnnIds={dismissedAnnIds}
-                  myAnnVotes={myAnnVotes}
-                  annPollOptions={annPollOptions}
-                  onGotIt={handleAnnGotIt}
-                  onVote={handleAnnVote}
-                  firstName={(currentProfile?.name || '').split(' ')[0] || ''}
-                  batchName=""
-                />
-                <AvatarMenu role="admin" />
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
-              <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{moderators.length}</div>
-                <div className="text-muted-foreground" style={{ fontSize: 12 }}>Moderators</div>
-              </div>
-              <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{batchCount}</div>
-                <div className="text-muted-foreground" style={{ fontSize: 12 }}>Running batches</div>
-              </div>
-              <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 22, fontWeight: 500, color: attColor }}>{avgAttendance}%</div>
-                <div className="text-muted-foreground" style={{ fontSize: 12 }}>Avg attendance</div>
-                <div className="text-muted-foreground" style={{ fontSize: 10, marginTop: 2 }}>Active batches · active students</div>
-              </div>
-              <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 22, fontWeight: 500, color: '#fbbf24' }}>{avgDemoScore || '—'}</div>
-                <div className="text-muted-foreground" style={{ fontSize: 12 }}>Avg demo score</div>
-              </div>
-            </div>
-
-            {/* Running batches + Low attendance */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-foreground">Running batches</h2>
-                  <span className="text-sm text-muted-foreground">{runningBatches.length} batches</span>
-                </div>
-                <div className="space-y-3">
-                  {runningBatches.map(batch => {
-                    const pct = batch.attendancePct;
-                    const barColor = pct === null ? '#555' : pct >= 70 ? '#4ade80' : pct >= 50 ? '#fbbf24' : '#f87171';
-                    return (
-                      <div key={batch.id}>
-                        <div className="flex items-center justify-between mb-1">
-                          <div>
-                            <p className="text-sm" style={{ fontWeight: 500, color: '#e8e8e8' }}>{batch.modName}</p>
-                            <p className="text-xs" style={{ color: '#888' }}>{batch.name} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
-                          </div>
-                          <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {pct === null ? '—' : `${pct}%`}</span>
-                        </div>
-                        <div style={{ height: 4, borderRadius: 2, background: '#2a2a2a' }}>
-                          <div style={{ height: '100%', width: `${pct ?? 0}%`, borderRadius: 2, background: barColor, transition: 'width 0.3s' }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {runningBatches.length === 0 && <p className="text-sm text-muted-foreground">No running batches</p>}
-                </div>
-              </div>
-
-              <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-foreground">Low attendance flags</h2>
-                  <span style={{ color: '#f87171' }} className="text-sm">{lowFlags.length} students</span>
-                </div>
-                <div className="space-y-3">
-                  {lowFlags.map((flag, i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <AlertTriangle className="w-4 h-4" style={{ color: flag.pct >= 50 ? '#fbbf24' : '#f87171' }} />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{flag.studentName}</p>
-                          <p className="text-xs text-muted-foreground">{flag.batchName} · {flag.modName}</p>
-                        </div>
-                      </div>
-                      <span className="text-sm font-medium" style={{ color: flag.pct >= 50 ? '#fbbf24' : '#f87171' }}>{flag.pct}%</span>
-                    </div>
-                  ))}
-                  {lowFlags.length === 0 && <p className="text-sm text-muted-foreground">No low attendance flags</p>}
-                </div>
-                {lowFlags.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-4" style={{ fontStyle: 'italic' }}>Flagged when below 70% of sessions attended so far</p>
-                )}
-              </div>
-            </div>
-
-            {/* Activity feed */}
-            <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 16px' }}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-foreground">Recent activity</h2>
-                <div className="flex items-center gap-2">
-                  {(['today', '7days', 'custom'] as const).map(f => (
-                    <button key={f} onClick={() => setActivityFilter(f)}
-                      style={{
-                        padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                        background: activityFilter === f ? '#fff' : '#2a2a2a',
-                        color: activityFilter === f ? '#111' : '#888',
-                        border: `1px solid ${activityFilter === f ? '#fff' : '#333'}`,
-                        fontWeight: activityFilter === f ? 600 : 400,
-                      }}>
-                      {f === 'today' ? 'Today' : f === '7days' ? 'Last 7 days' : 'Custom'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {activityFilter === 'custom' && (
-                <div className="flex items-center gap-2 mb-4">
-                  <input type="date" value={customDateFrom} onChange={(e) => setCustomDateFrom(e.target.value)}
-                    style={{ background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#F0F0F0' }} />
-                  <span className="text-xs text-muted-foreground">to</span>
-                  <input type="date" value={customDateTo} onChange={(e) => setCustomDateTo(e.target.value)}
-                    style={{ background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '4px 8px', fontSize: 12, color: '#F0F0F0' }} />
-                </div>
-              )}
-              <div>
-                {activityLog.map(entry => {
-                  const badge = getActionBadge(entry.action_type);
-                  const avatarColor = getModAvatarColor(entry.mod_id);
-                  return (
-                    <div key={entry.id} className="flex items-start gap-3 py-3" style={{ borderBottom: '1px solid hsl(var(--row-border))' }}>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5"
-                        style={{ background: avatarColor.bg, color: avatarColor.text }}>
-                        {getInitials(entry.mod_name || '?')}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground">
-                          <span className="font-medium">{entry.mod_name}</span>{' '}
-                          {entry.description}{' '}
-                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: badge.bg, color: badge.text }}>{badge.label}</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">{entry.batch_name} · {timeAgo(entry.created_at)}</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">{formatTime(entry.created_at)}</span>
-                    </div>
-                  );
-                })}
-                {activityLog.length === 0 && (
-                  <div className="text-center py-8">
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-                    <p style={{ fontSize: 14, color: '#888' }}>No activity yet</p>
-                    <p style={{ fontSize: 12, color: '#555' }}>Activity will appear here as moderators use the app</p>
-                  </div>
-                )}
-              </div>
-              {inactiveMods.length > 0 && (
-                <div className="mt-4 space-y-1" style={{ borderTop: '1px solid hsl(var(--row-border))', paddingTop: 12 }}>
-                  {inactiveMods.map(mod => (
-                    <p key={mod.id} style={{ fontSize: 12, color: '#fbbf24' }}>
-                      ⚠️ {mod.name || mod.email} has not logged any activity in the last 3 days
-                    </p>
-                  ))}
-                </div>
-              )}
-              {missingNoteFlags.length > 0 && (
-                <div className="mt-4 space-y-1" style={{ borderTop: '1px solid hsl(var(--row-border))', paddingTop: 12 }}>
-                  {missingNoteFlags.map((flag, i) => (
-                    <div key={i} className="flex items-start gap-3 py-2" style={{ background: '#1a1200', borderRadius: 8, padding: '10px 12px', marginBottom: 4 }}>
-                      <div className="flex-1">
-                        <p style={{ fontSize: 12, color: '#d4920a' }}>
-                          {flag.modName} has {flag.count} absence{flag.count > 1 ? 's' : ''} with no reason added — {flag.studentNames.join(', ')} · {flag.batchName}
-                        </p>
-                      </div>
-                      <span className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: '#2a1f00', color: '#d4920a' }}>missing notes</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
         {activePage === 'moderators' && (
           <div>
             <div className="flex items-center justify-between mb-4">
