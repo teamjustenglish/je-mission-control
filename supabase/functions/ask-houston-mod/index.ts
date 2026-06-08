@@ -13,8 +13,15 @@ const MOD_HOUSTON_SYSTEM = `You are Houston — an AI assistant inside Mission C
 - A "batch" is one cohort run by you (the mod). It runs for 6 weeks. Each week has 4 sessions (Mon, Tue, Thu, Fri) — 24 sessions total, indexed 0-23. Week N covers session indexes (N-1)*4 to (N-1)*4+3.
 - "students" belong to a batch. A student's status is "active" or "dropped". A dropped student has a drop reason and a drop date.
 - "attendance" marks each session per student: present (c), absent (x), or not-yet-marked (e). An "absence streak" is consecutive absences in the most recent sessions — a streak of 4+ means a student is at real risk of dropping.
-- "demo days" are graded checkpoints. Each demo is scored on 4 criteria, each 0-5, so a demo total is out of 20. There are 3 demo days across the batch.
-- "loose ends" are students marked absent without a reason set.
+- "demo days" are graded checkpoints. Each demo is scored on 4 criteria, each 0-4, so a demo total is out of 16. There are 3 demo days across the batch.
+- "loose ends" are five categories of tasks that still need to be completed (details below).
+
+# Loose ends — five categories
+1. **Untouched sessions** — sessions not yet marked present or absent (batch field: \`untouchedSessions\`)
+2. **Absences without a reason** — sessions marked absent but no absence category or note added yet (batch field: \`absencesWithNoReason\`)
+3. **Demo day scores missing** — student attended or did a make-up but hasn't been fully scored on all 4 criteria (per demo day: \`scoresMissing\` in \`demoDaySummaries\`)
+4. **Demo day feedback missing** — student is fully scored but no written feedback has been saved yet (per demo day: \`feedbackMissing\` in \`demoDaySummaries\`)
+5. **Demo day make-up needed** — student was absent on demo day and no make-up date is scheduled yet (per demo day: \`makeupNeeded\` in \`demoDaySummaries\`)
 
 # The data you receive
 The user message contains a JSON snapshot of the mod's own batches and today's date. Treat that JSON as the single source of truth. Never invent names, numbers, or data that isn't in the snapshot.
@@ -51,7 +58,7 @@ Tone rules:
 # Example answers (right tone)
 - "Your batch is in good shape overall. 87% attendance through week 3, 2 students with open absences that need a reason added."
 - "Ahamed has missed 5 sessions in a row — that's the highest streak in your batch. If he misses the next session, you'll need to make a drop call."
-- "Demo Day 1 scores are in for 6 of your 8 students. Average is 14.2/20. Two students — Priya and Kasun — haven't been scored yet."
+- "Demo Day 1 scores are in for 6 of your 8 students. Average is 11.2/16. Two students — Priya and Kasun — haven't been scored yet."
 - "I don't have data on that yet — it may not be tracked in Mission Control. This needs admin help — message Dave on Discord."`
 
 interface AttendanceRow {
@@ -138,6 +145,7 @@ Deno.serve(async (req) => {
     let attendance: AttendanceRow[] = []
     let demoDays: any[] = []
     let demoScores: any[] = []
+    let demoFeedback: any[] = []
 
     if (batchIds.length > 0) {
       const [studentsRes, attendanceRes, demoDaysRes] = await Promise.all([
@@ -160,11 +168,18 @@ Deno.serve(async (req) => {
 
       const demoDayIds = demoDays.map((d: any) => d.id)
       if (demoDayIds.length > 0) {
-        const { data: scoresData } = await supabaseAdmin
-          .from('demo_scores')
-          .select('demo_day_id, student_id, criterion, score')
-          .in('demo_day_id', demoDayIds)
-        demoScores = scoresData ?? []
+        const [scoresRes, feedbackRes] = await Promise.all([
+          supabaseAdmin
+            .from('demo_scores')
+            .select('demo_day_id, student_id, criterion, score, makeup_date')
+            .in('demo_day_id', demoDayIds),
+          supabaseAdmin
+            .from('demo_feedback')
+            .select('demo_day_id, student_id, feedback')
+            .in('demo_day_id', demoDayIds),
+        ])
+        demoScores = scoresRes.data ?? []
+        demoFeedback = feedbackRes.data ?? []
       }
     }
 
@@ -195,7 +210,8 @@ Deno.serve(async (req) => {
           : null
 
         // Loose ends: absent sessions with no reason set
-        const looseEnds = rows.filter((r) => r.state === 'x' && !r.absence_category && !r.absence_note).length
+        const absencesWithNoReason = rows.filter((r) => r.state === 'x' && !r.absence_category && !r.absence_note).length
+        const untouchedSessions = rows.filter((r) => r.state === 'e').length
 
         return {
           name: student.name || '(unnamed)',
@@ -207,18 +223,67 @@ Deno.serve(async (req) => {
           sessionsAbsent: absent,
           sessionsMarked: marked,
           currentAbsenceStreak: computeStreak(rows),
-          absencesWithNoReason: looseEnds,
-          avgDemoScoreOutOf20: avgDemoScore,
+          absencesWithNoReason,
+          untouchedSessions,
+          avgDemoScoreOutOf16: avgDemoScore,
           demoDaysScored: totals.length,
         }
       })
 
       const active = studentSummaries.filter((s) => s.status !== 'dropped')
+      const batchActiveStudents = batchStudents.filter((s: any) => s.status !== 'dropped')
       const pcts = active.map((s) => s.attendancePct).filter((p): p is number => p !== null)
       const batchAvgAttendance = pcts.length > 0
         ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length)
         : null
-      const totalLooseEnds = active.reduce((sum, s) => sum + s.absencesWithNoReason, 0)
+
+      const totalAbsencesWithNoReason = active.reduce((sum, s) => sum + s.absencesWithNoReason, 0)
+      const totalUntouchedSessions = active.reduce((sum, s) => sum + s.untouchedSessions, 0)
+
+      // Per-demo-day loose-end counts (past demo days only).
+      // Absence check uses the standard Friday session index (dayNumber * 8 - 1).
+      // Rescheduled demo days are an edge case not tracked here.
+      const CRITERIA_COUNT = 4
+      const demoDaySummaries = batchDemoDays
+        .filter((d: any) => d.date && new Date(d.date + 'T00:00:00Z') <= today)
+        .map((d: any) => {
+          const ddId = d.id
+          const baseIdx = d.day_number * 8 - 1
+
+          const absentStudents = batchActiveStudents.filter((s: any) => {
+            const att = attendance.find((a) => a.student_id === s.id && a.session_index === baseIdx)
+            return att?.state === 'x'
+          })
+
+          // Students due to be scored: attended, or absent-with-makeup
+          const dueStudents = batchActiveStudents.filter((s: any) => {
+            const att = attendance.find((a) => a.student_id === s.id && a.session_index === baseIdx)
+            if (!att || att.state === 'e') return false
+            if (att.state === 'c') return true
+            return demoScores.some((sc: any) => sc.demo_day_id === ddId && sc.student_id === s.id && sc.makeup_date)
+          })
+
+          const scoresMissing = dueStudents.filter((s: any) => {
+            const count = demoScores.filter((sc: any) => sc.demo_day_id === ddId && sc.student_id === s.id).length
+            return count < CRITERIA_COUNT
+          }).length
+
+          const feedbackMissing = dueStudents.filter((s: any) => {
+            const count = demoScores.filter((sc: any) => sc.demo_day_id === ddId && sc.student_id === s.id).length
+            if (count < CRITERIA_COUNT) return false
+            const fb = demoFeedback.find((f: any) => f.demo_day_id === ddId && f.student_id === s.id)
+            return !fb || !fb.feedback || fb.feedback.trim() === ''
+          }).length
+
+          const makeupNeeded = absentStudents.filter((s: any) =>
+            !demoScores.some((sc: any) => sc.demo_day_id === ddId && sc.student_id === s.id && sc.makeup_date)
+          ).length
+
+          return { title: d.title, date: d.date, dayNumber: d.day_number, scoresMissing, feedbackMissing, makeupNeeded }
+        })
+
+      const totalOpenLooseEnds = totalAbsencesWithNoReason + totalUntouchedSessions +
+        demoDaySummaries.reduce((sum, d) => sum + d.scoresMissing + d.feedbackMissing + d.makeupNeeded, 0)
 
       return {
         batch: batch.name,
@@ -230,8 +295,10 @@ Deno.serve(async (req) => {
         activeStudents: active.length,
         droppedStudents: studentSummaries.length - active.length,
         batchAvgAttendancePct: batchAvgAttendance,
-        openLooseEnds: totalLooseEnds,
-        demoDays: batchDemoDays.map((d: any) => ({ title: d.title, date: d.date, dayNumber: d.day_number })),
+        openLooseEnds: totalOpenLooseEnds,
+        absencesWithNoReason: totalAbsencesWithNoReason,
+        untouchedSessions: totalUntouchedSessions,
+        demoDaySummaries,
         students: studentSummaries,
       }
     })
