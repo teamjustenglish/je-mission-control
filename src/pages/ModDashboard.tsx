@@ -1448,7 +1448,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const vals: Record<string, string> = {};
     for (const s of demoScores) {
       const key = `${s.demo_day_id}|${s.student_id}|${s.criterion}`;
-      if (Number(s.score) !== 0) vals[key] = String(s.score);
+      vals[key] = String(s.score);
     }
     setScoreValues(vals);
     initializedBatchRef.current = activeBatchId;
