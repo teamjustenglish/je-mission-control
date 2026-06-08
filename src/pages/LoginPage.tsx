@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const LoginPage: React.FC = () => {
-  const [mode, setMode] = useState<'login' | 'activate' | 'reset'>('login');
+  const [mode, setMode] = useState<'login' | 'activate' | 'reset' | 'forgotPassword'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [accessCode, setAccessCode] = useState('');
@@ -47,6 +47,21 @@ const LoginPage: React.FC = () => {
   const handleActivate = activateOrReset;
   const handleReset = activateOrReset;
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      setSuccess('Check your email for a reset link. Click it to set a new password.');
+    }
+  };
 
   const inputStyle: React.CSSProperties = {
     background: 'hsl(var(--input-bg))',
@@ -59,7 +74,7 @@ const LoginPage: React.FC = () => {
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold text-foreground mb-1">Mission Control</h1>
         <p className="text-muted-foreground text-sm mb-6">
-          {mode === 'login' ? 'Sign in to your account' : mode === 'activate' ? 'Activate your moderator account' : 'Reset your password'}
+          {mode === 'login' ? 'Sign in to your account' : mode === 'activate' ? 'Activate your moderator account' : mode === 'forgotPassword' ? 'Reset your password' : 'Reset your password'}
         </p>
 
         {error && (
@@ -97,11 +112,20 @@ const LoginPage: React.FC = () => {
               {loading ? 'Activating…' : 'Activate account'}
             </button>
           </form>
+        ) : mode === 'forgotPassword' ? (
+          <form onSubmit={handleForgotPassword} className="space-y-3">
+            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required />
+            <button type="submit" disabled={loading}
+              className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50">
+              {loading ? 'Sending…' : 'Send reset link'}
+            </button>
+          </form>
         ) : (
           <form onSubmit={handleReset} className="space-y-3">
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required />
-            <input type="text" placeholder="New access code (from admin)" value={accessCode} onChange={(e) => setAccessCode(e.target.value)}
+            <input type="text" placeholder="Access code (from Dave)" value={accessCode} onChange={(e) => setAccessCode(e.target.value)}
               className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required />
             <input type="password" placeholder="New password (min 6 characters)" value={password} onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required minLength={6} />
@@ -119,16 +143,28 @@ const LoginPage: React.FC = () => {
                 className="block text-sm text-muted-foreground hover:text-foreground">
                 First time? Activate account
               </button>
+              <button onClick={() => { setMode('forgotPassword'); setError(''); setSuccess(''); }}
+                className="block text-sm text-muted-foreground hover:text-foreground">
+                Forgot password?
+              </button>
+            </>
+          )}
+          {mode === 'forgotPassword' && (
+            <>
+              <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+                className="block text-sm text-muted-foreground hover:text-foreground">
+                ← Back to sign in
+              </button>
               <button onClick={() => { setMode('reset'); setError(''); setSuccess(''); }}
                 className="block text-sm text-muted-foreground hover:text-foreground">
-                Forgot password? Reset it
+                Have a reset code from Dave?
               </button>
             </>
           )}
           {(mode === 'activate' || mode === 'reset') && (
             <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
               className="text-sm text-muted-foreground hover:text-foreground">
-              ← Back to login
+              ← Back to sign in
             </button>
           )}
           {user && (

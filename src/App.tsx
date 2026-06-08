@@ -9,6 +9,8 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import ModDashboard from "./pages/ModDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import StudentShare from "./pages/StudentShare";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import InviteSignupPage from "./pages/InviteSignupPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +59,10 @@ const AppRoutes = () => {
 
       {/* Public share page — no auth required */}
       <Route path="/share/:slug" element={<StudentShare />} />
+
+      {/* Public auth pages — no auth required */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/invite/:token" element={<InviteSignupPage />} />
 
       {/* Anything else → / */}
       <Route path="*" element={<Navigate to="/" replace />} />

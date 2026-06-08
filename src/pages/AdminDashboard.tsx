@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone } from 'lucide-react';
+import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle } from 'lucide-react';
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 
 import StudentProgressModal from '@/components/StudentProgressModal';
@@ -45,6 +45,16 @@ interface ModCode {
   code: string;
   used: boolean;
   created_at: string;
+}
+
+interface ModInvite {
+  id: string;
+  token: string;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+  uses: number;
+  revoked_at: string | null;
 }
 
 interface BatchInfo {
@@ -141,6 +151,15 @@ const AdminDashboard: React.FC = () => {
 
   // FEATURE 3: Credentials modal
   const [credentialsMod, setCredentialsMod] = useState<Profile | null>(null);
+
+  // Invite links
+  const [invites, setInvites] = useState<ModInvite[]>([]);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState<ModInvite | null>(null);
+  const [showPastInvites, setShowPastInvites] = useState(false);
+  const [showGenerateForm, setShowGenerateForm] = useState(false);
+  const [newInviteDesc, setNewInviteDesc] = useState('');
+  const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   // Students page state
   const [studentSearch, setStudentSearch] = useState('');
@@ -349,6 +368,10 @@ const AdminDashboard: React.FC = () => {
         } else { setAvgDemoScore(0); }
       } else { setAvgDemoScore(0); }
     } else { setAvgDemoScore(0); }
+    // Invite links
+    const { data: inviteData } = await (supabase as any).from('mod_invites').select('*').order('created_at', { ascending: false });
+    if (inviteData) setInvites(inviteData as ModInvite[]);
+
     // Preload all batch data for grid views
     if (mods) preloadAllBatchData(mods as Profile[]);
   }, [preloadAllBatchData]);
@@ -580,6 +603,45 @@ const AdminDashboard: React.FC = () => {
   // Data fetching is handled by ModDashboard itself, so we just stash the identifiers.
   const openGridView = (batchId: string, batchName: string, modName: string, modId: string) => {
     setGridViewBatch({ batchId, batchName, modName, modId });
+  };
+
+  const generateToken = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const arr = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, b => chars[b % chars.length]).join('');
+  };
+
+  const refreshInvites = async () => {
+    const { data } = await (supabase as any).from('mod_invites').select('*').order('created_at', { ascending: false });
+    if (data) setInvites(data as ModInvite[]);
+  };
+
+  const handleGenerateInvite = async () => {
+    setInviteLoading(true);
+    const token = generateToken();
+    await (supabase as any).from('mod_invites').insert({
+      token,
+      description: newInviteDesc.trim() || null,
+      created_by: user!.id,
+    });
+    await refreshInvites();
+    setShowGenerateForm(false);
+    setNewInviteDesc('');
+    setInviteLoading(false);
+  };
+
+  const handleRevokeInvite = async (invite: ModInvite) => {
+    await (supabase as any).from('mod_invites').update({ revoked_at: new Date().toISOString() }).eq('id', invite.id);
+    await refreshInvites();
+    setShowRevokeConfirm(null);
+  };
+
+  const copyInviteUrl = (invite: ModInvite) => {
+    const url = `${window.location.origin}/invite/${invite.token}`;
+    navigator.clipboard.writeText(url);
+    setCopiedInviteId(invite.id);
+    setTimeout(() => setCopiedInviteId(prev => prev === invite.id ? null : prev), 2000);
   };
 
   const timeAgo = (dateStr: string) => {
@@ -930,6 +992,101 @@ const AdminDashboard: React.FC = () => {
                 <Plus className="w-4 h-4" /> Add moderator
               </button>
             </div>
+            {/* Invite links */}
+            {(() => {
+              const activeInvites = invites.filter(i => !i.revoked_at);
+              const revokedInvites = invites.filter(i => !!i.revoked_at);
+              return (
+                <div style={{ background: '#141414', border: '1px solid #2a2a2a', borderRadius: 10, padding: 20, marginBottom: 20 }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Link2 className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground">Invite links</span>
+                      <span className="text-xs text-muted-foreground">· reusable, Discord-style</span>
+                    </div>
+                    <button
+                      onClick={() => { setShowGenerateForm(v => !v); setNewInviteDesc(''); }}
+                      style={{ ...primaryBtnStyle, padding: '6px 12px', fontSize: 12 }}>
+                      <Plus className="w-3 h-3 inline-block mr-1" style={{ verticalAlign: 'middle' }} />
+                      Generate new invite link
+                    </button>
+                  </div>
+
+                  {showGenerateForm && (
+                    <div className="flex items-center gap-2 mb-4">
+                      <input
+                        type="text"
+                        placeholder="Description (optional, e.g. 'June cohort')"
+                        value={newInviteDesc}
+                        onChange={(e) => setNewInviteDesc(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleGenerateInvite(); } }}
+                        style={{ flex: 1, background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '7px 10px', fontSize: 12, color: '#F0F0F0', outline: 'none' }}
+                      />
+                      <button onClick={handleGenerateInvite} disabled={inviteLoading}
+                        style={{ ...primaryBtnStyle, padding: '7px 14px', fontSize: 12, opacity: inviteLoading ? 0.5 : 1 }}>
+                        {inviteLoading ? 'Generating…' : 'Generate'}
+                      </button>
+                      <button onClick={() => { setShowGenerateForm(false); setNewInviteDesc(''); }}
+                        style={{ ...cancelBtnStyle, padding: '7px 14px', fontSize: 12 }}>
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+
+                  {activeInvites.length === 0 && !showGenerateForm && (
+                    <p className="text-sm text-muted-foreground">No active invite links. Generate one so mods can sign up without manual account creation.</p>
+                  )}
+
+                  {activeInvites.map(invite => {
+                    const url = `${window.location.origin}/invite/${invite.token}`;
+                    const isCopied = copiedInviteId === invite.id;
+                    return (
+                      <div key={invite.id} style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8, padding: '10px 12px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {invite.description && <p style={{ fontSize: 12, color: '#e8e8e8', fontWeight: 500, marginBottom: 2 }}>{invite.description}</p>}
+                          <p style={{ fontSize: 11, color: '#60a5fa', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{url}</p>
+                          <p style={{ fontSize: 10, color: '#555', marginTop: 2 }}>
+                            {invite.uses} {invite.uses === 1 ? 'use' : 'uses'} · Created {new Date(invite.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <button onClick={() => copyInviteUrl(invite)} title="Copy link"
+                          style={{ background: '#2a2a2a', border: '1px solid #3a3a3a', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: isCopied ? '#4ade80' : '#888', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, flexShrink: 0 }}>
+                          {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                          {isCopied ? 'Copied' : 'Copy'}
+                        </button>
+                        <button onClick={() => setShowRevokeConfirm(invite)} title="Revoke"
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#f87171', padding: 4, flexShrink: 0 }}>
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {revokedInvites.length > 0 && (
+                    <div style={{ marginTop: activeInvites.length > 0 ? 8 : 0 }}>
+                      <button onClick={() => setShowPastInvites(v => !v)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
+                        {showPastInvites ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        Past invites ({revokedInvites.length})
+                      </button>
+                      {showPastInvites && (
+                        <div style={{ marginTop: 8 }}>
+                          {revokedInvites.map(invite => (
+                            <div key={invite.id} style={{ background: '#141414', border: '1px solid #222', borderRadius: 8, padding: '8px 12px', marginBottom: 6, opacity: 0.5 }}>
+                              {invite.description && <p style={{ fontSize: 12, color: '#888', marginBottom: 1 }}>{invite.description}</p>}
+                              <p style={{ fontSize: 10, color: '#555' }}>
+                                {invite.uses} {invite.uses === 1 ? 'use' : 'uses'} · Revoked {new Date(invite.revoked_at!).toLocaleDateString()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             <div style={{ position: 'relative', marginBottom: 12 }}>
               <input
                 type="text"
@@ -1249,6 +1406,29 @@ const AdminDashboard: React.FC = () => {
             </div>
           );
         })()}
+
+        {/* Revoke invite confirm */}
+        {showRevokeConfirm && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowRevokeConfirm(null)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, padding: 24, maxWidth: 400, width: '90%' }}>
+              <div style={{ fontSize: 16, color: '#F0F0F0', fontWeight: 500, marginBottom: 8 }}>Revoke invite link?</div>
+              <div style={{ fontSize: 13, color: '#888', lineHeight: 1.6, marginBottom: 16 }}>
+                Revoking this stops new signups but doesn't affect mods who already signed up with it.
+                {showRevokeConfirm.description && <span style={{ color: '#aaa' }}> Link: "{showRevokeConfirm.description}"</span>}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowRevokeConfirm(null)} style={cancelBtnStyle}
+                  onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.color = '#ccc'; }}>Cancel</button>
+                <button onClick={() => handleRevokeInvite(showRevokeConfirm)} style={destructBtnStyle}
+                  onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = '#7f1d1d'; }}>Revoke link</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {activePage === 'settings' && (
           <div className="max-w-md">
