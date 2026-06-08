@@ -892,7 +892,27 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
 
-        {activePage === 'batches' && (
+        {activePage === 'batches' && (() => {
+          const batchMap = new Map<string, { id: string; name: string; modName: string; weekNumber: number; studentCount: number; attendancePct: number | null }>();
+          for (const row of allStudentsData) {
+            const id = row.batch?.id;
+            if (!id) continue;
+            const existing = batchMap.get(id);
+            if (existing) {
+              existing.studentCount += 1;
+            } else {
+              batchMap.set(id, {
+                id,
+                name: row.batch?.name ?? 'Unknown',
+                modName: row.mod?.name ?? 'Unknown',
+                weekNumber: row.weekNumber,
+                studentCount: 1,
+                attendancePct: row.attendancePct,
+              });
+            }
+          }
+          const runningBatches = Array.from(batchMap.values());
+          return (
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-4">All Batches</h2>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 10 }}>
@@ -917,7 +937,8 @@ const AdminDashboard: React.FC = () => {
               {runningBatches.length === 0 && <p className="text-sm text-muted-foreground p-4">No batches yet.</p>}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {activePage === 'students' && (
           <div>
