@@ -302,6 +302,26 @@ Deno.serve(async (req) => {
 
     if (!answer) throw new Error('Empty response from Anthropic')
 
+    // ── Log query for usage analytics ───────────────────────────────
+    // TODO: Update pricing constants if Anthropic changes rates.
+    // Claude Sonnet 4.5: $3.00/M input, $15.00/M output (as of 2025-06)
+    const INPUT_COST_PER_TOKEN = 0.000003
+    const OUTPUT_COST_PER_TOKEN = 0.000015
+    const tokensInput: number = completion?.usage?.input_tokens ?? 0
+    const tokensOutput: number = completion?.usage?.output_tokens ?? 0
+    const costUsd = (tokensInput * INPUT_COST_PER_TOKEN) + (tokensOutput * OUTPUT_COST_PER_TOKEN)
+    // Fire-and-forget — don't let a logging failure block the response
+    supabaseAdmin.from('houston_query_log').insert({
+      user_id: caller.id,
+      user_role: 'admin',
+      houston_variant: 'admin',
+      question: question.trim(),
+      answer_preview: answer.slice(0, 200),
+      tokens_input: tokensInput,
+      tokens_output: tokensOutput,
+      cost_usd: costUsd,
+    }).then(() => {}).catch((err: unknown) => console.error('houston log error:', err))
+
     return new Response(JSON.stringify({ answer }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle } from 'lucide-react';
+import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle, Activity } from 'lucide-react';
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 
 import StudentProgressModal from '@/components/StudentProgressModal';
@@ -9,6 +9,7 @@ import AnnouncementsPopover from '@/components/AnnouncementsPopover';
 import AvatarMenu from '@/components/AvatarMenu';
 import ModDashboard from './ModDashboard';
 import HoustonPage from './admin/HoustonPage';
+import HoustonUsagePage from './admin/HoustonUsagePage';
 import AnnouncementsPage from './admin/AnnouncementsPage';
 import AnalyticsDashboard from './admin/AnalyticsDashboard';
 
@@ -661,6 +662,7 @@ const AdminDashboard: React.FC = () => {
     { id: 'batches', label: 'All batches', icon: BookOpen, section: 'OVERVIEW' },
     { id: 'announcements', label: 'Announcements', icon: Megaphone, section: 'OPERATIONS' },
     { id: 'houston', label: 'Ask Houston', icon: Sparkles, section: 'INTELLIGENCE' },
+    { id: 'houston-usage', label: 'Houston usage', icon: Activity, section: 'INTELLIGENCE' },
     { id: 'export', label: 'Export all', icon: Download, section: 'TOOLS' },
     { id: 'settings', label: 'Settings', icon: Settings, section: 'TOOLS' },
   ];
@@ -1473,6 +1475,7 @@ const AdminDashboard: React.FC = () => {
         {activePage === 'analytics' && <AnalyticsDashboard onOpenHouston={() => setActivePage('houston')} />}
         {activePage === 'announcements' && <AnnouncementsPage />}
         {activePage === 'houston' && <HoustonPage />}
+        {activePage === 'houston-usage' && <HoustonUsagePage />}
       </div>
 
       {/* Student progress modal */}
