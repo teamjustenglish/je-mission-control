@@ -1,14 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, ArrowUp, Loader2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 type Phase = 'idle' | 'loading' | 'answered' | 'error';
 
 const emojiStyle: React.CSSProperties = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji",sans-serif' };
 
-export default function ModHoustonChat() {
-  const [open, setOpen] = useState(false);
+interface ModHoustonChatProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export default function ModHoustonChat({ open: controlledOpen, onOpenChange }: ModHoustonChatProps = {}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) onOpenChange?.(v);
+    else setInternalOpen(v);
+  };
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [askedQuestion, setAskedQuestion] = useState('');

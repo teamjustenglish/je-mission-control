@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const LoginPage: React.FC = () => {
-  const [mode, setMode] = useState<'login' | 'activate' | 'reset' | 'forgotPassword'>('login');
+  const [mode, setMode] = useState<'login' | 'activate' | 'forgotPassword'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [accessCode, setAccessCode] = useState('');
@@ -39,13 +39,12 @@ const LoginPage: React.FC = () => {
       const { error: finalSignInErr } = await signIn(email, password);
       if (finalSignInErr) throw finalSignInErr;
     } catch (err: any) {
-      setError(err.message || (mode === 'reset' ? 'Password reset failed' : 'Activation failed'));
+      setError(err.message || 'Activation failed');
     }
     setLoading(false);
   };
 
   const handleActivate = activateOrReset;
-  const handleReset = activateOrReset;
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +73,7 @@ const LoginPage: React.FC = () => {
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold text-foreground mb-1">Mission Control</h1>
         <p className="text-muted-foreground text-sm mb-6">
-          {mode === 'login' ? 'Sign in to your account' : mode === 'activate' ? 'Activate your moderator account' : mode === 'forgotPassword' ? 'Reset your password' : 'Reset your password'}
+          {mode === 'login' ? 'Sign in to your account' : mode === 'activate' ? 'Activate your moderator account' : 'Reset your password'}
         </p>
 
         {error && (
@@ -121,20 +120,7 @@ const LoginPage: React.FC = () => {
               {loading ? 'Sending…' : 'Send reset link'}
             </button>
           </form>
-        ) : (
-          <form onSubmit={handleReset} className="space-y-3">
-            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required />
-            <input type="text" placeholder="Access code (from Dave)" value={accessCode} onChange={(e) => setAccessCode(e.target.value)}
-              className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required />
-            <input type="password" placeholder="New password (min 6 characters)" value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-foreground" style={inputStyle} required minLength={6} />
-            <button type="submit" disabled={loading}
-              className="w-full py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50">
-              {loading ? 'Resetting…' : 'Reset password'}
-            </button>
-          </form>
-        )}
+        ) : null}
 
         <div className="mt-4 space-y-1">
           {mode === 'login' && (
@@ -149,21 +135,9 @@ const LoginPage: React.FC = () => {
               </button>
             </>
           )}
-          {mode === 'forgotPassword' && (
-            <>
-              <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
-                className="block text-sm text-muted-foreground hover:text-foreground">
-                ← Back to sign in
-              </button>
-              <button onClick={() => { setMode('reset'); setError(''); setSuccess(''); }}
-                className="block text-sm text-muted-foreground hover:text-foreground">
-                Have a reset code from Dave?
-              </button>
-            </>
-          )}
-          {(mode === 'activate' || mode === 'reset') && (
+          {(mode === 'forgotPassword' || mode === 'activate') && (
             <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
-              className="text-sm text-muted-foreground hover:text-foreground">
+              className="block text-sm text-muted-foreground hover:text-foreground">
               ← Back to sign in
             </button>
           )}

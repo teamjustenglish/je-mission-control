@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Settings, HelpCircle, LogOut, X, ArrowUpRight, MessageCircle, Phone } from 'lucide-react';
+import { Settings, HelpCircle, LogOut, X, ArrowUpRight, MessageCircle, Phone, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,6 +61,11 @@ const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [resetPwOpen, setResetPwOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetPwError, setResetPwError] = useState('');
+  const [resetPwSaving, setResetPwSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -145,6 +150,31 @@ const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
     setSettingsOpen(true);
   };
 
+  const openResetPassword = () => {
+    setNewPassword('');
+    setConfirmPassword('');
+    setResetPwError('');
+    setDropdownOpen(false);
+    setResetPwOpen(true);
+  };
+
+  const handleResetPassword = async () => {
+    setResetPwError('');
+    if (newPassword.length < 8) { setResetPwError('Password must be at least 8 characters'); return; }
+    if (newPassword !== confirmPassword) { setResetPwError('Passwords don\'t match'); return; }
+    setResetPwSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setResetPwOpen(false);
+      toast.success('Password updated');
+    } catch (err: any) {
+      setResetPwError(err.message || 'Failed to update password');
+    } finally {
+      setResetPwSaving(false);
+    }
+  };
+
   const displayAvatarUrl = previewUrl ?? profile?.avatar_url;
 
   return (
@@ -180,6 +210,13 @@ const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
             <Settings size={14} style={{ color: '#888' }} />
             <span>Settings</span>
+          </button>
+
+          <button onClick={openResetPassword} style={itemStyle}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+            <KeyRound size={14} style={{ color: '#888' }} />
+            <span>Reset password</span>
           </button>
 
           <button onClick={() => { setDropdownOpen(false); setHelpOpen(true); }} style={itemStyle}
@@ -311,6 +348,68 @@ const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
                 </div>
                 <ArrowUpRight size={14} style={{ color: '#888', flexShrink: 0 }} />
               </a>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* Reset password modal */}
+      {resetPwOpen && createPortal(
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setResetPwOpen(false)}
+        >
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#1a1a1a', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 14, width: 380, maxWidth: '90vw' }}>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>Reset password</span>
+              <button onClick={() => setResetPwOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', display: 'flex' }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: 20 }}>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>New password</label>
+              <input
+                type="password"
+                placeholder="Min 8 characters"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                style={{
+                  width: '100%', background: '#242424', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#fff', outline: 'none',
+                  boxSizing: 'border-box', marginBottom: 12,
+                }}
+              />
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>Confirm new password</label>
+              <input
+                type="password"
+                placeholder="Re-enter password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleResetPassword(); }}
+                style={{
+                  width: '100%', background: '#242424', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#fff', outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+              {resetPwError && (
+                <p style={{ fontSize: 12, color: '#f87171', marginTop: 8 }}>{resetPwError}</p>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 20px', borderTop: '0.5px solid rgba(255,255,255,0.08)' }}>
+              <button
+                onClick={() => setResetPwOpen(false)}
+                style={{ background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)', color: '#ccc', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+              >Cancel</button>
+              <button
+                onClick={handleResetPassword}
+                disabled={resetPwSaving || !newPassword || !confirmPassword}
+                style={{ background: '#fbbf24', border: 'none', color: '#111', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: resetPwSaving || !newPassword || !confirmPassword ? 'not-allowed' : 'pointer', opacity: resetPwSaving || !newPassword || !confirmPassword ? 0.6 : 1 }}
+              >{resetPwSaving ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
         </div>,

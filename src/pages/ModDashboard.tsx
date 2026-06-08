@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek, getAbsenceStreak, hasActiveSnooze } from '@/lib/batchtrack';
-import { Plus, ChevronDown, ChevronRight, Grid3X3, List, Rocket } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Grid3X3, List, Rocket, Sparkles, ArrowRight } from 'lucide-react';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
 import ToDoSidebar, { AdminSummaryPanel } from '@/components/ToDoSidebar';
@@ -530,6 +530,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   
   // Absence note reminder banner
   const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // Houston chat open state (shared between top-bar icon and CTA bar)
+  const [houstonOpen, setHoustonOpen] = useState(false);
 
   // Student row ⋮ menu
   const [studentMenuId, setStudentMenuId] = useState<string | null>(null);
@@ -2337,7 +2340,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               firstName={firstName}
               batchName={annBatchName}
             />
-            <ModHoustonChat />
+            <ModHoustonChat open={houstonOpen} onOpenChange={setHoustonOpen} />
             <AvatarMenu role="moderator" batchLabel={activeBatch?.name} />
           </div>
         </div>
@@ -2826,6 +2829,46 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               </div>
             );
           })}
+
+          {/* Houston CTA bar */}
+          {!readOnly && (
+            <div
+              role="button"
+              aria-label="Open Houston chat"
+              onClick={() => setHoustonOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 16,
+                background: '#1A1830',
+                border: '1px solid #2D2A5E',
+                borderRadius: 10,
+                padding: '16px 18px',
+                cursor: 'pointer',
+                marginBottom: 16,
+                transition: 'border-color 0.15s',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#4D47A0'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#2D2A5E'; }}
+            >
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 40, height: 40, borderRadius: 8,
+                  background: '#7F77DD',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Sparkles size={22} color="#0A0A0A" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 500, color: '#EEEDFE' }}>Houston is your AI buddy</div>
+                <div style={{ fontSize: 12, color: '#AFA9EC', marginTop: 2 }}>
+                  Stuck on something? Ask about your batch, a student, or how MC works.
+                </div>
+              </div>
+              <ArrowRight aria-hidden="true" size={20} color="#AFA9EC" style={{ flexShrink: 0 }} />
+            </div>
+          )}
 
           {/* Attendance card */}
           <div className="bg-card mb-4" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>

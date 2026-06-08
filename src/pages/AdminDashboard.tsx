@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, KeyRound, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle } from 'lucide-react';
+import { BarChart3, Users, BookOpen, Plus, Download, Settings, AlertTriangle, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle } from 'lucide-react';
 import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
 
 import StudentProgressModal from '@/components/StudentProgressModal';
@@ -146,9 +146,6 @@ const AdminDashboard: React.FC = () => {
   } | null>(null);
 
 
-  // FEATURE 2: Reset access modal
-  const [resetAccessModal, setResetAccessModal] = useState<{ mod: Profile; code?: string; loading?: boolean; error?: string } | null>(null);
-
   // FEATURE 3: Credentials modal
   const [credentialsMod, setCredentialsMod] = useState<Profile | null>(null);
 
@@ -158,7 +155,6 @@ const AdminDashboard: React.FC = () => {
   const [showRevokeConfirm, setShowRevokeConfirm] = useState<ModInvite | null>(null);
   const [showPastInvites, setShowPastInvites] = useState(false);
   const [showGenerateForm, setShowGenerateForm] = useState(false);
-  const [newInviteDesc, setNewInviteDesc] = useState('');
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null);
 
   // Students page state
@@ -518,22 +514,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // FEATURE 2: Reset access
-  const handleResetAccess = async (mod: Profile) => {
-    setResetAccessModal({ mod, loading: true });
-    try {
-      const { data, error } = await supabase.functions.invoke('admin-manage-moderator', {
-        body: { action: 'reset', userId: mod.id, email: mod.email, name: mod.name },
-      });
-      if (error) throw error;
-      const result = typeof data === 'string' ? JSON.parse(data) : data;
-      if (result.error) throw new Error(result.error);
-      setResetAccessModal({ mod, code: result.code });
-      loadData();
-    } catch (err: any) {
-      setResetAccessModal({ mod, error: err.message || 'Failed to reset access' });
-    }
-  };
 
   // FEATURE 1: Load mod batches when expanding
   const toggleModExpanded = async (modId: string) => {
@@ -622,12 +602,10 @@ const AdminDashboard: React.FC = () => {
     const token = generateToken();
     await (supabase as any).from('mod_invites').insert({
       token,
-      description: newInviteDesc.trim() || null,
       created_by: user!.id,
     });
     await refreshInvites();
     setShowGenerateForm(false);
-    setNewInviteDesc('');
     setInviteLoading(false);
   };
 
@@ -1005,7 +983,7 @@ const AdminDashboard: React.FC = () => {
                       <span className="text-xs text-muted-foreground">· reusable, Discord-style</span>
                     </div>
                     <button
-                      onClick={() => { setShowGenerateForm(v => !v); setNewInviteDesc(''); }}
+                      onClick={() => setShowGenerateForm(v => !v)}
                       style={{ ...primaryBtnStyle, padding: '6px 12px', fontSize: 12 }}>
                       <Plus className="w-3 h-3 inline-block mr-1" style={{ verticalAlign: 'middle' }} />
                       Generate new invite link
@@ -1014,19 +992,11 @@ const AdminDashboard: React.FC = () => {
 
                   {showGenerateForm && (
                     <div className="flex items-center gap-2 mb-4">
-                      <input
-                        type="text"
-                        placeholder="Description (optional, e.g. 'June cohort')"
-                        value={newInviteDesc}
-                        onChange={(e) => setNewInviteDesc(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleGenerateInvite(); } }}
-                        style={{ flex: 1, background: '#242424', border: '1px solid #333', borderRadius: 6, padding: '7px 10px', fontSize: 12, color: '#F0F0F0', outline: 'none' }}
-                      />
                       <button onClick={handleGenerateInvite} disabled={inviteLoading}
                         style={{ ...primaryBtnStyle, padding: '7px 14px', fontSize: 12, opacity: inviteLoading ? 0.5 : 1 }}>
-                        {inviteLoading ? 'Generating…' : 'Generate'}
+                        {inviteLoading ? 'Generating…' : 'Generate link'}
                       </button>
-                      <button onClick={() => { setShowGenerateForm(false); setNewInviteDesc(''); }}
+                      <button onClick={() => setShowGenerateForm(false)}
                         style={{ ...cancelBtnStyle, padding: '7px 14px', fontSize: 12 }}>
                         Cancel
                       </button>
@@ -1043,7 +1013,6 @@ const AdminDashboard: React.FC = () => {
                     return (
                       <div key={invite.id} style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 8, padding: '10px 12px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          {invite.description && <p style={{ fontSize: 12, color: '#e8e8e8', fontWeight: 500, marginBottom: 2 }}>{invite.description}</p>}
                           <p style={{ fontSize: 11, color: '#60a5fa', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{url}</p>
                           <p style={{ fontSize: 10, color: '#555', marginTop: 2 }}>
                             {invite.uses} {invite.uses === 1 ? 'use' : 'uses'} · Created {new Date(invite.created_at).toLocaleDateString()}
@@ -1073,7 +1042,6 @@ const AdminDashboard: React.FC = () => {
                         <div style={{ marginTop: 8 }}>
                           {revokedInvites.map(invite => (
                             <div key={invite.id} style={{ background: '#141414', border: '1px solid #222', borderRadius: 8, padding: '8px 12px', marginBottom: 6, opacity: 0.5 }}>
-                              {invite.description && <p style={{ fontSize: 12, color: '#888', marginBottom: 1 }}>{invite.description}</p>}
                               <p style={{ fontSize: 10, color: '#555' }}>
                                 {invite.uses} {invite.uses === 1 ? 'use' : 'uses'} · Revoked {new Date(invite.revoked_at!).toLocaleDateString()}
                               </p>
@@ -1141,10 +1109,6 @@ const AdminDashboard: React.FC = () => {
                             <button onClick={() => setCredentialsMod(mod)} title="Account details"
                               style={{ color: '#888', background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}>
                               <ClipboardList className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => handleResetAccess(mod)} title="Reset access"
-                              style={{ color: '#fbbf24', background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}>
-                              <KeyRound className="w-4 h-4" />
                             </button>
                             <button onClick={() => setDeleteModConfirm(mod)} title="Delete moderator"
                               style={{ color: '#f87171', background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}>
@@ -1305,42 +1269,6 @@ const AdminDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* FEATURE 2: Reset access modal */}
-        {resetAccessModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)' }}
-            onClick={() => setResetAccessModal(null)}>
-            <div onClick={(e) => e.stopPropagation()}
-              style={{ background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 14, padding: 28, maxWidth: 420, width: '90%' }}>
-              {resetAccessModal.loading ? (
-                <p className="text-sm text-muted-foreground">Generating new access code…</p>
-              ) : resetAccessModal.error ? (
-                <>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Reset failed</div>
-                  <p style={{ fontSize: 13, color: '#f87171', marginBottom: 16 }}>{resetAccessModal.error}</p>
-                  <button onClick={() => setResetAccessModal(null)} style={cancelBtnStyle}>Close</button>
-                </>
-              ) : resetAccessModal.code ? (
-                <>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 8 }}>New access code generated</div>
-                  <p style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
-                    Share this code with <strong style={{ color: '#F0F0F0' }}>{resetAccessModal.mod.name}</strong> — they can use it to reset their password.
-                  </p>
-                  <div style={{ background: '#242424', border: '1px solid #333', borderRadius: 8, padding: '12px 16px', textAlign: 'center', marginTop: 12, marginBottom: 12, cursor: 'pointer' }}
-                    onClick={() => navigator.clipboard.writeText(resetAccessModal.code!)}>
-                    <span style={{ fontSize: 22, fontFamily: 'monospace', fontWeight: 700, color: '#d4920a', letterSpacing: 3 }}>{resetAccessModal.code}</span>
-                    <p style={{ fontSize: 10, color: '#555', marginTop: 4 }}>Click to copy</p>
-                  </div>
-                  <button onClick={() => setResetAccessModal(null)}
-                    style={{ ...cancelBtnStyle, width: '100%' }}
-                    onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}>
-                    Done
-                  </button>
-                </>
-              ) : null}
-            </div>
-          </div>
-        )}
-
         {/* FEATURE 3: Credentials modal */}
         {credentialsMod && (() => {
           const mod = credentialsMod;
@@ -1391,12 +1319,7 @@ const AdminDashboard: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-between mt-6">
-                  <button onClick={() => { setCredentialsMod(null); handleResetAccess(mod); }}
-                    style={{ fontSize: 12, color: '#fbbf24', background: 'none', border: '1px solid #444', borderRadius: 8, padding: '7px 14px', cursor: 'pointer' }}>
-                    <KeyRound className="w-3.5 h-3.5 inline mr-1" style={{ verticalAlign: 'middle' }} />
-                    Reset access
-                  </button>
+                <div className="flex justify-end mt-6">
                   <button onClick={() => setCredentialsMod(null)}
                     style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                     onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
