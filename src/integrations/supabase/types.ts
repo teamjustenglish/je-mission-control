@@ -387,6 +387,36 @@ export type Database = {
           },
         ]
       }
+      mod_invites: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          revoked_at: string | null
+          token: string
+          uses: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          revoked_at?: string | null
+          token: string
+          uses?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          revoked_at?: string | null
+          token?: string
+          uses?: number
+        }
+        Relationships: []
+      }
       moderator_codes: {
         Row: {
           code: string
@@ -729,6 +759,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_invite_token: { Args: { p_token: string }; Returns: boolean }
       exec_select_query: { Args: { query: string }; Returns: Json }
       get_student_share_data: { Args: { p_slug: string }; Returns: Json }
       has_role: {
@@ -738,6 +769,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      setup_invite_account: { Args: { p_token: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "moderator"
