@@ -387,6 +387,39 @@ export type Database = {
           },
         ]
       }
+      houston_query_log: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          id: string
+          question: string | null
+          response_chars: number | null
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          question?: string | null
+          response_chars?: number | null
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          question?: string | null
+          response_chars?: number | null
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       mod_invites: {
         Row: {
           created_at: string
