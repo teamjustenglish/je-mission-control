@@ -17,7 +17,7 @@ const MOD_HOUSTON_SYSTEM = `You are Houston — an AI assistant inside Mission C
 - "loose ends" are five categories of tasks that still need to be completed (details below).
 
 # Loose ends — five categories
-1. **Untouched sessions** — sessions not yet marked present or absent (batch field: \`untouchedSessions\`)
+1. **Untouched sessions** — sessions where some or all active students haven't been marked yet. `untouchedSessions` is the total count of missing student-marks. `untouchedSessionsByDate` lists each affected session with `date`, `dayLabel` (e.g. "Thu 4 Jun"), and `studentsMissing` — always use this array to name specific dates when the mod asks "which sessions?" or "what do I still need to mark?"
 2. **Absences without a reason** — sessions marked absent but no absence category or note added yet (batch field: \`absencesWithNoReason\`)
 3. **Demo day scores missing** — student attended or did a make-up but hasn't been fully scored on all 4 criteria (per demo day: \`scoresMissing\` in \`demoDaySummaries\`)
 4. **Demo day feedback missing** — student is fully scored but no written feedback has been saved yet (per demo day: \`feedbackMissing\` in \`demoDaySummaries\`)
@@ -92,6 +92,33 @@ function currentWeek(startDate: string | null, today: Date): number | null {
 
 function round(n: number): number {
   return Math.round(n * 10) / 10
+}
+
+const SESSION_DAY_OFFSETS = [0, 1, 3, 4] // Mon, Tue, Thu, Fri
+const SESSION_DAY_NAMES = ['Mon', 'Tue', 'Thu', 'Fri']
+
+// Mirror of batchtrack.ts getSessionsOccurred — number of session slots (0-24)
+// that have already passed as of `today`, based on batch start Monday.
+function getSessionsOccurred(startDate: string | null, today: Date): number {
+  if (!startDate) return 0
+  const start = new Date(startDate + 'T00:00:00Z')
+  const daysDiff = Math.floor((today.getTime() - start.getTime()) / 86400000)
+  if (daysDiff < 0) return 0
+  const fullWeeks = Math.floor(daysDiff / 7)
+  const dayInWeek = daysDiff % 7 // 0=Mon 1=Tue 2=Wed 3=Thu 4=Fri 5=Sat 6=Sun
+  let partial = 0
+  for (const off of SESSION_DAY_OFFSETS) {
+    if (off <= dayInWeek) partial++
+  }
+  return Math.min(fullWeeks * 4 + partial, 24)
+}
+
+// Returns the calendar date for session index `si` (0-23) given a batch start Monday.
+function getSessionDate(startDate: string, si: number): Date {
+  const week = Math.floor(si / 4)
+  const dayInWeek = si % 4
+  const start = new Date(startDate + 'T00:00:00Z')
+  return new Date(start.getTime() + (week * 7 + SESSION_DAY_OFFSETS[dayInWeek]) * 86400000)
 }
 
 Deno.serve(async (req) => {
@@ -189,6 +216,9 @@ Deno.serve(async (req) => {
       const batchDemoDays = demoDays.filter((d: any) => d.batch_id === batch.id)
       const batchDemoDayIds = batchDemoDays.map((d: any) => d.id)
 
+      // Number of session slots that have already passed — needed for untouched counts.
+      const sessionsOccurred = getSessionsOccurred(batch.start_date, today)
+
       const studentSummaries = batchStudents.map((student: any) => {
         const rows = attendance.filter((a) => a.student_id === student.id)
         const present = rows.filter((r) => r.state === 'c').length
@@ -211,7 +241,10 @@ Deno.serve(async (req) => {
 
         // Loose ends: absent sessions with no reason set
         const absencesWithNoReason = rows.filter((r) => r.state === 'x' && !r.absence_category && !r.absence_note).length
-        const untouchedSessions = rows.filter((r) => r.state === 'e').length
+        // Sessions with no mark: expected slots minus rows that are 'c' or 'x'.
+        // Exclude synthetic rescheduled indices (>=1000) from the marked count.
+        const markedCount = rows.filter((r) => (r.state === 'c' || r.state === 'x') && r.session_index < 1000).length
+        const untouchedSessions = Math.max(0, sessionsOccurred - markedCount)
 
         return {
           name: student.name || '(unnamed)',
@@ -238,7 +271,25 @@ Deno.serve(async (req) => {
         : null
 
       const totalAbsencesWithNoReason = active.reduce((sum, s) => sum + s.absencesWithNoReason, 0)
-      const totalUntouchedSessions = active.reduce((sum, s) => sum + s.untouchedSessions, 0)
+
+      // Per-session untouched breakdown — iterate every occurred session slot (index 0..sessionsOccurred-1).
+      // For each session, count active students who have NO 'c'/'x' row (missing row = unmarked, same as state 'e').
+      // Rescheduled sessions (synthetic index >=1000) are excluded — edge case not worth the extra fetch.
+      const untouchedSessionsByDate: { date: string; dayLabel: string; studentsMissing: number }[] = []
+      if (batch.start_date && sessionsOccurred > 0) {
+        for (let si = 0; si < sessionsOccurred; si++) {
+          const sDate = getSessionDate(batch.start_date, si)
+          const markedForSession = batchActiveStudents.filter((s: any) =>
+            attendance.some((a) => a.student_id === s.id && a.session_index === si && (a.state === 'c' || a.state === 'x'))
+          ).length
+          const studentsMissing = batchActiveStudents.length - markedForSession
+          if (studentsMissing > 0) {
+            const dayLabel = `${SESSION_DAY_NAMES[si % 4]} ${sDate.getUTCDate()} ${MONTHS[sDate.getUTCMonth()]}`
+            untouchedSessionsByDate.push({ date: sDate.toISOString().slice(0, 10), dayLabel, studentsMissing })
+          }
+        }
+      }
+      const totalUntouchedSessions = untouchedSessionsByDate.reduce((sum, s) => sum + s.studentsMissing, 0)
 
       // Per-demo-day loose-end counts (past demo days only).
       // Absence check uses the standard Friday session index (dayNumber * 8 - 1).
@@ -298,6 +349,7 @@ Deno.serve(async (req) => {
         openLooseEnds: totalOpenLooseEnds,
         absencesWithNoReason: totalAbsencesWithNoReason,
         untouchedSessions: totalUntouchedSessions,
+        untouchedSessionsByDate,
         demoDaySummaries,
         students: studentSummaries,
       }
