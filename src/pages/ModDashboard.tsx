@@ -10,6 +10,7 @@ import ToDoSidebar, { AdminSummaryPanel } from '@/components/ToDoSidebar';
 import AnnouncementsPopover from '@/components/AnnouncementsPopover';
 import { renderAnnouncementContent } from '@/lib/announcementUtils';
 import AvatarMenu from '@/components/AvatarMenu';
+import ModHoustonChat from '@/components/ModHoustonChat';
 import type { Task } from '@/components/ToDoSidebar';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -2336,6 +2337,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               firstName={firstName}
               batchName={annBatchName}
             />
+            <ModHoustonChat />
             <AvatarMenu role="moderator" batchLabel={activeBatch?.name} />
           </div>
         </div>
