@@ -389,40 +389,58 @@ export type Database = {
       }
       houston_query_log: {
         Row: {
+          answer_preview: string | null
           cache_creation_tokens: number | null
           cache_read_tokens: number | null
+          cost_usd: number | null
           created_at: string
           duration_ms: number | null
           error: string | null
+          houston_variant: string | null
           id: string
           question: string | null
           response_chars: number | null
-          source: string
+          source: string | null
+          tokens_input: number | null
+          tokens_output: number | null
           user_id: string | null
+          user_role: string | null
         }
         Insert: {
+          answer_preview?: string | null
           cache_creation_tokens?: number | null
           cache_read_tokens?: number | null
+          cost_usd?: number | null
           created_at?: string
           duration_ms?: number | null
           error?: string | null
+          houston_variant?: string | null
           id?: string
           question?: string | null
           response_chars?: number | null
-          source: string
+          source?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
           user_id?: string | null
+          user_role?: string | null
         }
         Update: {
+          answer_preview?: string | null
           cache_creation_tokens?: number | null
           cache_read_tokens?: number | null
+          cost_usd?: number | null
           created_at?: string
           duration_ms?: number | null
           error?: string | null
+          houston_variant?: string | null
           id?: string
           question?: string | null
           response_chars?: number | null
-          source?: string
+          source?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
           user_id?: string | null
+          user_role?: string | null
         }
         Relationships: []
       }
