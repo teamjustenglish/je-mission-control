@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { ChevronDown } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
@@ -48,8 +49,10 @@ const HoustonUsagePage: React.FC = () => {
   const [profileMap, setProfileMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   useEffect(() => { loadData(); }, []);
+  useEffect(() => { setExpandedUserId(null); }, [page]);
 
   const loadData = async () => {
     setLoading(true);
@@ -97,8 +100,7 @@ const HoustonUsagePage: React.FC = () => {
   const userStats   = Array.from(userStatsMap.values()).sort((a, b) => b.count - a.count);
   const totalPages  = Math.max(1, Math.ceil(userStats.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const paged        = userStats.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const recentQueries = logs.slice(0, 25);
+  const paged = userStats.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // ── 14-day sparkline ─────────────────────────────────────────────
   // en-CA locale gives YYYY-MM-DD; timeZone ensures day boundaries match Sri Lanka midnight,
@@ -248,7 +250,7 @@ const HoustonUsagePage: React.FC = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                {['User', 'Queries', 'Cost', 'Last query'].map((h) => (
+                {['User', 'Queries', 'Cost', 'Last query', ''].map((h) => (
                   <th
                     key={h}
                     className="border-b border-white/[0.045] px-[22px] py-[11px] text-left font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-[#6b6b6b]"
@@ -259,30 +261,83 @@ const HoustonUsagePage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paged.map((u) => (
-                <tr key={u.user_id} className="transition-colors last:[&>td]:border-b-0 hover:bg-white/[0.025]">
-                  <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[14px]">
-                    <div className="flex items-center gap-[10px]">
-                      <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border border-white/[0.06] bg-[#242424] text-[11px] font-semibold text-[#a3a3a3]">
-                        {initials(profileMap[u.user_id] || u.name)}
-                      </div>
-                      <div>
-                        <span className="font-medium text-[#f5f5f5]">{profileMap[u.user_id] || u.name}</span>
-                        <span className="ml-[6px] font-mono text-[10px] text-[#6b6b6b]">{u.role}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[14px] tabular-nums text-[#f5f5f5]">
-                    {u.count}
-                  </td>
-                  <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[14px] tabular-nums text-[#a3a3a3]">
-                    {fmtCost(u.totalCost)}
-                  </td>
-                  <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[13px] text-[#6b6b6b]">
-                    {timeAgo(u.lastQuery)}
-                  </td>
-                </tr>
-              ))}
+              {paged.map((u) => {
+                const isExpanded = expandedUserId === u.user_id;
+                const userLogs = logs.filter(l => l.user_id === u.user_id).slice(0, 10);
+                return (
+                  <React.Fragment key={u.user_id}>
+                    <tr
+                      className="cursor-pointer transition-colors hover:bg-white/[0.025]"
+                      onClick={() => setExpandedUserId(isExpanded ? null : u.user_id)}
+                    >
+                      <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[14px]">
+                        <div className="flex items-center gap-[10px]">
+                          <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border border-white/[0.06] bg-[#242424] text-[11px] font-semibold text-[#a3a3a3]">
+                            {initials(profileMap[u.user_id] || u.name)}
+                          </div>
+                          <div>
+                            <span className="font-medium text-[#f5f5f5]">{profileMap[u.user_id] || u.name}</span>
+                            <span className="ml-[6px] font-mono text-[10px] text-[#6b6b6b]">{u.role}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[14px] tabular-nums text-[#f5f5f5]">
+                        {u.count}
+                      </td>
+                      <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[14px] tabular-nums text-[#a3a3a3]">
+                        {fmtCost(u.totalCost)}
+                      </td>
+                      <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[13px] text-[#6b6b6b]">
+                        {timeAgo(u.lastQuery)}
+                      </td>
+                      <td className="border-b border-white/[0.045] px-[16px] py-[13px] text-right">
+                        <ChevronDown
+                          size={14}
+                          className={`inline-block text-[#6b6b6b] transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={5} className="border-b border-white/[0.045] bg-[#141414] px-[22px] py-[16px]">
+                          {userLogs.length === 0 ? (
+                            <p className="text-[12px] text-[#4b4b4b]">No queries yet.</p>
+                          ) : (
+                            <div className="flex flex-col gap-[10px]">
+                              {userLogs.map((l) => (
+                                <div key={l.id} className="border-b border-white/[0.03] pb-[10px] last:border-b-0 last:pb-0">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[13px] font-medium leading-[1.4] text-[#f5f5f5]">
+                                        {l.question || '-'}
+                                      </p>
+                                      {l.answer_preview && (
+                                        <p className="mt-[5px] text-[12px] leading-[1.5] text-[#6b6b6b]">
+                                          {l.answer_preview.length > 300
+                                            ? l.answer_preview.slice(0, 300) + '...'
+                                            : l.answer_preview}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                      <div className="text-[11px] text-[#4b4b4b]">{timeAgo(l.created_at)}</div>
+                                      {l.cost_usd != null && (
+                                        <div className="mt-[2px] font-mono text-[10px] text-[#3b3b3b]">
+                                          {fmtCost(l.cost_usd)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -306,54 +361,6 @@ const HoustonUsagePage: React.FC = () => {
             >
               Next →
             </button>
-          </div>
-        )}
-      </div>
-
-      {/* Recent queries */}
-      <div className="mt-6 overflow-hidden rounded-[14px] border border-white/[0.06] bg-[#1a1a1a]">
-        <div className="flex items-baseline justify-between border-b border-white/[0.045] px-[22px] pb-4 pt-[18px]">
-          <h3 className="text-[15px] font-semibold tracking-[-0.01em]">Recent queries</h3>
-          <div className="font-mono text-[11px] tracking-[0.04em] text-[#6b6b6b]">latest 25</div>
-        </div>
-        {recentQueries.length === 0 ? (
-          <div className="px-[22px] py-[18px] text-[13px] text-[#6b6b6b]">No queries logged yet.</div>
-        ) : (
-          <div>
-            {recentQueries.map((l) => (
-              <div
-                key={l.id}
-                className="flex items-start justify-between gap-4 border-b border-white/[0.045] px-[22px] py-[14px] transition-colors last:border-b-0 hover:bg-white/[0.025]"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-[14px] leading-[1.45] text-[#f5f5f5]">
-                    {l.question
-                      ? l.question.length > 150 ? l.question.slice(0, 150) + '…' : l.question
-                      : <span className="text-[#4b4b4b]">—</span>}
-                  </p>
-                  <div className="mt-[6px] flex items-center gap-[8px]">
-                    <span className="text-[12px] text-[#a3a3a3]">
-                      {profileMap[l.user_id] || l.user_id?.slice(0, 8) || '—'}
-                    </span>
-                    <span
-                      className={`rounded-[4px] px-[6px] py-[1px] font-mono text-[10px] font-medium ${
-                        l.houston_variant === 'admin'
-                          ? 'bg-blue-500/10 text-[#60a5fa]'
-                          : 'bg-purple-500/10 text-[#c084fc]'
-                      }`}
-                    >
-                      {l.houston_variant ?? '—'}
-                    </span>
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="text-[12px] text-[#6b6b6b]">{timeAgo(l.created_at)}</div>
-                  {l.cost_usd != null && (
-                    <div className="mt-[3px] font-mono text-[11px] text-[#4b4b4b]">{fmtCost(l.cost_usd)}</div>
-                  )}
-                </div>
-              </div>
-            ))}
           </div>
         )}
       </div>
