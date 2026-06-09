@@ -97,7 +97,8 @@ const HoustonUsagePage: React.FC = () => {
   const userStats   = Array.from(userStatsMap.values()).sort((a, b) => b.count - a.count);
   const totalPages  = Math.max(1, Math.ceil(userStats.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const paged       = userStats.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paged        = userStats.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const recentQueries = logs.slice(0, 25);
 
   // ── 14-day sparkline ─────────────────────────────────────────────
   // en-CA locale gives YYYY-MM-DD; timeZone ensures day boundaries match Sri Lanka midnight,
@@ -305,6 +306,54 @@ const HoustonUsagePage: React.FC = () => {
             >
               Next →
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* Recent queries */}
+      <div className="mt-6 overflow-hidden rounded-[14px] border border-white/[0.06] bg-[#1a1a1a]">
+        <div className="flex items-baseline justify-between border-b border-white/[0.045] px-[22px] pb-4 pt-[18px]">
+          <h3 className="text-[15px] font-semibold tracking-[-0.01em]">Recent queries</h3>
+          <div className="font-mono text-[11px] tracking-[0.04em] text-[#6b6b6b]">latest 25</div>
+        </div>
+        {recentQueries.length === 0 ? (
+          <div className="px-[22px] py-[18px] text-[13px] text-[#6b6b6b]">No queries logged yet.</div>
+        ) : (
+          <div>
+            {recentQueries.map((l) => (
+              <div
+                key={l.id}
+                className="flex items-start justify-between gap-4 border-b border-white/[0.045] px-[22px] py-[14px] transition-colors last:border-b-0 hover:bg-white/[0.025]"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] leading-[1.45] text-[#f5f5f5]">
+                    {l.question
+                      ? l.question.length > 150 ? l.question.slice(0, 150) + '…' : l.question
+                      : <span className="text-[#4b4b4b]">—</span>}
+                  </p>
+                  <div className="mt-[6px] flex items-center gap-[8px]">
+                    <span className="text-[12px] text-[#a3a3a3]">
+                      {profileMap[l.user_id] || l.user_id?.slice(0, 8) || '—'}
+                    </span>
+                    <span
+                      className={`rounded-[4px] px-[6px] py-[1px] font-mono text-[10px] font-medium ${
+                        l.houston_variant === 'admin'
+                          ? 'bg-blue-500/10 text-[#60a5fa]'
+                          : 'bg-purple-500/10 text-[#c084fc]'
+                      }`}
+                    >
+                      {l.houston_variant ?? '—'}
+                    </span>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-[12px] text-[#6b6b6b]">{timeAgo(l.created_at)}</div>
+                  {l.cost_usd != null && (
+                    <div className="mt-[3px] font-mono text-[11px] text-[#4b4b4b]">{fmtCost(l.cost_usd)}</div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
