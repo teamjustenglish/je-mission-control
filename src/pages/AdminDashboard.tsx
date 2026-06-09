@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart3, Users, BookOpen, Plus, Download, Settings, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle, Activity } from 'lucide-react';
@@ -121,8 +121,35 @@ const AdminDashboard: React.FC = () => {
   // Student progress modal
   const [progressModalData, setProgressModalData] = useState<{ student: Student; batchName: string; modName: string; weekNumber: number; startDate?: string | null; attendance: AttendanceRecord[]; demoDays: DemoDay[]; demoScores: DemoScore[]; demoFeedback: DemoFeedback[] } | null>(null);
 
+  // Mod unread announcements — shown in the grid view header
+  const [modUnreadAnns, setModUnreadAnns] = useState<{ id: string; title: string; created_at: string }[]>([]);
+  const [unreadPillOpen, setUnreadPillOpen] = useState(false);
+  const unreadPillRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { loadData(); }, []);
+
+  // Load unread announcements for the mod currently being viewed
+  useEffect(() => {
+    if (!gridViewBatch) { setModUnreadAnns([]); setUnreadPillOpen(false); return; }
+    const load = async () => {
+      const [annsRes, readsRes] = await Promise.all([
+        supabase.from('announcements').select('id, title, created_at').eq('archived', false).order('created_at', { ascending: false }),
+        supabase.from('announcement_reads').select('announcement_id').eq('user_id', gridViewBatch.modId),
+      ]);
+      const readIds = new Set((readsRes.data || []).map((r: any) => r.announcement_id));
+      setModUnreadAnns((annsRes.data || []).filter((a: any) => !readIds.has(a.id)));
+    };
+    load();
+  }, [gridViewBatch?.modId]);
+
+  useEffect(() => {
+    if (!unreadPillOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (unreadPillRef.current && !unreadPillRef.current.contains(e.target as Node)) setUnreadPillOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [unreadPillOpen]);
 
   // Preload all batch data for admin grid views
   const preloadAllBatchData = useCallback(async (mods: Profile[]) => {
@@ -418,20 +445,79 @@ const AdminDashboard: React.FC = () => {
   if (gridViewBatch) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Admin chrome — Back button + Read-only badge */}
-        <div className="px-6 py-4 flex items-center justify-between">
+        {/* Admin chrome — Back button + mod/batch label + unread pill + Read-only badge */}
+        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid hsl(var(--border))' }}>
           <button
             onClick={() => setGridViewBatch(null)}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4" /> Back to moderators
           </button>
-          <span
-            className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full"
-            style={{ background: '#1a2a3a', color: '#60a5fa', border: '1px solid #2a3a4a' }}
-          >
-            <Eye className="w-3.5 h-3.5" /> Read-only view
+
+          <span style={{ fontSize: 13, color: '#a3a3a3' }}>
+            <span style={{ color: '#f5f5f5', fontWeight: 500 }}>{gridViewBatch.modName}</span>
+            {' · '}{gridViewBatch.batchName}
           </span>
+
+          <div className="flex items-center gap-2">
+            {modUnreadAnns.length > 0 && (
+              <div ref={unreadPillRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setUnreadPillOpen(o => !o)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                    fontSize: 12, padding: '4px 10px', borderRadius: 99,
+                    background: '#2a1f00', color: '#fbbf24',
+                    border: '1px solid rgba(251,191,36,0.25)',
+                  }}
+                >
+                  <Megaphone className="w-3 h-3" />
+                  {modUnreadAnns.length} unread {modUnreadAnns.length === 1 ? 'announcement' : 'announcements'}
+                </button>
+                {unreadPillOpen && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                    width: 300, background: '#1a1a1a', zIndex: 50,
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 10, padding: 8,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                  }}>
+                    <p style={{ fontSize: 11, color: '#6b6b6b', padding: '2px 8px 8px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      Not yet read by {gridViewBatch.modName.split(' ')[0]}
+                    </p>
+                    {modUnreadAnns.map(ann => (
+                      <button
+                        key={ann.id}
+                        onClick={() => { setGridViewBatch(null); setActivePage('announcements'); setUnreadPillOpen(false); }}
+                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px', borderRadius: 6, background: 'none', border: 'none', cursor: 'pointer' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
+                      >
+                        <div style={{ fontSize: 13, color: '#f5f5f5', fontWeight: 500 }}>{ann.title}</div>
+                        <div style={{ fontSize: 11, color: '#6b6b6b', marginTop: 2 }}>
+                          {new Date(ann.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                      </button>
+                    ))}
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 4, paddingTop: 4 }}>
+                      <button
+                        onClick={() => { setGridViewBatch(null); setActivePage('announcements'); setUnreadPillOpen(false); }}
+                        style={{ fontSize: 12, color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+                      >
+                        View all in Announcements →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <span
+              className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full"
+              style={{ background: '#1a2a3a', color: '#60a5fa', border: '1px solid #2a3a4a' }}
+            >
+              <Eye className="w-3.5 h-3.5" /> Read-only view
+            </span>
+          </div>
         </div>
 
         {/* Reused mod dashboard, in read-only mode.
