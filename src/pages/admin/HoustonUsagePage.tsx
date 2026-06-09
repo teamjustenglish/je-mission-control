@@ -100,10 +100,15 @@ const HoustonUsagePage: React.FC = () => {
   const paged       = userStats.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // ── 14-day sparkline ─────────────────────────────────────────────
+  // en-CA locale gives YYYY-MM-DD; timeZone ensures day boundaries match Sri Lanka midnight,
+  // not UTC midnight (which would shift today's queries to the wrong bucket).
+  const toSlDate = (d: Date): string =>
+    d.toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' });
+
   const sparkData = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (13 - i));
-    const prefix = d.toISOString().slice(0, 10);
-    const day = logs.filter(l => l.created_at.startsWith(prefix));
+    const slDate = toSlDate(d);
+    const day = logs.filter(l => toSlDate(new Date(l.created_at)) === slDate);
     return {
       date: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
       admin: day.filter(l => l.houston_variant === 'admin').length,
