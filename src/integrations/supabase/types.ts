@@ -389,6 +389,8 @@ export type Database = {
       }
       houston_query_log: {
         Row: {
+          cache_creation_tokens: number | null
+          cache_read_tokens: number | null
           created_at: string
           duration_ms: number | null
           error: string | null
@@ -399,6 +401,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
           created_at?: string
           duration_ms?: number | null
           error?: string | null
@@ -409,6 +413,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          cache_creation_tokens?: number | null
+          cache_read_tokens?: number | null
           created_at?: string
           duration_ms?: number | null
           error?: string | null
