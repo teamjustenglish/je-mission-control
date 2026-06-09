@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, ArrowUp, Loader2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { randomHoustonVerb } from '@/lib/houston-verbs';
 
 type Phase = 'idle' | 'loading' | 'answered' | 'error';
 
@@ -90,6 +91,14 @@ export default function ModHoustonChat({ open: controlledOpen, onOpenChange }: M
   };
 
   const isLoading = phase === 'loading';
+
+  const [verb, setVerb] = useState(randomHoustonVerb);
+  useEffect(() => {
+    if (!isLoading) return;
+    setVerb(randomHoustonVerb());
+    const id = setInterval(() => setVerb(randomHoustonVerb()), 2000);
+    return () => clearInterval(id);
+  }, [isLoading]);
 
   return (
     <>
@@ -253,7 +262,7 @@ export default function ModHoustonChat({ open: controlledOpen, onOpenChange }: M
                     }}
                   >
                     <Loader2 size={15} className="animate-spin" style={{ color: 'hsl(var(--houston))' }} />
-                    <span style={{ fontSize: 13, color: 'hsl(var(--houston))' }}>let me look into that...</span>
+                    <span style={{ fontSize: 13, color: 'hsl(var(--houston))' }}>{verb}...</span>
                   </div>
                 )}
 
