@@ -377,7 +377,7 @@ Deno.serve(async (req) => {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-haiku-4-5',
         max_tokens: 1024,
         system: MOD_HOUSTON_SYSTEM,
         messages: [{ role: 'user', content: userMessage }],
@@ -401,9 +401,9 @@ Deno.serve(async (req) => {
 
     // ── Log query for usage analytics ───────────────────────────────
     // TODO: Update pricing constants if Anthropic changes rates.
-    // Claude Sonnet 4.5: $3.00/M input, $15.00/M output (as of 2025-06)
-    const INPUT_COST_PER_TOKEN = 0.000003
-    const OUTPUT_COST_PER_TOKEN = 0.000015
+    // Claude Haiku 4.5: $1.00/M input, $5.00/M output (as of 2025-06)
+    const INPUT_COST_PER_TOKEN = 0.000001
+    const OUTPUT_COST_PER_TOKEN = 0.000005
     const tokensInput: number = completion?.usage?.input_tokens ?? 0
     const tokensOutput: number = completion?.usage?.output_tokens ?? 0
     const costUsd = (tokensInput * INPUT_COST_PER_TOKEN) + (tokensOutput * OUTPUT_COST_PER_TOKEN)
