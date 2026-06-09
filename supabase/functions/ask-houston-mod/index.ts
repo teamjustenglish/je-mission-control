@@ -417,7 +417,7 @@ Deno.serve(async (req) => {
       tokensOutput        * 0.000005
     // Await before returning — Supabase Edge Functions (Deno Deploy) kill pending
     // promises when the Response is sent, so fire-and-forget silently drops the insert.
-    await supabaseAdmin.from('houston_query_log').insert({
+    const { error: logError } = await supabaseAdmin.from('houston_query_log').insert({
       user_id: caller.id,
       user_role: callerProfile.role,
       houston_variant: 'mod',
@@ -428,7 +428,8 @@ Deno.serve(async (req) => {
       cache_creation_tokens: cacheCreationTokens,
       cache_read_tokens: cacheReadTokens,
       cost_usd: costUsd,
-    }).catch((err: unknown) => console.error('houston-mod log error:', err))
+    })
+    if (logError) console.error('houston-mod log error:', logError)
 
     return new Response(JSON.stringify({ answer }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
