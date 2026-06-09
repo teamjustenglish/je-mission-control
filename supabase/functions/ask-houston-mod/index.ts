@@ -374,12 +374,13 @@ Deno.serve(async (req) => {
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'prompt-caching-2024-07-31',
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
-        system: MOD_HOUSTON_SYSTEM,
+        system: [{ type: 'text', text: MOD_HOUSTON_SYSTEM, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: userMessage }],
       }),
     })
@@ -400,13 +401,20 @@ Deno.serve(async (req) => {
     if (!answer) throw new Error('Empty response from Anthropic')
 
     // ── Log query for usage analytics ───────────────────────────────
-    // TODO: Update pricing constants if Anthropic changes rates.
-    // Claude Haiku 4.5: $1.00/M input, $5.00/M output (as of 2025-06)
-    const INPUT_COST_PER_TOKEN = 0.000001
-    const OUTPUT_COST_PER_TOKEN = 0.000005
+    // Claude Haiku 4.5 with prompt caching (as of 2025-06):
+    //   Input:        $1.00/M  → 0.000001 per token
+    //   Cache write:  $1.25/M  → 0.00000125 per token (25% premium on first cache fill)
+    //   Cache read:   $0.10/M  → 0.0000001 per token  (10% of base — the big saving)
+    //   Output:       $5.00/M  → 0.000005 per token
     const tokensInput: number = completion?.usage?.input_tokens ?? 0
     const tokensOutput: number = completion?.usage?.output_tokens ?? 0
-    const costUsd = (tokensInput * INPUT_COST_PER_TOKEN) + (tokensOutput * OUTPUT_COST_PER_TOKEN)
+    const cacheCreationTokens: number = completion?.usage?.cache_creation_input_tokens ?? 0
+    const cacheReadTokens: number = completion?.usage?.cache_read_input_tokens ?? 0
+    const costUsd =
+      tokensInput         * 0.000001    +
+      cacheCreationTokens * 0.00000125  +
+      cacheReadTokens     * 0.0000001   +
+      tokensOutput        * 0.000005
     // Await before returning — Supabase Edge Functions (Deno Deploy) kill pending
     // promises when the Response is sent, so fire-and-forget silently drops the insert.
     await supabaseAdmin.from('houston_query_log').insert({
@@ -417,6 +425,8 @@ Deno.serve(async (req) => {
       answer_preview: answer.slice(0, 200),
       tokens_input: tokensInput,
       tokens_output: tokensOutput,
+      cache_creation_tokens: cacheCreationTokens,
+      cache_read_tokens: cacheReadTokens,
       cost_usd: costUsd,
     }).catch((err: unknown) => console.error('houston-mod log error:', err))
 
