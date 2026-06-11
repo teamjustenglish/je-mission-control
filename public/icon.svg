@@ -5,5 +5,5 @@
       <stop offset="100%" stop-color="#38B6FF"/>
     </radialGradient>
   </defs>
-  <rect width="512" height="512" fill="url(#grad)"/>
+  <circle cx="256" cy="256" r="256" fill="url(#grad)"/>
 </svg>
