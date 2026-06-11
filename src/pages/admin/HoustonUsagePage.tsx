@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
+import MetricInfo from '@/components/MetricInfo';
 
 interface QueryLogEntry {
   id: string;
@@ -120,10 +121,42 @@ const HoustonUsagePage: React.FC = () => {
   });
 
   const heroCards = [
-    { label: 'Total queries', value: monthLogs.length.toString(),   sub: 'this month' },
-    { label: 'Total cost',    value: fmtCost(totalCost),             sub: 'this month' },
-    { label: 'Admin Houston', value: adminLogs.length.toString(),    sub: `${fmtCost(adminCost)} this month` },
-    { label: 'Mod Houston',   value: modLogs.length.toString(),      sub: `${fmtCost(modCost)} this month` },
+    {
+      label: 'Total queries',
+      value: monthLogs.length.toString(),
+      sub: 'this month',
+      info: {
+        what: "Questions asked to Houston this month, by anyone",
+        calculated: "Counts every question sent to Houston — by admins or mods — since the 1st of the current month.",
+      },
+    },
+    {
+      label: 'Total cost',
+      value: fmtCost(totalCost),
+      sub: 'this month',
+      info: {
+        what: "Money spent on AI to answer those questions this month",
+        calculated: "Adds up the cost of every Houston response since the 1st of this month. Each question costs a fraction of a cent.",
+      },
+    },
+    {
+      label: 'Admin Houston',
+      value: adminLogs.length.toString(),
+      sub: `${fmtCost(adminCost)} this month`,
+      info: {
+        what: "Questions asked by admins using the admin Ask Houston tab",
+        calculated: "Question count and AI cost for the admin version of Houston since the 1st of this month.",
+      },
+    },
+    {
+      label: 'Mod Houston',
+      value: modLogs.length.toString(),
+      sub: `${fmtCost(modCost)} this month`,
+      info: {
+        what: "Questions asked by moderators using their Houston chat",
+        calculated: "Question count and AI cost for the mod-facing Houston since the 1st of this month.",
+      },
+    },
   ];
 
   if (loading) {
@@ -151,8 +184,9 @@ const HoustonUsagePage: React.FC = () => {
             key={card.label}
             className="rounded-[14px] border border-white/[0.06] bg-[#1a1a1a] px-5 pb-[18px] pt-5"
           >
-            <div className="mb-[14px] font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-[#6b6b6b]">
+            <div className="mb-[14px] flex items-center gap-1 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-[#6b6b6b]">
               {card.label}
+              {card.info && <MetricInfo {...card.info} />}
             </div>
             <div className="text-[40px] font-semibold leading-none tracking-[-0.025em] tabular-nums">
               {card.value}
@@ -169,8 +203,12 @@ const HoustonUsagePage: React.FC = () => {
 
         {/* 14-day sparkline */}
         <div className="rounded-[14px] border border-white/[0.06] bg-[#1a1a1a] p-[22px]">
-          <div className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#6b6b6b]">
+          <div className="mb-4 flex items-center gap-1 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#6b6b6b]">
             Daily queries · last 14 days
+            <MetricInfo
+              what="How many Houston questions were asked each day over the last two weeks"
+              calculated="Each day is split by who asked — blue line for admin, purple for mod. Day boundaries are at Sri Lanka midnight."
+            />
           </div>
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={sparkData} margin={{ top: 4, right: 8, bottom: 4, left: -20 }}>
