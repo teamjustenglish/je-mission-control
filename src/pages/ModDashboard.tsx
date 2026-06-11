@@ -11,6 +11,7 @@ import AnnouncementsPopover from '@/components/AnnouncementsPopover';
 import { renderAnnouncementContent } from '@/lib/announcementUtils';
 import AvatarMenu from '@/components/AvatarMenu';
 import ModHoustonChat from '@/components/ModHoustonChat';
+import MetricInfo from '@/components/MetricInfo';
 import type { Task } from '@/components/ToDoSidebar';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -2713,15 +2714,33 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
               <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">
                 {droppedCount > 0 ? `${activeStudentCount} / ${enrolledStudents}` : activeStudentCount}
               </div>
-              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Active students</div>
+              <div className="text-muted-foreground" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, marginTop: 2 }}>
+                Active students
+                <MetricInfo
+                  what="Students currently in this batch"
+                  calculated="Total enrolled students, not counting anyone marked as dropped."
+                />
+              </div>
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500, color: attendanceColor }}>{avgAttendance === null ? '—' : `${avgAttendance}%`}</div>
-              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Avg attendance</div>
+              <div className="text-muted-foreground" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, marginTop: 2 }}>
+                Avg attendance
+                <MetricInfo
+                  what="Your batch's overall attendance rate, from week 1 until now"
+                  calculated="Present marks ÷ all marks (present + absent) across every session that has occurred. Dropped students are excluded."
+                />
+              </div>
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500, color: 'hsl(var(--score-amber))' }}>{avgDemoScore ? `${avgDemoScore} / 20` : '—'}</div>
-              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Avg demo score</div>
+              <div className="text-muted-foreground" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, marginTop: 2 }}>
+                Avg demo score
+                <MetricInfo
+                  what="Average score across all demo days so far"
+                  calculated="Total points scored ÷ total possible, across all students and scoring criteria. Made-up demos are included. Students absent for a demo day are excluded from that day's average."
+                />
+              </div>
               {(madeUpDemoCount > 0 || absentDemoCount > 0) && (
                 <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2, fontStyle: 'italic' }}>
                   {[
@@ -2733,7 +2752,13 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500, color: droppedCount >= 1 ? 'hsl(var(--score-red))' : 'hsl(var(--muted-foreground))' }}>{droppedCount}</div>
-              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Dropouts</div>
+              <div className="text-muted-foreground" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, marginTop: 2 }}>
+                Dropouts
+                <MetricInfo
+                  what="Students you've marked as dropped from the batch"
+                  calculated="Count of students with 'dropped' status. The percentage shown is how many of your originally enrolled students this represents."
+                />
+              </div>
               {enrolledStudents > 0 && (
                 <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 2, fontStyle: 'italic' }}>
                   {Math.round((droppedCount / enrolledStudents) * 100)}% of batch
@@ -2742,7 +2767,13 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
             </div>
             <div className="bg-card" style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '14px 16px' }}>
               <div style={{ fontSize: 22, fontWeight: 500 }} className="text-foreground">{sessionsCompleted} / {totalSessions}</div>
-              <div className="text-muted-foreground" style={{ fontSize: 12, marginTop: 2 }}>Sessions completed</div>
+              <div className="text-muted-foreground" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, marginTop: 2 }}>
+                Sessions completed
+                <MetricInfo
+                  what="How many of your scheduled sessions have already taken place"
+                  calculated="Sessions whose date has passed, out of the 24 total in a standard batch (4 sessions a week for 6 weeks)."
+                />
+              </div>
             </div>
           </div>
 

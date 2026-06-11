@@ -10,6 +10,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentWeek, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
 import { format } from 'date-fns';
+import MetricInfo from '@/components/MetricInfo';
 
 // ─────────────────────────── Types ───────────────────────────
 type Tone = 'red' | 'amber' | 'green' | 'ink';
@@ -20,6 +21,7 @@ interface Stat {
   sub: string;
   amber?: boolean;
   up?: boolean;
+  info?: { what: string; calculated: string };
 }
 
 interface Priority {
@@ -125,8 +127,9 @@ function Hero({ stats }: { stats: Stat[] }) {
               : 'border-white/[0.06] bg-[#1a1a1a]'
           }`}
         >
-          <div className="mb-[14px] font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-[#6b6b6b]">
+          <div className="mb-[14px] flex items-center gap-1 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-[#6b6b6b]">
             {s.lab}
+            {s.info && <MetricInfo {...s.info} />}
           </div>
           <div
             className={`text-[40px] font-semibold leading-none tracking-[-0.025em] tabular-nums ${
@@ -230,12 +233,40 @@ function BatchesTable({
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            {['Mod', 'Batch', 'Week', 'Attendance', 'Loose ends', 'Health'].map((h) => (
+            {([
+              { label: 'Mod', info: null },
+              { label: 'Batch', info: null },
+              { label: 'Week', info: null },
+              {
+                label: 'Attendance',
+                info: {
+                  what: "This batch's overall attendance rate from the start until now",
+                  calculated: "Present marks ÷ all marks (present + absent) across every session that has occurred. Dropped students are excluded.",
+                },
+              },
+              {
+                label: 'Loose ends',
+                info: {
+                  what: "Number of absences in this batch that still need a reason",
+                  calculated: "Absent marks where the mod hasn't saved a reason or category yet. Resolves to zero once every absence has an explanation.",
+                },
+              },
+              {
+                label: 'Health',
+                info: {
+                  what: "An overall status label for this batch",
+                  calculated: "Green = on track (attendance 85%+, few loose ends). Amber = worth watching. Red = needs support (attendance below 80%, or 8+ loose ends).",
+                },
+              },
+            ] as { label: string; info: { what: string; calculated: string } | null }[]).map(({ label, info }) => (
               <th
-                key={h}
+                key={label}
                 className="border-b border-white/[0.045] px-[22px] py-[11px] text-left font-mono text-[10.5px] font-medium uppercase tracking-[0.08em] text-[#6b6b6b]"
               >
-                {h}
+                <span className="inline-flex items-center gap-1">
+                  {label}
+                  {info && <MetricInfo {...info} />}
+                </span>
               </th>
             ))}
           </tr>
@@ -325,8 +356,12 @@ function Trend({
 
   return (
     <div className="rounded-[14px] border border-white/[0.06] bg-[#1a1a1a] p-[22px]">
-      <div className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#6b6b6b]">
+      <div className="mb-4 flex items-center gap-1 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#6b6b6b]">
         Attendance · last 8 weeks
+        <MetricInfo
+          what="How overall attendance has tracked week-by-week over the past 8 weeks"
+          calculated="Each bar is the combined present rate across all batches for sessions that fell in that calendar week. Weeks with no sessions show as empty."
+        />
       </div>
       <div className="text-[48px] font-semibold leading-none tracking-[-0.03em] tabular-nums">
         {current > 0 ? `${current}%` : '—'}
@@ -361,7 +396,13 @@ function Trend({
         ))}
       </div>
       <div className="mt-5 flex justify-between border-t border-white/[0.045] pt-4 text-[12.5px] text-[#a3a3a3]">
-        <span>8-week average</span>
+        <span className="inline-flex items-center gap-1">
+          8-week average
+          <MetricInfo
+            what="Average weekly attendance over the past 8 weeks"
+            calculated="Mean of the weekly attendance rates shown in the bars above. Weeks with no data are excluded from the average."
+          />
+        </span>
         <b className="font-semibold tabular-nums text-[#f5f5f5]">
           {avg > 0 ? `${avg}%` : '—'}
         </b>
@@ -600,11 +641,19 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
             val: String(openLeCount),
             sub: `across ${modsWithLE} mod${modsWithLE !== 1 ? 's' : ''}`,
             amber: openLeCount > 0,
+            info: {
+              what: "Absences that haven't been explained yet",
+              calculated: "Counts every 'absent' mark across all running batches where the mod hasn't saved a reason or category. The number drops once every absence has an explanation.",
+            },
           },
           {
             lab: 'Active students',
             val: String(activeStudentCount),
             sub: `across ${activeStudentBatchIds} batch${activeStudentBatchIds !== 1 ? 'es' : ''}`,
+            info: {
+              what: "Students currently enrolled in a running batch",
+              calculated: "All students in batches that started in the last 7 weeks. Excludes anyone the mod has marked as dropped.",
+            },
           },
           {
             lab: 'Active mods',
@@ -612,6 +661,10 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
             sub: modsMarkedThisWeek === activeModCount
               ? 'all marked this week'
               : `${modsMarkedThisWeek} of ${activeModCount} marked this week`,
+            info: {
+              what: "Moderators who currently have a running batch",
+              calculated: "Mods with a batch that started in the last 7 weeks. The note below shows how many have marked attendance at least once so far this week.",
+            },
           },
           thisWeekAtt !== null
             ? {
@@ -621,8 +674,20 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
                   ? `${thisWeekRange} · from ${lastWeekAtt}% last week`
                   : thisWeekRange,
                 up: lastWeekAtt !== null ? thisWeekAtt > lastWeekAtt : undefined,
+                info: {
+                  what: "Percentage of sessions attended across all running batches, for this week so far",
+                  calculated: "Present marks ÷ total marks (present + absent) for sessions in the current calendar week. Updates as mods mark their grids.",
+                },
               }
-            : { lab: 'Attendance this week', val: '—', sub: `${thisWeekRange} · no sessions marked yet` },
+            : {
+                lab: 'Attendance this week',
+                val: '—',
+                sub: `${thisWeekRange} · no sessions marked yet`,
+                info: {
+                  what: "Percentage of sessions attended across all running batches, for this week so far",
+                  calculated: "Present marks ÷ total marks (present + absent) for sessions in the current calendar week. Updates as mods mark their grids.",
+                },
+              },
         ]);
       }
 

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
+import MetricInfo from '@/components/MetricInfo';
 
 /**
  * Moderator Usage — Phase 1.
@@ -31,7 +32,7 @@ interface ReadRow { announcement_id: string; user_id: string; read_at: string; }
 interface DemoDayRow { id: string; batch_id: string; date: string | null; }
 interface AttRow { batch_id: string; state: string; absence_category: string | null; }
 
-interface AdoptionRow { label: string; pct: number | null; num: number; denom: number; note?: string; }
+interface AdoptionRow { label: string; pct: number | null; num: number; denom: number; note?: string; info?: { what: string; calculated: string }; }
 interface WatchItem {
   modId: string;
   name: string;
@@ -213,22 +214,35 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
     for (const a of activity) {
       if (a.action_type === 'attendance_marked' && new Date(a.created_at).getTime() >= last7) markedThisWeek.add(a.mod_id);
     }
-    adoptionRows.push(mkAdoption('Marked attendance this week', markedThisWeek.size, N));
+    adoptionRows.push(mkAdoption('Marked attendance this week', markedThisWeek.size, N, {
+      what: "Mods who have marked attendance for at least one session this week",
+      calculated: "Mods with at least one attendance action saved in the last 7 days. Denominator is all moderators.",
+    }));
 
     // (b) Asked Houston at least once (ever)
     const houstonEver = new Set<string>();
     for (const h of houstonAll) if (h.user_id && modIds.has(h.user_id)) houstonEver.add(h.user_id);
-    adoptionRows.push(mkAdoption('Asked Houston at least once', houstonEver.size, N));
+    adoptionRows.push(mkAdoption('Asked Houston at least once', houstonEver.size, N, {
+      what: "Mods who have ever used the Houston chat",
+      calculated: "Mods with at least one Houston question in our records, at any point in time.",
+    }));
 
     // (c) Used a student share link (created a link that was viewed at least once)
     const sharedViewed = new Set<string>();
     for (const s of shares) if (s.created_by && modIds.has(s.created_by) && s.last_viewed_at) sharedViewed.add(s.created_by);
-    adoptionRows.push(mkAdoption('Used a student share link', sharedViewed.size, N));
+    adoptionRows.push(mkAdoption('Used a student share link', sharedViewed.size, N, {
+      what: "Mods who have shared a student progress link that was actually opened",
+      calculated: "Mods who created a share link that someone viewed at least once. Links that were never opened don't count.",
+    }));
 
     // (d) Opened announcements within 24h — mods who opened EVERY last-7d announcement <24h
     const recentAnns = anns.filter((a) => !a.archived && new Date(a.created_at).getTime() >= last7);
+    const annInfo = {
+      what: "Mods who opened every announcement from this week within 24 hours of it being sent",
+      calculated: "A mod passes if they opened all announcements sent in the last 7 days within a day of each one going out. If there were no announcements, this shows as unavailable.",
+    };
     if (recentAnns.length === 0) {
-      adoptionRows.push({ label: 'Opened announcements within 24h', pct: null, num: 0, denom: N, note: 'no announcements this week' });
+      adoptionRows.push({ label: 'Opened announcements within 24h', pct: null, num: 0, denom: N, note: 'no announcements this week', info: annInfo });
     } else {
       const annCreated = new Map(recentAnns.map((a) => [a.id, new Date(a.created_at).getTime()]));
       let hit = 0;
@@ -240,7 +254,7 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
         });
         if (ok) hit++;
       }
-      adoptionRows.push(mkAdoption('Opened announcements within 24h', hit, N));
+      adoptionRows.push(mkAdoption('Opened announcements within 24h', hit, N, annInfo));
     }
 
     // (e) Entered demo scores within 48h of a demo day in the last 14d.
@@ -282,7 +296,10 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
       const onTime = myDemoDates.some((dd) => myEvents.some((ev) => ev >= dd && ev - dd <= 2 * DAY));
       if (onTime) demoOnTime++;
     }
-    adoptionRows.push(mkAdoption('Entered demo scores within 48h', demoOnTime, modsWithDemo.size));
+    adoptionRows.push(mkAdoption('Entered demo scores within 48h', demoOnTime, modsWithDemo.size, {
+      what: "Mods with a recent demo day who entered scores within 48 hours",
+      calculated: "Looks at demo days in the last 14 days. A mod passes if scores were saved within 48 hours of the demo day date. Only mods who had a demo day in this window are counted.",
+    }));
 
     // ── 4. Watchlist ───────────────────────────────────────────────
     const lastActionByMod = new Map<string, number>();
@@ -378,16 +395,24 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
   const stickiness = wam.current > 0 ? Math.round((damAvg / wam.current) * 100) : null;
   const ttmDelta = ttm.current != null && ttm.prev != null ? ttm.current - ttm.prev : null;
 
-  const heroCards: { label: string; value: string; sub: React.ReactNode }[] = [
+  const heroCards: { label: string; value: string; sub: React.ReactNode; info: { what: string; calculated: string } }[] = [
     {
       label: 'Weekly active mods',
       value: `${wam.current} / ${N}`,
       sub: <DeltaNote delta={wamDelta} unit="vs last week" goodWhenUp />,
+      info: {
+        what: "Mods who did something in Mission Control in the last 7 days",
+        calculated: "Any action counts — marking attendance, scoring demos, opening Houston, creating share links, or reading an announcement. Each mod is counted once even if they did many things.",
+      },
     },
     {
       label: 'Daily active mods · avg',
       value: `${damAvg.toFixed(1)} / ${N}`,
       sub: 'distinct mods per day · last 7d',
+      info: {
+        what: "On an average day last week, how many mods were active",
+        calculated: "For each of the past 7 days, we count the unique mods who took any action. This is the average of those 7 daily counts.",
+      },
     },
     {
       label: 'Stickiness',
@@ -395,6 +420,10 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
       sub: stickiness != null
         ? (stickiness >= 50 ? `Sticky · benchmark is 50%` : `Below 50% benchmark`)
         : 'no active mods',
+      info: {
+        what: "Of the mods active this week, what fraction are also active most days",
+        calculated: "Daily active mods ÷ weekly active mods. 50%+ is generally considered 'sticky' — it means mods are checking in regularly, not just once or twice a week.",
+      },
     },
     {
       label: 'Time to mark · median',
@@ -402,6 +431,10 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
       sub: ttm.current != null
         ? <DeltaNote delta={ttmDelta} unit="vs last week" goodWhenUp={false} suffix="h" />
         : 'no marks this week',
+      info: {
+        what: "How long it typically takes a mod to mark attendance after a session starts",
+        calculated: "For each saved attendance mark, we measure the gap from the session's scheduled date to when it was saved. This is the middle value across all marks this week. Note: if a mark is edited later, the timer resets to the edit time.",
+      },
     },
   ];
 
@@ -419,8 +452,9 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
       <div className="mb-4 grid grid-cols-1 gap-[14px] sm:grid-cols-2 lg:grid-cols-4">
         {heroCards.map((card) => (
           <div key={card.label} className="rounded-[14px] border border-white/[0.06] bg-[#1a1a1a] px-5 pb-[18px] pt-5">
-            <div className="mb-[14px] font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-[#6b6b6b]">
+            <div className="mb-[14px] flex items-center gap-1 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-[#6b6b6b]">
               {card.label}
+              <MetricInfo {...card.info} />
             </div>
             <div className="text-[40px] font-semibold leading-none tracking-[-0.025em] tabular-nums">
               {card.value}
@@ -434,8 +468,12 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
 
       {/* 2. WAM 8-week trend */}
       <div className="mb-6 rounded-[14px] border border-white/[0.06] bg-[#1a1a1a] p-[22px]">
-        <div className="mb-4 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#6b6b6b]">
+        <div className="mb-4 flex items-center gap-1 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-[#6b6b6b]">
           Weekly active mods · last 8 weeks
+          <MetricInfo
+            what="How many mods were active each week over the past two months"
+            calculated="Each data point is the number of unique mods who took any action during that 7-day window. The top of the chart is the total number of mods in the system."
+          />
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={trend} margin={{ top: 4, right: 8, bottom: 4, left: -20 }}>
@@ -467,8 +505,11 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
             const color = adoptionColor(row.pct);
             return (
               <div key={row.label}>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-[13px] text-[#d4d4d4]">{row.label}</span>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1 text-[13px] text-[#d4d4d4]">
+                    {row.label}
+                    {row.info && <MetricInfo {...row.info} />}
+                  </span>
                   <span className="font-mono text-[12px] tabular-nums" style={{ color }}>
                     {row.pct != null ? `${row.pct}% ` : '— '}
                     <span className="text-[#6b6b6b]">({row.num}/{row.denom}{row.note ? ` · ${row.note}` : ''})</span>
@@ -528,11 +569,12 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-const mkAdoption = (label: string, num: number, denom: number): AdoptionRow => ({
+const mkAdoption = (label: string, num: number, denom: number, info?: { what: string; calculated: string }): AdoptionRow => ({
   label,
   pct: denom > 0 ? Math.round((num / denom) * 100) : null,
   num,
   denom,
+  info,
 });
 
 // Sessions occurred so far for a batch (Mon/Tue/Thu/Fri, capped at 24).
