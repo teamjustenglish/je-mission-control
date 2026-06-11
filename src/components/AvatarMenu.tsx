@@ -130,11 +130,20 @@ const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
     if (!profile || saving || uploading) return;
     setSaving(true);
     try {
+      const update: { name: string; avatar_url?: string } = { name: displayName.trim() };
       if (pendingFile) {
-        // Photo upload coming in a follow-up PR once avatar_url column exists.
-        toast.message('Photo uploads are coming soon');
+        setUploading(true);
+        try {
+          update.avatar_url = await uploadPhoto(pendingFile);
+        } catch (err: any) {
+          toast.error(err?.message || 'Photo upload failed');
+          return; // keep the modal open so they can retry
+        } finally {
+          setUploading(false);
+        }
       }
-      await supabase.from('profiles').update({ name: displayName.trim() }).eq('id', profile.id);
+      const { error } = await supabase.from('profiles').update(update).eq('id', profile.id);
+      if (error) { toast.error(error.message); return; }
       await refreshProfile();
       setSettingsOpen(false);
     } finally {

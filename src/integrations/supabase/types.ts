@@ -506,6 +506,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           email: string
           id: string
@@ -514,6 +515,7 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           email: string
           id: string
@@ -522,6 +524,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -826,7 +829,10 @@ export type Database = {
         }
         Returns: boolean
       }
-      setup_invite_account: { Args: { p_token: string }; Returns: string }
+      setup_invite_account: {
+        Args: { p_token: string; p_avatar_url?: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "moderator"

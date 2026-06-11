@@ -19,6 +19,7 @@ interface Profile {
   role: string;
   created_at: string;
   last_sign_in?: string | null;
+  avatar_url?: string | null;
 }
 
 interface ModCode {
@@ -705,9 +706,13 @@ const AdminDashboard: React.FC = () => {
                       <div className="flex items-center gap-3">
                         {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                         <div className="relative">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium overflow-hidden"
                             style={{ background: avatarColor.bg, color: avatarColor.text }}>
-                            {getInitials(mod.name || mod.email)}
+                            {mod.avatar_url ? (
+                              <img src={mod.avatar_url} alt={mod.name || mod.email} className="w-full h-full object-cover" />
+                            ) : (
+                              getInitials(mod.name || mod.email)
+                            )}
                           </div>
                           <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card"
                             style={{ background: statusInfo.text }} />
