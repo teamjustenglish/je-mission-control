@@ -1,4 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#111111"/>
-  <text x="256" y="336" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="220" font-weight="700" fill="white" letter-spacing="-6">JE</text>
+  <defs>
+    <radialGradient id="grad" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#ADE9FC"/>
+      <stop offset="100%" stop-color="#38B6FF"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#grad)"/>
 </svg>
