@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentWeek, getSessionsOccurred, computeAttendancePct } from '@/lib/batchtrack';
+import { getCurrentWeek, getSessionsOccurred, computeAttendancePct, sessionIcon, type BatchSession } from '@/lib/batchtrack';
 import { format } from 'date-fns';
 import MetricInfo from '@/components/MetricInfo';
 
@@ -36,6 +36,7 @@ interface Priority {
 interface Batch {
   mod: string;
   batch: string;
+  session?: BatchSession;
   week: number;
   att: number | null;
   attTone: Tone;
@@ -283,7 +284,7 @@ function BatchesTable({
                 </div>
               </td>
               <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[14px] tabular-nums text-[#f5f5f5]">
-                {b.batch}
+                {b.batch} {sessionIcon(b.session)}
               </td>
               <td className="border-b border-white/[0.045] px-[22px] py-[13px] text-[14px] tabular-nums text-[#a3a3a3]">
                 Week {b.week}
@@ -478,7 +479,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
       // ── Fetch ──────────────────────────────────────────────────
       const { data: allBatches } = await supabase
         .from('batches')
-        .select('id, name, mod_id, start_date')
+        .select('id, name, mod_id, start_date, session')
         .gte('created_at', ninetyDaysAgo);
 
       const batchList = allBatches ?? [];
@@ -554,7 +555,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
 
       // ── Per-batch metrics (active batches only) ────────────────
       type BM = {
-        batchId: string; batchName: string; modName: string;
+        batchId: string; batchName: string; modName: string; session?: BatchSession;
         week: number; totalAtt: number | null; looseEnds: number;
       };
       const batchMetrics: BM[] = [];
@@ -598,7 +599,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
           progLastTotal += lastMarks.length;
         }
 
-        batchMetrics.push({ batchId: batch.id, batchName: batch.name, modName, week, totalAtt, looseEnds });
+        batchMetrics.push({ batchId: batch.id, batchName: batch.name, modName, session: (batch as { session?: BatchSession }).session, week, totalAtt, looseEnds });
       }
 
       // ── A. STATS (all scoped to active batches) ────────────────
@@ -778,7 +779,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         const leTone: Exclude<Tone, 'ink'> = m.looseEnds > 8 ? 'red' : m.looseEnds >= 2 ? 'amber' : 'green';
         const sortScore = health === 'at risk' ? 0 : health === 'watch' ? 1 : 2;
         return {
-          mod: m.modName, batch: m.batchName, week: m.week,
+          mod: m.modName, batch: m.batchName, session: m.session, week: m.week,
           att: m.totalAtt, attTone,
           le: m.looseEnds, leTone,
           health, healthTone, sortScore,

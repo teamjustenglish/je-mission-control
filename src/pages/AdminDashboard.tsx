@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart3, Users, BookOpen, Plus, Download, Settings, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle, Activity, UsersRound } from 'lucide-react';
-import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek } from '@/lib/batchtrack';
+import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek, sessionIcon, type BatchSession } from '@/lib/batchtrack';
 
 import StudentProgressModal from '@/components/StudentProgressModal';
 import ModDashboard from './ModDashboard';
@@ -44,6 +44,7 @@ interface ModInvite {
 interface ModBatchCard {
   id: string;
   name: string;
+  session?: BatchSession;
   month: number;
   year: number;
   start_date: string | null;
@@ -99,7 +100,7 @@ const AdminDashboard: React.FC = () => {
 
   // FEATURE 1: Full grid view (renders ModDashboard in read-only mode)
   const [gridViewBatch, setGridViewBatch] = useState<{
-    batchId: string; batchName: string; modName: string; modId: string;
+    batchId: string; batchName: string; modName: string; modId: string; session?: BatchSession;
   } | null>(null);
 
 
@@ -326,7 +327,7 @@ const AdminDashboard: React.FC = () => {
         const demoDaysDone = bDemoDays.filter(dd => bScores.some(s => s.demo_day_id === dd.id)).length;
 
         return {
-          id: batch.id, name: batch.name,
+          id: batch.id, name: batch.name, session: batch.session,
           month: batch.month, year: batch.year, start_date: batch.start_date || null,
           studentCount: bStudents.length, attendancePct: attPct,
           avgDemoScore: avgScore, demoDaysDone,
@@ -345,8 +346,8 @@ const AdminDashboard: React.FC = () => {
 
   // FEATURE 1: Open full grid view — renders ModDashboard in read-only mode.
   // Data fetching is handled by ModDashboard itself, so we just stash the identifiers.
-  const openGridView = (batchId: string, batchName: string, modName: string, modId: string) => {
-    setGridViewBatch({ batchId, batchName, modName, modId });
+  const openGridView = (batchId: string, batchName: string, modName: string, modId: string, session?: BatchSession) => {
+    setGridViewBatch({ batchId, batchName, modName, modId, session });
   };
 
   const generateToken = () => {
@@ -459,7 +460,7 @@ const AdminDashboard: React.FC = () => {
 
           <span style={{ fontSize: 13, color: '#a3a3a3' }}>
             <span style={{ color: '#f5f5f5', fontWeight: 500 }}>{gridViewBatch.modName}</span>
-            {' · '}{gridViewBatch.batchName}
+            {' · '}{gridViewBatch.batchName} {sessionIcon(gridViewBatch.session)}
           </span>
 
           <div className="flex items-center gap-2">
@@ -761,7 +762,7 @@ const AdminDashboard: React.FC = () => {
                               return (
                                 <div key={card.id} style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: 16 }}>
                                   <div className="mb-3">
-                                    <p className="text-sm font-medium text-foreground">{card.name}</p>
+                                    <p className="text-sm font-medium text-foreground">{card.name} {sessionIcon(card.session)}</p>
                                     <p className="text-xs text-muted-foreground">Currently in week {card.weekNumber} of 6</p>
                                   </div>
                                   <div className="grid grid-cols-2 gap-2 mb-3">
@@ -789,7 +790,7 @@ const AdminDashboard: React.FC = () => {
                                         {card.lastUpdated ? `Last updated ${timeAgo(card.lastUpdated)} by ${card.lastUpdatedBy}` : 'No activity'}
                                       </span>
                                     </div>
-                                    <button onClick={() => openGridView(card.id, card.name, mod.name || mod.email, mod.id)}
+                                    <button onClick={() => openGridView(card.id, card.name, mod.name || mod.email, mod.id, card.session)}
                                       style={{ fontSize: 11, color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer' }}>
                                       View full grid →
                                     </button>
@@ -986,7 +987,7 @@ const AdminDashboard: React.FC = () => {
         )}
 
         {activePage === 'batches' && (() => {
-          const batchMap = new Map<string, { id: string; name: string; modName: string; weekNumber: number; studentCount: number; attendancePct: number | null }>();
+          const batchMap = new Map<string, { id: string; name: string; session?: BatchSession; modName: string; weekNumber: number; studentCount: number; attendancePct: number | null }>();
           for (const row of allStudentsData) {
             const id = row.batch?.id;
             if (!id) continue;
@@ -997,6 +998,7 @@ const AdminDashboard: React.FC = () => {
               batchMap.set(id, {
                 id,
                 name: row.batch?.name ?? 'Unknown',
+                session: row.batch?.session,
                 modName: row.mod?.name ?? 'Unknown',
                 weekNumber: row.weekNumber,
                 studentCount: 1,
@@ -1017,7 +1019,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="flex items-center justify-between mb-1">
                       <div>
                         <p className="text-sm" style={{ fontWeight: 500, color: '#e8e8e8' }}>{batch.modName}</p>
-                        <p className="text-xs" style={{ color: '#888' }}>{batch.name} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
+                        <p className="text-xs" style={{ color: '#888' }}>{batch.name} {sessionIcon(batch.session)} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
                       </div>
                       <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {pct === null ? '—' : `${pct}%`}</span>
                     </div>
@@ -1078,7 +1080,7 @@ const AdminDashboard: React.FC = () => {
                                   <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }}
                                     onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, startDate: batch?.start_date || null, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>📄</span>
                                 </p>
-                                <p className="text-xs text-muted-foreground">{batch.name} · {mod.name} · Currently in week {weekNumber} of 6</p>
+                                <p className="text-xs text-muted-foreground">{batch.name} {sessionIcon(batch.session)} · {mod.name} · Currently in week {weekNumber} of 6</p>
                               </div>
                             </div>
                             <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : attColor === '#f87171' ? '#2a0a0a' : '#222', color: attColor }}>
