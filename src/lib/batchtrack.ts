@@ -114,13 +114,25 @@ export const MONTHS = [
 
 export type BatchSession = 'morning' | 'evening';
 
-// Morning = sun, evening = moon. Stored as 'morning'/'evening' in the DB;
-// the icon is purely for display. Anything unset is treated as evening (the default).
+// Morning = sun, evening = moon.
 export const sessionIcon = (session?: string | null): string =>
   session === 'morning' ? '☀️' : '🌙';
 
 export const sessionLabel = (session?: string | null): string =>
   session === 'morning' ? 'morning' : 'evening';
+
+// STOPGAP: the `session` column can't be added to the DB right now — Supabase is
+// fully managed by Lovable and we have no migration/SQL access. So we hardcode the
+// known MORNING cohorts by batch id; every other batch is treated as evening (🌙).
+// New evening batches therefore display correctly with no extra work. Remove this
+// (and switch back to the real `session` column) once schema access is available.
+export const MORNING_BATCH_IDS = new Set<string>([
+  'b9c52b69-895b-4f7f-bcf1-c926abba0601', // Lilian — Jun 2026 morning (Poorni)
+  '8379572b-5129-48ed-8e8c-8f6fca33d710', // Sia — May 2026 morning (Kushin)
+]);
+
+export const sessionIconForBatch = (batchId?: string | null): string =>
+  batchId && MORNING_BATCH_IDS.has(batchId) ? '☀️' : '🌙';
 
 export const CRITERIA = [
   'Task achievement & content',

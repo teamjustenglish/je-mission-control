@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart3, Users, BookOpen, Plus, Download, Settings, Trash2, Calendar, ChevronRight, ChevronDown, ClipboardList, ArrowLeft, Eye, GraduationCap, Search, Sparkles, Megaphone, Link2, Copy, Check, XCircle, Activity, UsersRound } from 'lucide-react';
-import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek, sessionIcon, type BatchSession } from '@/lib/batchtrack';
+import { getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek, sessionIconForBatch, type BatchSession } from '@/lib/batchtrack';
 
 import StudentProgressModal from '@/components/StudentProgressModal';
 import ModDashboard from './ModDashboard';
@@ -460,7 +460,7 @@ const AdminDashboard: React.FC = () => {
 
           <span style={{ fontSize: 13, color: '#a3a3a3' }}>
             <span style={{ color: '#f5f5f5', fontWeight: 500 }}>{gridViewBatch.modName}</span>
-            {' · '}{gridViewBatch.batchName} {sessionIcon(gridViewBatch.session)}
+            {' · '}{gridViewBatch.batchName} {sessionIconForBatch(gridViewBatch.batchId)}
           </span>
 
           <div className="flex items-center gap-2">
@@ -762,7 +762,7 @@ const AdminDashboard: React.FC = () => {
                               return (
                                 <div key={card.id} style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: 10, padding: 16 }}>
                                   <div className="mb-3">
-                                    <p className="text-sm font-medium text-foreground">{card.name} {sessionIcon(card.session)}</p>
+                                    <p className="text-sm font-medium text-foreground">{card.name} {sessionIconForBatch(card.id)}</p>
                                     <p className="text-xs text-muted-foreground">Currently in week {card.weekNumber} of 6</p>
                                   </div>
                                   <div className="grid grid-cols-2 gap-2 mb-3">
@@ -1019,7 +1019,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="flex items-center justify-between mb-1">
                       <div>
                         <p className="text-sm" style={{ fontWeight: 500, color: '#e8e8e8' }}>{batch.modName}</p>
-                        <p className="text-xs" style={{ color: '#888' }}>{batch.name} {sessionIcon(batch.session)} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
+                        <p className="text-xs" style={{ color: '#888' }}>{batch.name} {sessionIconForBatch(batch.id)} · Week {batch.weekNumber} of 6 · {batch.studentCount} students</p>
                       </div>
                       <span className="text-sm font-medium" style={{ color: barColor }}>Attendance · {pct === null ? '—' : `${pct}%`}</span>
                     </div>
@@ -1080,7 +1080,7 @@ const AdminDashboard: React.FC = () => {
                                   <span style={{ ...emojiStyle, marginLeft: 8, cursor: 'pointer' }}
                                     onClick={() => setProgressModalData({ student, batchName: batch.name, modName: mod.name, weekNumber, startDate: batch?.start_date || null, attendance: sAtt, demoDays: sDDs, demoScores: sDSc, demoFeedback: sDFb })}>📄</span>
                                 </p>
-                                <p className="text-xs text-muted-foreground">{batch.name} {sessionIcon(batch.session)} · {mod.name} · Currently in week {weekNumber} of 6</p>
+                                <p className="text-xs text-muted-foreground">{batch.name} {sessionIconForBatch(batch.id)} · {mod.name} · Currently in week {weekNumber} of 6</p>
                               </div>
                             </div>
                             <span className="text-xs px-2 py-1 rounded" style={{ background: attColor === '#4ade80' ? '#1a3a1a' : attColor === '#fbbf24' ? '#2a2000' : attColor === '#f87171' ? '#2a0a0a' : '#222', color: attColor }}>
