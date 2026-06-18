@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek, getAbsenceStreak, hasActiveSnooze } from '@/lib/batchtrack';
+import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek, getAbsenceStreak, hasActiveSnooze, sessionIcon, type BatchSession } from '@/lib/batchtrack';
 import { Plus, ChevronDown, ChevronRight, Grid3X3, List, Rocket, Sparkles, ArrowRight } from 'lucide-react';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
-interface Batch { id: string; name: string; mod_id: string; month: number; year: number; start_date?: string | null; }
+interface Batch { id: string; name: string; mod_id: string; month: number; year: number; start_date?: string | null; session?: BatchSession; }
 interface Student { id: string; batch_id: string; name: string; status?: string | null; status_reason?: string | null; status_changed_at?: string | null; }
 const isDroppedStudent = (s: Pick<Student, 'status'>) => s.status === 'dropped';
 interface AttendanceRecord { id: string; student_id: string; batch_id: string; session_index: number; state: string; absence_note?: string | null; absence_category?: string | null; }
@@ -448,7 +448,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [demoDaysExpanded, setDemoDaysExpanded] = useState(true);
   const [newBatchMonth, setNewBatchMonth] = useState(new Date().getMonth() + 1);
   const [newBatchYear, setNewBatchYear] = useState(new Date().getFullYear());
-  
+  const [newBatchSession, setNewBatchSession] = useState<BatchSession>('evening');
+
   const [newBatchStartDate, setNewBatchStartDate] = useState('');
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
@@ -458,7 +459,8 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [editBatchId, setEditBatchId] = useState<string | null>(null);
   const [editBatchMonth, setEditBatchMonth] = useState(1);
   const [editBatchYear, setEditBatchYear] = useState(2026);
-  
+  const [editBatchSession, setEditBatchSession] = useState<BatchSession>('evening');
+
   const [editBatchStartDate, setEditBatchStartDate] = useState('');
 
   // Delete batch state
@@ -729,14 +731,25 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     if (!user || !newBatchStartDate) return;
     const monthName = MONTHS[newBatchMonth - 1];
     const batchName = `${monthName} ${newBatchYear}`;
-    const existing = batches.find(b => b.name === batchName);
-    if (existing) { setActiveBatchId(existing.id); setShowCreateBatch(false); return; }
+    // A mod can run a morning AND an evening batch in the same month — so the
+    // duplicate check is scoped to (name + session), not name alone.
+    const existing = batches.find(b => b.name === batchName && (b.session ?? 'evening') === newBatchSession);
+    if (existing) {
+      toast.error(`You already have a ${sessionIcon(newBatchSession)} ${newBatchSession} batch for ${batchName}.`);
+      setActiveBatchId(existing.id);
+      setShowCreateBatch(false);
+      return;
+    }
 
     const startDateValue = newBatchStartDate.trim() ? newBatchStartDate : null;
-    const { data } = await supabase.from('batches').insert({
-      mod_id: user.id, name: batchName, month: newBatchMonth, year: newBatchYear, start_date: startDateValue,
+    const { data, error } = await supabase.from('batches').insert({
+      mod_id: user.id, name: batchName, month: newBatchMonth, year: newBatchYear, start_date: startDateValue, session: newBatchSession,
     }).select().single();
-    if (data) {
+    if (error || !data) {
+      toast.error(`Couldn't create the batch: ${error?.message ?? 'unknown error'}`);
+      return;
+    }
+    {
       await supabase.from('demo_days').insert([
         { batch_id: data.id, title: 'Demo day 01', day_number: 1 },
         { batch_id: data.id, title: 'Demo day 02', day_number: 2 },
@@ -750,7 +763,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       }));
       const { error: wsErr } = await supabase.from('week_status').insert(weekRows);
       if (wsErr) console.error('Failed to create week_status rows', wsErr);
-      await logActivity(user.id, profile?.name || '', 'batch_created', `Created batch ${batchName}`, batchName);
+      await logActivity(user.id, profile?.name || '', 'batch_created', `Created batch ${batchName} (${newBatchSession})`, batchName);
       setShowCreateBatch(false); setNewBatchStartDate('');
       // Fetch the new batch data into cache and switch to it
       const newData = await fetchBatchData(data.id);
@@ -768,6 +781,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     setEditBatchMonth(batch.month);
     setEditBatchYear(batch.year);
     setEditBatchStartDate((batch as any).start_date || '');
+    setEditBatchSession(batch.session ?? 'evening');
   };
 
   const saveEditBatch = async () => {
@@ -775,11 +789,23 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     if (!editBatchId || !user) return;
     const monthName = MONTHS[editBatchMonth - 1];
     const newName = `${monthName} ${editBatchYear}`;
+    // Block renaming a batch into a (month + session) this mod already uses,
+    // so the edit path can't recreate the duplicate situation it once allowed.
+    const clash = batches.find(b => b.id !== editBatchId && b.name === newName && (b.session ?? 'evening') === editBatchSession);
+    if (clash) {
+      toast.error(`You already have a ${sessionIcon(editBatchSession)} ${editBatchSession} batch for ${newName}.`);
+      return;
+    }
     const startDateValue = editBatchStartDate.trim() ? editBatchStartDate : null;
-    await supabase.from('batches').update({
-      name: newName, month: editBatchMonth, year: editBatchYear, start_date: startDateValue,
+    const { error } = await supabase.from('batches').update({
+      name: newName, month: editBatchMonth, year: editBatchYear, start_date: startDateValue, session: editBatchSession,
     }).eq('id', editBatchId);
-    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, start_date: startDateValue } : b));
+    if (error) {
+      toast.error(`Couldn't save changes: ${error.message}`);
+      return;
+    }
+    setBatches(prev => prev.map(b => b.id === editBatchId ? { ...b, name: newName, month: editBatchMonth, year: editBatchYear, start_date: startDateValue, session: editBatchSession } : b));
+    await logActivity(user.id, profile?.name || '', 'batch_edited', `Edited batch ${newName} (${editBatchSession})`, newName);
     setEditBatchId(null);
     showSaved();
   };
@@ -2297,12 +2323,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                     type="button"
                     onClick={() => switchBatch(batch.id)}
                     onDoubleClick={() => openEditBatch(batch)}
-                    title={batch.name}
+                    title={`${batch.name} (${batch.session ?? 'evening'})`}
                     className={`px-3 py-3 text-sm font-medium border-b-2 transition-colors ${
                       isActive ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                     style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}
-                  >{batch.name}</button>
+                  >{batch.name} {sessionIcon(batch.session)}</button>
                   {isActive && !readOnly && (
                     <button
                       type="button"
@@ -2367,12 +2393,26 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }} />
               </div>
               <div>
+                <label className="text-sm text-muted-foreground">Session</label>
+                <div className="flex gap-2 mt-1">
+                  {([['morning', '☀️', 'Morning'], ['evening', '🌙', 'Evening']] as const).map(([val, icon, lbl]) => (
+                    <button key={val} type="button" onClick={() => setNewBatchSession(val)}
+                      className="flex-1 px-3 py-2 text-sm"
+                      style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8,
+                        background: newBatchSession === val ? 'hsl(var(--foreground))' : 'hsl(var(--input-bg))',
+                        color: newBatchSession === val ? 'hsl(var(--background))' : 'hsl(var(--foreground))' }}>
+                      {icon} {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1) <span className="text-red-500">*</span></label>
                 <input type="date" value={newBatchStartDate} onChange={(e) => setNewBatchStartDate(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }} />
                 <p className="text-muted-foreground mt-1" style={{ fontSize: 11 }}>Required. This drives all week and day calculations.</p>
               </div>
-              <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[newBatchMonth - 1]} {newBatchYear}</strong></p>
+              <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[newBatchMonth - 1]} {newBatchYear} {sessionIcon(newBatchSession)}</strong></p>
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setShowCreateBatch(false)} className="flex-1"
                   style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
@@ -2676,17 +2716,31 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }} />
               </div>
               <div>
+                <label className="text-sm text-muted-foreground">Session</label>
+                <div className="flex gap-2 mt-1">
+                  {([['morning', '☀️', 'Morning'], ['evening', '🌙', 'Evening']] as const).map(([val, icon, lbl]) => (
+                    <button key={val} type="button" onClick={() => setEditBatchSession(val)}
+                      className="flex-1 px-3 py-2 text-sm"
+                      style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8,
+                        background: editBatchSession === val ? 'hsl(var(--foreground))' : 'hsl(var(--input-bg))',
+                        color: editBatchSession === val ? 'hsl(var(--background))' : 'hsl(var(--foreground))' }}>
+                      {icon} {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label className="text-sm text-muted-foreground">Batch start date (Monday of Week 1)</label>
                 <input type="date" value={editBatchStartDate} onChange={(e) => setEditBatchStartDate(e.target.value)}
                   className="w-full mt-1 px-3 py-2 text-sm text-foreground" style={{ border: '1px solid hsl(var(--input-border))', borderRadius: 8, background: 'hsl(var(--input-bg))' }} />
               </div>
-              <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[editBatchMonth - 1]} {editBatchYear}</strong></p>
+              <p className="text-xs text-muted-foreground">Batch name: <strong className="text-foreground">{MONTHS[editBatchMonth - 1]} {editBatchYear} {sessionIcon(editBatchSession)}</strong></p>
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setEditBatchId(null)} className="flex-1"
                   style={cancelBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--border))'; e.currentTarget.style.color = 'hsl(var(--foreground))'; }}>Cancel</button>
-                <button onClick={() => { setEditBatchId(null); saveEditBatch(); }} className="flex-1 disabled:opacity-50"
+                <button onClick={saveEditBatch} className="flex-1 disabled:opacity-50"
                   style={primaryBtnStyle} onMouseDown={btnPress} onMouseUp={btnRelease} onMouseLeave={btnRelease}
                   onMouseEnter={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}
                   onMouseOut={(e) => { e.currentTarget.style.background = 'hsl(var(--foreground))'; }}>Save changes</button>
