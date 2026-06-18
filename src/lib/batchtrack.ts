@@ -112,6 +112,16 @@ export const MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
+export type BatchSession = 'morning' | 'evening';
+
+// Morning = sun, evening = moon. Stored as 'morning'/'evening' in the DB;
+// the icon is purely for display. Anything unset is treated as evening (the default).
+export const sessionIcon = (session?: string | null): string =>
+  session === 'morning' ? '☀️' : '🌙';
+
+export const sessionLabel = (session?: string | null): string =>
+  session === 'morning' ? 'morning' : 'evening';
+
 export const CRITERIA = [
   'Task achievement & content',
   'Fluency & coherence',
