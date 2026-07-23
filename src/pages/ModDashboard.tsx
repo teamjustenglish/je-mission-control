@@ -483,6 +483,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   }
   const batchCacheRef = useRef<Record<string, BatchCacheEntry>>({});
   const initialLoadDone = useRef(false);
+  const initialLoadInFlight = useRef(false);
 
   // Feedback modal state
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -583,6 +584,12 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       supabase.from('rescheduled_sessions').select('*').eq('batch_id', batchId),
       supabase.from('week_status').select('id,batch_id,week_number,status').eq('batch_id', batchId),
     ]);
+    // Ghost-attendance guard: never treat a failed query as an empty result. If the
+    // students/attendance reads error (e.g. an expired JWT / RLS denial during the
+    // brief auth window right after login or tab-resume), throw so the caller can
+    // retry — rather than silently caching an empty grid until a manual refresh.
+    if (studentsRes.error) throw studentsRes.error;
+    if (attendanceRes.error) throw attendanceRes.error;
     const fetchedStudents = studentsRes.data || [];
     const fetchedAttendance = (attendanceRes.data || []) as AttendanceRecord[];
     const fetchedDemoDays = demoDaysRes.data || [];
@@ -644,26 +651,55 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   // Initial load: fetch batches, load first immediately, background-load rest
   useEffect(() => {
-    if (initialLoadDone.current) return;
+    // `initialLoadDone` flips true only after a SUCCESSFUL load; `initialLoadInFlight`
+    // blocks concurrent runs. On failure we leave `done` false so a later re-render
+    // (e.g. the `user` object changing on TOKEN_REFRESHED) retries automatically,
+    // instead of the old behaviour that latched `done` true before the fetch even ran.
+    if (initialLoadDone.current || initialLoadInFlight.current) return;
     const filterModId = modIdOverride ?? user?.id;
     if (!filterModId) return;
-    initialLoadDone.current = true;
+    initialLoadInFlight.current = true;
+    // Retry transient auth/RLS errors with a short backoff before giving up.
+    const fetchWithRetry = async (id: string, attempts = 4): Promise<BatchCacheEntry> => {
+      for (let i = 0; ; i++) {
+        try {
+          return await fetchBatchData(id);
+        } catch (e) {
+          if (i >= attempts - 1) throw e;
+          await new Promise(r => setTimeout(r, 400 * (i + 1)));
+        }
+      }
+    };
     (async () => {
-      const { data } = await supabase.from('batches').select('*').eq('mod_id', filterModId).order('created_at');
-      if (!data || data.length === 0) { setBatches(data || []); return; }
-      setBatches(data);
-      // If a batchIdOverride is provided, force-select it (ignore other sources)
-      const overridden = batchIdOverride && data.find(b => b.id === batchIdOverride);
-      const firstId = overridden ? batchIdOverride : data[0].id;
-      setActiveBatchId(firstId);
-      const firstData = await fetchBatchData(firstId);
-      batchCacheRef.current[firstId] = firstData;
-      applyCacheToState(firstData);
-      // Background-load remaining batches
-      for (const b of data) {
-        if (b.id === firstId) continue;
-        const bData = await fetchBatchData(b.id);
-        batchCacheRef.current[b.id] = bData;
+      try {
+        const { data, error } = await supabase.from('batches').select('*').eq('mod_id', filterModId).order('created_at');
+        if (error) throw error;
+        if (!data || data.length === 0) { setBatches(data || []); initialLoadDone.current = true; return; }
+        setBatches(data);
+        // If a batchIdOverride is provided, force-select it (ignore other sources)
+        const overridden = batchIdOverride && data.find(b => b.id === batchIdOverride);
+        const firstId = overridden ? batchIdOverride : data[0].id;
+        setActiveBatchId(firstId);
+        const firstData = await fetchWithRetry(firstId);
+        batchCacheRef.current[firstId] = firstData;
+        applyCacheToState(firstData);
+        initialLoadDone.current = true;
+        // Background-load remaining batches (a failure here is non-fatal — the tab
+        // can still be opened later, which triggers its own fetch).
+        for (const b of data) {
+          if (b.id === firstId) continue;
+          try {
+            const bData = await fetchWithRetry(b.id);
+            batchCacheRef.current[b.id] = bData;
+          } catch (e) {
+            console.error('Background batch load failed', b.id, e);
+          }
+        }
+      } catch (e) {
+        // Leave initialLoadDone false so a subsequent render retries the load.
+        console.error('Initial batch load failed after retries', e);
+      } finally {
+        initialLoadInFlight.current = false;
       }
     })();
   }, [user, modIdOverride, batchIdOverride, fetchBatchData, applyCacheToState]);
@@ -692,6 +728,24 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     batchCacheRef.current[activeBatchId] = entry;
     applyCacheToState(entry);
   }, [activeBatchId, fetchBatchData, applyCacheToState]);
+
+  // Re-sync the active batch from the DB when the tab regains focus/visibility.
+  // Fixes "ghost attendance": iOS Safari (and others) suspend background tabs, so on
+  // resume the in-memory state can be stale/empty while the DB is correct. This pulls
+  // the source of truth back in without the user having to manually refresh.
+  useEffect(() => {
+    const refetch = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!activeBatchId) return;
+      loadBatchData().catch(e => console.error('focus/visibility refetch failed', e));
+    };
+    window.addEventListener('focus', refetch);
+    document.addEventListener('visibilitychange', refetch);
+    return () => {
+      window.removeEventListener('focus', refetch);
+      document.removeEventListener('visibilitychange', refetch);
+    };
+  }, [activeBatchId, loadBatchData]);
 
   const getSessionDate = (sessionIndex: number): string | null => {
     if (!activeBatch?.start_date) return null;
@@ -974,7 +1028,9 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const markAllForSession = async (sessionIndex: number, state: 'c' | 'x') => {
     if (readOnly) return;
     if (!activeBatchId) return;
-    for (const student of students) {
+    // Skip dropped students — mirrors the single-cell cycleAttendance guard so
+    // "mark all" never toggles a dropped student to present or creates a row for them.
+    for (const student of students.filter(s => !isDroppedStudent(s))) {
       const existing = attendance.find(a => a.student_id === student.id && a.session_index === sessionIndex);
       if (existing) {
         setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, state } : a));
