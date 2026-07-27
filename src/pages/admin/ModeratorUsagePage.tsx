@@ -4,6 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import MetricInfo from '@/components/MetricInfo';
+import { computeLooseEnds, type LooseEndsResult } from '@/lib/batchtrack';
 
 /**
  * Moderator Usage — Phase 1.
@@ -29,8 +30,7 @@ interface ActivityRow { mod_id: string; action_type: string; description: string
 interface ShareRow { created_by: string | null; created_at: string; last_viewed_at: string | null; }
 interface AnnRow { id: string; created_at: string; archived: boolean; }
 interface ReadRow { announcement_id: string; user_id: string; read_at: string; }
-interface DemoDayRow { id: string; batch_id: string; date: string | null; }
-interface AttRow { batch_id: string; state: string; absence_category: string | null; }
+interface DemoDayRow { id: string; batch_id: string; date: string | null; day_number: number; }
 
 interface AdoptionRow { label: string; pct: number | null; num: number; denom: number; note?: string; info?: { what: string; calculated: string }; }
 interface WatchItem {
@@ -61,20 +61,16 @@ const sessionDate = (startDate: string, week: number, dayIdx: number): Date => {
   return d;
 };
 
-const fetchAllAttendance = async (batchIds: string[]): Promise<AttRow[]> => {
-  if (batchIds.length === 0) return [];
-  // Supabase silently caps a single select at 1000 rows; paginate with .range().
+// Paginate any filtered query past Supabase's 1000-row cap. `build` returns a fresh
+// query builder each call so .range() applies to a clean request.
+const fetchPaged = async (build: () => any): Promise<any[]> => {
   const PAGE = 1000;
   let page = 0;
-  const out: AttRow[] = [];
+  const out: any[] = [];
   while (true) {
-    const { data } = await supabase
-      .from('attendance')
-      .select('batch_id, state, absence_category')
-      .in('batch_id', batchIds)
-      .range(page * PAGE, page * PAGE + PAGE - 1);
+    const { data } = await build().range(page * PAGE, page * PAGE + PAGE - 1);
     const rows = data ?? [];
-    out.push(...(rows as AttRow[]));
+    out.push(...rows);
     if (rows.length < PAGE) break;
     page++;
   }
@@ -267,7 +263,7 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
     const recentBatchIds = recentBatches.map((b) => b.id);
     const batchMod = new Map(batches.map((b) => [b.id, b.mod_id]));
     const demoDaysRes = recentBatchIds.length > 0
-      ? await supabase.from('demo_days').select('id, batch_id, date').in('batch_id', recentBatchIds)
+      ? await supabase.from('demo_days').select('id, batch_id, date, day_number').in('batch_id', recentBatchIds)
       : { data: [] as DemoDayRow[] };
     const demoDays: DemoDayRow[] = (demoDaysRes.data ?? []) as DemoDayRow[];
     // demo days that actually happened within the last 14d
@@ -314,32 +310,67 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
     // so reuse it for the unread calc rather than round-tripping again.
     const allReadKey = new Set(reads.map((r) => `${r.announcement_id}|${r.user_id}`));
 
-    // loose ends per mod from recent batches: orphan absences + missing demo scores + untouched sessions
-    const attendance = await fetchAllAttendance(recentBatchIds);
+    // Loose ends per mod — the full 8-category count each mod sees in their 📋 panel,
+    // via the shared computeLooseEnds so this agrees with the analytics dashboard.
+    const leAttendance = await fetchPaged(() =>
+      supabase.from('attendance')
+        .select('student_id, batch_id, session_index, state, absence_note, absence_category')
+        .in('batch_id', recentBatchIds));
     const studentsRes = recentBatchIds.length > 0
       ? await supabase.from('students').select('id, batch_id, status').in('batch_id', recentBatchIds)
       : { data: [] as { id: string; batch_id: string; status: string }[] };
     const students = (studentsRes.data ?? []) as { id: string; batch_id: string; status: string }[];
     const demoDayIds = demoDays.map((d) => d.id);
-    const scoresRes = demoDayIds.length > 0
-      ? await supabase.from('demo_scores').select('demo_day_id').in('demo_day_id', demoDayIds)
-      : { data: [] as { demo_day_id: string }[] };
-    const scoredDemoDayIds = new Set(((scoresRes.data ?? []) as { demo_day_id: string }[]).map((s) => s.demo_day_id));
+    const studentIds = students.map((s) => s.id);
+    const [scoresData, feedbackData, reschedData, weekStatusData, snoozeData] = await Promise.all([
+      demoDayIds.length ? fetchPaged(() => supabase.from('demo_scores').select('demo_day_id, student_id, makeup_date').in('demo_day_id', demoDayIds)) : Promise.resolve([]),
+      demoDayIds.length ? fetchPaged(() => supabase.from('demo_feedback').select('demo_day_id, student_id, feedback').in('demo_day_id', demoDayIds)) : Promise.resolve([]),
+      recentBatchIds.length ? fetchPaged(() => supabase.from('rescheduled_sessions').select('batch_id, week_number, day_name, new_date, from_week, from_day, to_week').in('batch_id', recentBatchIds)) : Promise.resolve([]),
+      recentBatchIds.length ? fetchPaged(() => supabase.from('week_status').select('batch_id, week_number, status').in('batch_id', recentBatchIds)) : Promise.resolve([]),
+      studentIds.length ? fetchPaged(() => supabase.from('student_action_snoozes').select('student_id, snooze_type, expires_at, created_at').in('student_id', studentIds)) : Promise.resolve([]),
+    ]);
 
-    const looseEndsByMod = new Map<string, { orphan: number; missingDemo: number; untouched: number }>();
+    const groupByKey = <T,>(rows: T[], key: (r: T) => string | undefined): Map<string, T[]> => {
+      const m = new Map<string, T[]>();
+      for (const r of rows) {
+        const k = key(r);
+        if (!k) continue;
+        if (!m.has(k)) m.set(k, []);
+        m.get(k)!.push(r);
+      }
+      return m;
+    };
+    const ddBatch = new Map(demoDays.map((d) => [d.id, d.batch_id]));
+    const stuBatch = new Map(students.map((s) => [s.id, s.batch_id]));
+    const attByBatch = groupByKey(leAttendance, (a: any) => a.batch_id);
+    const stuByBatch = groupByKey(students, (s) => s.batch_id);
+    const ddByBatch = groupByKey(demoDays, (d) => d.batch_id);
+    const scByBatch = groupByKey(scoresData, (s: any) => ddBatch.get(s.demo_day_id));
+    const fbByBatch = groupByKey(feedbackData, (f: any) => ddBatch.get(f.demo_day_id));
+    const rsByBatch = groupByKey(reschedData, (r: any) => r.batch_id);
+    const wsByBatch = groupByKey(weekStatusData, (w: any) => w.batch_id);
+    const snByBatch = groupByKey(snoozeData, (s: any) => stuBatch.get(s.student_id));
+
+    const looseEndsByMod = new Map<string, LooseEndsResult>();
     for (const b of recentBatches) {
-      const ent = looseEndsByMod.get(b.mod_id) ?? { orphan: 0, missingDemo: 0, untouched: 0 };
-      const bAtt = attendance.filter((a) => a.batch_id === b.id);
-      ent.orphan += bAtt.filter((a) => a.state === 'x' && !a.absence_category).length;
-      // demo days that already happened but have no scores
-      ent.missingDemo += demoDays.filter((d) => d.batch_id === b.id && d.date && new Date(d.date + 'T00:00:00').getTime() < nowMs && !scoredDemoDayIds.has(d.id)).length;
-      // untouched session slots: expected marked cells (students × sessions occurred) minus marked cells
-      const bStudents = students.filter((s) => s.batch_id === b.id && s.status !== 'dropped');
-      const occurred = b.start_date ? sessionsOccurred(b.start_date, now) : 0;
-      const expected = bStudents.length * occurred;
-      const marked = bAtt.filter((a) => a.state === 'c' || a.state === 'x').length;
-      ent.untouched += Math.max(0, expected - marked);
-      looseEndsByMod.set(b.mod_id, ent);
+      const le = computeLooseEnds({
+        startDate: b.start_date,
+        students: stuByBatch.get(b.id) ?? [],
+        attendance: attByBatch.get(b.id) ?? [],
+        demoDays: ddByBatch.get(b.id) ?? [],
+        demoScores: scByBatch.get(b.id) ?? [],
+        demoFeedback: fbByBatch.get(b.id) ?? [],
+        rescheduledSessions: rsByBatch.get(b.id) ?? [],
+        weekStatuses: wsByBatch.get(b.id) ?? [],
+        snoozes: snByBatch.get(b.id) ?? [],
+      }, now);
+      const acc = looseEndsByMod.get(b.mod_id);
+      if (!acc) {
+        looseEndsByMod.set(b.mod_id, { total: le.total, byType: { ...le.byType } });
+      } else {
+        acc.total += le.total;
+        (Object.keys(le.byType) as (keyof LooseEndsResult['byType'])[]).forEach((k) => { acc.byType[k] += le.byType[k]; });
+      }
     }
 
     // assemble raw signals
@@ -347,22 +378,32 @@ const ModeratorUsagePage: React.FC<{ onLookCloser?: (modId: string) => void }> =
       const last = lastActionByMod.get(m.id);
       const daysSince = last == null ? 90 : Math.floor((nowMs - last) / DAY);
       const unread = activeAnns.filter((a) => !allReadKey.has(`${a.id}|${m.id}`)).length;
-      const le = looseEndsByMod.get(m.id) ?? { orphan: 0, missingDemo: 0, untouched: 0 };
-      const looseTotal = le.orphan + le.missingDemo + le.untouched;
+      const le = looseEndsByMod.get(m.id)?.byType ?? { untouched_session: 0, absence_no_reason: 0, demo_scores_missing: 0, demo_feedback_missing: 0, demo_makeup_needed: 0, dropout_check_in: 0, dropout_red_flag: 0, dropout_force_decide: 0 };
+      const looseTotal = looseEndsByMod.get(m.id)?.total ?? 0;
       return { m, daysSince, unread, le, looseTotal };
     });
     const maxDays = Math.max(1, ...raw.map((r) => r.daysSince));
     const maxUnread = Math.max(1, ...raw.map((r) => r.unread));
     const maxLoose = Math.max(1, ...raw.map((r) => r.looseTotal));
 
+    const plural = (n: number) => (n === 1 ? '' : 's');
     const scored: WatchItem[] = raw.map((r) => {
       const score = r.daysSince / maxDays + r.unread / maxUnread + r.looseTotal / maxLoose;
       const signals: string[] = [];
-      if (r.daysSince >= 2) signals.push(`${r.daysSince} day${r.daysSince === 1 ? '' : 's'} since last action`);
-      if (r.unread >= 1) signals.push(`Hasn't opened ${r.unread} announcement${r.unread === 1 ? '' : 's'}`);
-      if (r.le.missingDemo > 0) signals.push(`${r.le.missingDemo} demo day${r.le.missingDemo === 1 ? '' : 's'} missing scores`);
-      if (r.le.orphan > 0) signals.push(`${r.le.orphan} absence${r.le.orphan === 1 ? '' : 's'} without a reason`);
-      if (r.le.untouched > 0) signals.push(`${r.le.untouched} unmarked session slot${r.le.untouched === 1 ? '' : 's'}`);
+      if (r.daysSince >= 2) signals.push(`${r.daysSince} day${plural(r.daysSince)} since last action`);
+      if (r.unread >= 1) signals.push(`Hasn't opened ${r.unread} announcement${plural(r.unread)}`);
+      const untouched = r.le.untouched_session;
+      const absenceNoReason = r.le.absence_no_reason;
+      const demoScores = r.le.demo_scores_missing;
+      const demoFeedback = r.le.demo_feedback_missing;
+      const makeups = r.le.demo_makeup_needed;
+      const dropouts = r.le.dropout_check_in + r.le.dropout_red_flag + r.le.dropout_force_decide;
+      if (untouched > 0) signals.push(`${untouched} unmarked session${plural(untouched)}`);
+      if (absenceNoReason > 0) signals.push(`${absenceNoReason} session${plural(absenceNoReason)} with absences that need a reason`);
+      if (demoScores > 0) signals.push(`${demoScores} demo day${plural(demoScores)} missing scores`);
+      if (demoFeedback > 0) signals.push(`${demoFeedback} demo day${plural(demoFeedback)} missing feedback`);
+      if (makeups > 0) signals.push(`${makeups} demo make-up${plural(makeups)} to schedule`);
+      if (dropouts > 0) signals.push(`${dropouts} drop-out check-in${plural(dropouts)}`);
       return { modId: r.m.id, name: r.m.name, score, signals };
     });
     const watch = scored
@@ -576,20 +617,6 @@ const mkAdoption = (label: string, num: number, denom: number, info?: { what: st
   denom,
   info,
 });
-
-// Sessions occurred so far for a batch (Mon/Tue/Thu/Fri, capped at 24).
-// Mirrors getSessionsOccurred from lib/batchtrack.
-const sessionsOccurred = (startDate: string, now: Date): number => {
-  const start = new Date(startDate + 'T00:00:00');
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const daysDiff = Math.floor((today.getTime() - start.getTime()) / DAY);
-  if (daysDiff < 0) return 0;
-  const fullWeeks = Math.floor(daysDiff / 7);
-  const dayInWeek = daysDiff % 7;
-  let partial = 0;
-  for (const off of [0, 1, 3, 4]) if (off <= dayInWeek) partial++;
-  return Math.min(fullWeeks * 4 + partial, 24);
-};
 
 // Paginated activity_log fetch (90d window can exceed the 1000-row cap).
 const fetchActivity = async (sinceIso: string): Promise<ActivityRow[]> => {

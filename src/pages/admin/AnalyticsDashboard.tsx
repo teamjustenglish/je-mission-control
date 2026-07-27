@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentWeek, getSessionsOccurred, computeAttendancePct, sessionIconForBatch } from '@/lib/batchtrack';
+import { getCurrentWeek, getSessionsOccurred, computeAttendancePct, sessionIconForBatch, computeLooseEnds } from '@/lib/batchtrack';
 import { format } from 'date-fns';
 import MetricInfo from '@/components/MetricInfo';
 
@@ -75,6 +75,13 @@ const initials = (name: string) =>
 
 // ─────────────────────────── Helpers ───────────────────────────
 const DAY_OFFSETS = [0, 1, 3, 4]; // Mon, Tue, Thu, Fri
+
+// Loose-ends health thresholds. Retuned for the full 8-category count (unmarked
+// sessions + demo work + drop-out check-ins, not just unexplained absences), which
+// runs several times larger than the old absences-only number. A batch is expected
+// to end each week near zero, so these mark a genuine backlog. Tune with real data.
+const LE_RED = 12;   // "needs support"
+const LE_AMBER = 5;  // "worth watching"
 
 function getSessionDate(startDate: string, sessionIndex: number): Date {
   const weekNum = Math.floor(sessionIndex / 4);
@@ -248,15 +255,15 @@ function BatchesTable({
               {
                 label: 'Loose ends',
                 info: {
-                  what: "Number of absences in this batch that still need a reason",
-                  calculated: "Absent marks where the mod hasn't saved a reason or category yet. Resolves to zero once every absence has an explanation.",
+                  what: "Open to-do items for this batch — the same count the mod sees in their panel",
+                  calculated: "Unmarked sessions, absences without a reason, missing demo scores/feedback, demo make-ups to schedule, and drop-out check-ins across the current and unfinalised past weeks. Resolves to zero once the mod clears them.",
                 },
               },
               {
                 label: 'Health',
                 info: {
                   what: "An overall status label for this batch",
-                  calculated: "Green = on track (attendance 85%+, few loose ends). Amber = worth watching. Red = needs support (attendance below 80%, or 8+ loose ends).",
+                  calculated: "Green = on track (attendance 85%+, few loose ends). Amber = worth watching. Red = needs support (attendance below 80%, or a large loose-ends backlog).",
                 },
               },
             ] as { label: string; info: { what: string; calculated: string } | null }[]).map(({ label, info }) => (
@@ -495,6 +502,29 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
       let students: any[] = [];
       let attendanceRows: any[] = [];
       let activityLog: any[] = [];
+      // Extra tables needed to count the full "loose ends" set (matching the mod panel).
+      let demoDays: any[] = [];
+      let demoScores: any[] = [];
+      let demoFeedback: any[] = [];
+      let rescheduledSessions: any[] = [];
+      let weekStatuses: any[] = [];
+      let snoozes: any[] = [];
+
+      // Paginate a filtered query past Supabase's 1000-row cap. `build` must return a
+      // fresh query builder each call so .range() applies to a clean request.
+      const fetchPaged = async (build: () => any): Promise<any[]> => {
+        const PAGE = 1000;
+        let page = 0;
+        const out: any[] = [];
+        while (true) {
+          const { data: chunk } = await build().range(page * PAGE, page * PAGE + PAGE - 1);
+          if (!chunk || chunk.length === 0) break;
+          out.push(...chunk);
+          if (chunk.length < PAGE) break;
+          page++;
+        }
+        return out;
+      };
 
       if (batchIds.length > 0) {
         // Students and activity log fetched in parallel; attendance paginated separately
@@ -510,20 +540,33 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         students = studentsRes.data ?? [];
         activityLog = activityRes.data ?? [];
 
-        // Paginate attendance in 1000-row pages until exhausted
-        const PAGE = 1000;
-        let attPage = 0;
-        while (true) {
-          const { data: chunk } = await supabase
+        attendanceRows = await fetchPaged(() =>
+          supabase
             .from('attendance')
             .select('student_id, batch_id, session_index, state, absence_note, absence_category')
             .in('batch_id', batchIds)
-            .range(attPage * PAGE, attPage * PAGE + PAGE - 1);
-          if (!chunk || chunk.length === 0) break;
-          attendanceRows = attendanceRows.concat(chunk);
-          if (chunk.length < PAGE) break;
-          attPage++;
-        }
+        );
+
+        // Loose-ends inputs. Demo scores/feedback key off demo_day_id, so fetch demo days
+        // first, then their child rows. Snoozes key off student_id.
+        demoDays = await fetchPaged(() =>
+          supabase.from('demo_days').select('id, batch_id, day_number, date').in('batch_id', batchIds)
+        );
+        const demoDayIds = demoDays.map((d: any) => d.id);
+        const studentIds = students.map((s: any) => s.id);
+        [demoScores, demoFeedback, rescheduledSessions, weekStatuses, snoozes] = await Promise.all([
+          demoDayIds.length > 0
+            ? fetchPaged(() => supabase.from('demo_scores').select('demo_day_id, student_id, makeup_date').in('demo_day_id', demoDayIds))
+            : Promise.resolve([]),
+          demoDayIds.length > 0
+            ? fetchPaged(() => supabase.from('demo_feedback').select('demo_day_id, student_id, feedback').in('demo_day_id', demoDayIds))
+            : Promise.resolve([]),
+          fetchPaged(() => supabase.from('rescheduled_sessions').select('batch_id, week_number, day_name, new_date, from_week, from_day, to_week').in('batch_id', batchIds)),
+          fetchPaged(() => supabase.from('week_status').select('batch_id, week_number, status').in('batch_id', batchIds)),
+          studentIds.length > 0
+            ? fetchPaged(() => supabase.from('student_action_snoozes').select('student_id, snooze_type, expires_at, created_at').in('student_id', studentIds))
+            : Promise.resolve([]),
+        ]);
       }
 
       if (cancelled) return;
@@ -543,6 +586,26 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         if (!studentsByBatch.has(s.batch_id)) studentsByBatch.set(s.batch_id, []);
         studentsByBatch.get(s.batch_id)!.push(s);
       }
+
+      // ── Loose-ends inputs indexed by batch ─────────────────────
+      const groupBy = <T,>(rows: T[], key: (r: T) => string | undefined): Map<string, T[]> => {
+        const m = new Map<string, T[]>();
+        for (const r of rows) {
+          const k = key(r);
+          if (!k) continue;
+          if (!m.has(k)) m.set(k, []);
+          m.get(k)!.push(r);
+        }
+        return m;
+      };
+      const demoDayBatch = new Map<string, string>(demoDays.map((d: any) => [d.id, d.batch_id]));
+      const studentBatch = new Map<string, string>(students.map((s: any) => [s.id, s.batch_id]));
+      const demoDaysByBatch = groupBy(demoDays, (d: any) => d.batch_id);
+      const demoScoresByBatch = groupBy(demoScores, (s: any) => demoDayBatch.get(s.demo_day_id));
+      const demoFeedbackByBatch = groupBy(demoFeedback, (f: any) => demoDayBatch.get(f.demo_day_id));
+      const rescheduledByBatch = groupBy(rescheduledSessions, (r: any) => r.batch_id);
+      const weekStatusByBatch = groupBy(weekStatuses, (w: any) => w.batch_id);
+      const snoozesByBatch = groupBy(snoozes, (s: any) => studentBatch.get(s.student_id));
 
       // ── Active batches: started, within 49-day window (7 weeks) ─
       const activeBatches = batchList.filter((b: any) => {
@@ -572,9 +635,19 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         const modName: string = modById.get(batch.mod_id)?.name ?? 'Unknown';
         const activeIds = new Set(bActive.map((s: any) => s.id as string));
 
-        const looseEnds = bAtt.filter((a: any) =>
-          a.state === 'x' && !a.absence_note && !a.absence_category && activeIds.has(a.student_id)
-        ).length;
+        // Full loose-ends count — same 8-category tally the mod sees in their 📋 panel,
+        // via the shared computeLooseEnds (not just unexplained absences).
+        const looseEnds = computeLooseEnds({
+          startDate: batch.start_date,
+          students: bStudents,
+          attendance: bAtt,
+          demoDays: demoDaysByBatch.get(batch.id) ?? [],
+          demoScores: demoScoresByBatch.get(batch.id) ?? [],
+          demoFeedback: demoFeedbackByBatch.get(batch.id) ?? [],
+          rescheduledSessions: rescheduledByBatch.get(batch.id) ?? [],
+          weekStatuses: weekStatusByBatch.get(batch.id) ?? [],
+          snoozes: snoozesByBatch.get(batch.id) ?? [],
+        }, today).total;
 
         // Same formula as mod view: present / (activeStudents × sessionsOccurred)
         const present = bAtt.filter((a: any) => a.state === 'c' && activeIds.has(a.student_id)).length;
@@ -603,12 +676,14 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
       }
 
       // ── A. STATS (all scoped to active batches) ────────────────
-      const allLE = attendanceRows.filter((a: any) =>
-        a.state === 'x' && !a.absence_note && !a.absence_category && activeBatchIdSet.has(a.batch_id)
-      );
-      const openLeCount = allLE.length;
+      // Sum the full loose-ends counts computed per active batch above, so this headline
+      // matches the batches table and the mods' own panels.
+      const openLeCount = batchMetrics.reduce((sum, m) => sum + m.looseEnds, 0);
       const modsWithLE = new Set(
-        allLE.map((a: any) => batchById.get(a.batch_id)?.mod_id).filter(Boolean)
+        batchMetrics
+          .filter((m) => m.looseEnds > 0)
+          .map((m) => batchById.get(m.batchId)?.mod_id)
+          .filter(Boolean)
       ).size;
 
       const activeStudentCount = students.filter((s: any) =>
@@ -643,8 +718,8 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
             sub: `across ${modsWithLE} mod${modsWithLE !== 1 ? 's' : ''}`,
             amber: openLeCount > 0,
             info: {
-              what: "Absences that haven't been explained yet",
-              calculated: "Counts every 'absent' mark across all running batches where the mod hasn't saved a reason or category. The number drops once every absence has an explanation.",
+              what: "Everything the mods still owe across running batches",
+              calculated: "The same to-do items each mod sees in their Loose ends panel — unmarked sessions, absences with no reason, missing demo scores/feedback, demo make-ups to schedule, and drop-out check-ins — summed across all running batches. Drops as mods clear them.",
             },
           },
           {
@@ -693,9 +768,9 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
       }
 
       // ── B. PRIORITIES ──────────────────────────────────────────
-      // P1: batches with <80% att or >8 LE, up to 4, ranked by combined score
+      // P1: batches with <80% att or a red-level loose-ends backlog, up to 4, ranked by combined score
       const p1Sorted = batchMetrics
-        .filter((m) => m.looseEnds > 8 || (m.totalAtt !== null && m.totalAtt < 80))
+        .filter((m) => m.looseEnds > LE_RED || (m.totalAtt !== null && m.totalAtt < 80))
         .sort((a, b) => {
           const sa = a.looseEnds * 2 + (a.totalAtt !== null ? (100 - a.totalAtt) / 3 : 33);
           const sb = b.looseEnds * 2 + (b.totalAtt !== null ? (100 - b.totalAtt) / 3 : 33);
@@ -707,7 +782,7 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
       const p1Cards: Priority[] = p1Sorted.map((m, i) => {
         const parts: string[] = [];
         if (m.totalAtt !== null && m.totalAtt < 80) parts.push(`attendance at ${m.totalAtt}%`);
-        if (m.looseEnds > 8) parts.push(`${m.looseEnds} loose ends`);
+        if (m.looseEnds > LE_RED) parts.push(`${m.looseEnds} loose ends`);
         return {
           tone: 'red' as const,
           rank: i === 0 ? 'highest' : 'at risk',
@@ -745,9 +820,9 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
         icon: Phone,
       }));
 
-      // P3: mods with 2+ LE in weeks 1-4, not already in P1
+      // P3: mods with an amber-level backlog in weeks 1-4, not already in P1
       const p3Cards: Priority[] = batchMetrics
-        .filter((m) => m.week >= 1 && m.week <= 4 && m.looseEnds >= 2 && !p1BatchIdSet.has(m.batchId))
+        .filter((m) => m.week >= 1 && m.week <= 4 && m.looseEnds >= LE_AMBER && !p1BatchIdSet.has(m.batchId))
         .sort((a, b) => b.looseEnds - a.looseEnds)
         .map((m) => ({
           tone: 'amber' as const,
@@ -768,15 +843,15 @@ export default function AnalyticsDashboard({ onOpenHouston }: AnalyticsDashboard
       const batchRows: (Batch & { sortScore: number })[] = batchMetrics.map((m) => {
         // Health thresholds aligned with priority scoring
         const health =
-          (m.totalAtt !== null && m.totalAtt < 80) || m.looseEnds > 8
+          (m.totalAtt !== null && m.totalAtt < 80) || m.looseEnds > LE_RED
             ? 'at risk'
-            : (m.totalAtt !== null && m.totalAtt < 85) || m.looseEnds >= 2
+            : (m.totalAtt !== null && m.totalAtt < 85) || m.looseEnds >= LE_AMBER
               ? 'watch'
               : 'healthy';
         const healthTone: Exclude<Tone, 'ink'> = health === 'at risk' ? 'red' : health === 'watch' ? 'amber' : 'green';
         const attTone: Tone =
           m.totalAtt === null ? 'ink' : m.totalAtt < 75 ? 'red' : m.totalAtt < 80 ? 'amber' : m.totalAtt >= 90 ? 'green' : 'ink';
-        const leTone: Exclude<Tone, 'ink'> = m.looseEnds > 8 ? 'red' : m.looseEnds >= 2 ? 'amber' : 'green';
+        const leTone: Exclude<Tone, 'ink'> = m.looseEnds > LE_RED ? 'red' : m.looseEnds >= LE_AMBER ? 'amber' : 'green';
         const sortScore = health === 'at risk' ? 0 : health === 'watch' ? 1 : 2;
         return {
           mod: m.modName, batch: m.batchName, batchId: m.batchId, week: m.week,

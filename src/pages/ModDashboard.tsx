@@ -1724,6 +1724,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const currentWeekStatus = weekStatuses.find(ws => ws.week_number === computedCurrentWeek)?.status || 'open';
 
   // Helper: generate tasks for a given week
+   // NOTE: This builds the rich task cards the mod sees. The loose-ends COUNT derived
+   // from these (overdue + current-week non-finalise tasks) is mirrored exactly by
+   // `computeLooseEnds` in lib/batchtrack, which the admin analytics dashboard and the
+   // moderator-usage watchlist use so their numbers agree with this panel. If you change
+   // a detection rule here, update computeLooseEnds to match.
    const generateTasksForWeek = (weekNum: number, isOverdue: boolean): Task[] => {
      if (!activeBatch) return [];
      const activeOnly = students.filter(s => !isDroppedStudent(s));
