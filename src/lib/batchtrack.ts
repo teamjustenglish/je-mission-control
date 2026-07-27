@@ -288,3 +288,229 @@ export const getActiveSnoozes = (
     .filter(s => new Date(s.expires_at) > now)
     .map(s => ({ studentId: s.student_id, snoozeType: s.snooze_type }));
 };
+
+// ── Loose ends (canonical) ────────────────────────────────────────────
+//
+// SINGLE SOURCE OF TRUTH for a batch's "loose ends" — the mod-facing 📋 panel,
+// the admin analytics dashboard, and the moderator-usage watchlist all count via
+// this function so their numbers agree. It faithfully reproduces the tally the
+// mod sees (ModDashboard `generateTasksForWeek` summed over the current week +
+// every prior non-finalised week; the "finalise" prompt is not a loose end).
+//
+// If you change a detection rule here, the mod panel's card generator in
+// ModDashboard must change to match — the two are kept deliberately in step.
+
+export type LooseEndType =
+  | 'untouched_session'
+  | 'absence_no_reason'
+  | 'demo_scores_missing'
+  | 'demo_feedback_missing'
+  | 'demo_makeup_needed'
+  | 'dropout_check_in'
+  | 'dropout_red_flag'
+  | 'dropout_force_decide';
+
+export interface LooseEndsInput {
+  startDate: string | null | undefined;
+  students: { id: string; status?: string | null }[];
+  attendance: { student_id: string; session_index: number; state: string; absence_note?: string | null; absence_category?: string | null }[];
+  demoDays: { id: string; day_number: number; date: string | null }[];
+  demoScores: { demo_day_id: string; student_id: string; makeup_date?: string | null }[];
+  demoFeedback: { demo_day_id: string; student_id: string; feedback: string | null }[];
+  rescheduledSessions: RescheduleRow[];
+  weekStatuses: { week_number: number; status: string }[];
+  snoozes: SnoozeRow[];
+}
+
+export interface LooseEndsResult {
+  total: number;
+  byType: Record<LooseEndType, number>;
+}
+
+const emptyLooseEnds = (): LooseEndsResult => ({
+  total: 0,
+  byType: {
+    untouched_session: 0,
+    absence_no_reason: 0,
+    demo_scores_missing: 0,
+    demo_feedback_missing: 0,
+    demo_makeup_needed: 0,
+    dropout_check_in: 0,
+    dropout_red_flag: 0,
+    dropout_force_decide: 0,
+  },
+});
+
+export const computeLooseEnds = (input: LooseEndsInput, now: Date = new Date()): LooseEndsResult => {
+  const result = emptyLooseEnds();
+  if (!input.startDate) return result;
+  const startDate = input.startDate;
+  const batchStart = new Date(startDate + 'T00:00:00');
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const activeOnly = input.students.filter(s => s.status !== 'dropped');
+  if (activeOnly.length === 0) return result;
+  const activeIds = new Set(activeOnly.map(s => s.id));
+  const total = activeOnly.length;
+  const c = result.byType;
+
+  const getSessionDateObj = (idx: number): Date => sessionDate(idx, batchStart);
+  const sessionRescheduled = (idx: number): boolean => isSourceRescheduled(idx, input.rescheduledSessions);
+  // Demo days fall on the Friday (session index) of weeks 2, 4, 6.
+  const demoIdx = (dayNumber: number): number | null =>
+    (dayNumber < 1 || dayNumber > 3) ? null : (dayNumber * 2 - 1) * 4 + 3;
+  const demoDate = (dd: { day_number: number; date: string | null }): Date | null => {
+    if (dd.date) return new Date(dd.date + 'T00:00:00');
+    const idx = demoIdx(dd.day_number);
+    return idx === null ? null : getSessionDateObj(idx);
+  };
+  const absentOnDemoDay = (studentId: string, dayNumber: number): boolean => {
+    const baseIdx = demoIdx(dayNumber);
+    if (baseIdx === null) return false;
+    const week = dayNumber * 2;
+    const reschedule = input.rescheduledSessions.find(r =>
+      ((r.from_week ?? r.week_number) === week) &&
+      ((r.from_day ?? r.day_name) === 'Demo day' || (r.from_day ?? r.day_name) === 'Fri')
+    );
+    if (reschedule) {
+      const wedIdx = 1000 + ((reschedule.to_week ?? week) - 1);
+      const ra = input.attendance.find(a => a.student_id === studentId && a.session_index === wedIdx);
+      return ra ? ra.state === 'x' : false;
+    }
+    const original = input.attendance.find(a => a.student_id === studentId && a.session_index === baseIdx);
+    return original?.state === 'x';
+  };
+  const hasMakeup = (studentId: string, dayNumber: number): boolean => {
+    if (!absentOnDemoDay(studentId, dayNumber)) return false;
+    const dd = input.demoDays.find(d => d.day_number === dayNumber);
+    if (!dd) return false;
+    return input.demoScores.some(s => s.demo_day_id === dd.id && s.student_id === studentId && !!s.makeup_date);
+  };
+  const hasScores = (ddId: string, studentId: string): boolean =>
+    input.demoScores.some(s => s.demo_day_id === ddId && s.student_id === studentId);
+  const sessionDateFn = (idx: number) => getSessionDateObj(idx);
+
+  const tallyWeek = (weekNum: number, isOverdue: boolean) => {
+    const wStart = (weekNum - 1) * 4;
+
+    // 1. Untouched regular sessions — one per session missing any active student's mark.
+    for (let i = 0; i < 4; i++) {
+      const si = wStart + i;
+      if (sessionRescheduled(si)) continue;
+      const sd = getSessionDateObj(si);
+      const marked = input.attendance.filter(a =>
+        a.session_index === si && a.state !== 'e' && activeIds.has(a.student_id)
+      ).length;
+      const isPast = sd < today;
+      const hasStarted = marked > 0;
+      if (!isOverdue && !isPast && !hasStarted) continue;
+      if (isOverdue && !isPast) continue;
+      if (marked < total) c.untouched_session++;
+    }
+
+    // 1b. Rescheduled Wednesday session for this week (synthetic index 1000 + week-1).
+    const wedReschedule = input.rescheduledSessions.find(r => (r.to_week ?? null) === weekNum);
+    const wedSi = wedReschedule ? 1000 + (weekNum - 1) : null;
+    if (wedReschedule && wedSi !== null) {
+      const wedDate = new Date(wedReschedule.new_date + 'T00:00:00');
+      const marked = input.attendance.filter(a =>
+        a.session_index === wedSi && a.state !== 'e' && activeIds.has(a.student_id)
+      ).length;
+      const isPast = wedDate < today;
+      const hasStarted = marked > 0;
+      if ((isPast || hasStarted) && marked < total) c.untouched_session++;
+    }
+
+    // 2. Absences without a reason — one task per session that has any such absence.
+    const sessWithUnexplained = new Set<number>();
+    for (const a of input.attendance) {
+      if (a.state !== 'x') continue;
+      if (a.absence_note && a.absence_note.trim() !== '') continue;
+      if (a.absence_category) continue;
+      const inSourceRange = a.session_index >= wStart && a.session_index < wStart + 4;
+      const isWedDest = wedSi !== null && a.session_index === wedSi;
+      if (!inSourceRange && !isWedDest) continue;
+      if (inSourceRange && sessionRescheduled(a.session_index)) continue;
+      if (!activeIds.has(a.student_id)) continue;
+      sessWithUnexplained.add(a.session_index);
+    }
+    c.absence_no_reason += sessWithUnexplained.size;
+
+    // 3 & 4. Demo scores / feedback missing for this week's demo day.
+    for (const dd of input.demoDays) {
+      if (dd.day_number * 2 !== weekNum) continue;
+      const ddDate = demoDate(dd);
+      if (!ddDate || ddDate > today) continue;
+      let scoresMissing = 0;
+      let feedbackMissing = 0;
+      for (const s of activeOnly) {
+        const isAbsent = absentOnDemoDay(s.id, dd.day_number);
+        if (isAbsent && !hasMakeup(s.id, dd.day_number)) continue; // absent-no-makeup → makeup task instead
+        if (!hasScores(dd.id, s.id)) { scoresMissing++; continue; }
+        const fb = input.demoFeedback.find(f => f.demo_day_id === dd.id && f.student_id === s.id);
+        if (!fb || !fb.feedback || fb.feedback.trim() === '') feedbackMissing++;
+      }
+      if (scoresMissing > 0) c.demo_scores_missing++;
+      if (feedbackMissing > 0) c.demo_feedback_missing++;
+    }
+
+    // Current-week pass only: cross-week make-up follow-ups + dropout interventions.
+    if (!isOverdue) {
+      for (const dd of input.demoDays) {
+        const ddDate = demoDate(dd);
+        if (!ddDate || ddDate > today) continue;
+        const isCurrentWeekDemo = dd.day_number * 2 === weekNum;
+
+        // 3b/4b. Make-up scores/feedback missing for absent-with-makeup students (other weeks).
+        if (!isCurrentWeekDemo) {
+          let scoresMissing = 0;
+          let feedbackMissing = 0;
+          for (const s of activeOnly) {
+            if (!absentOnDemoDay(s.id, dd.day_number)) continue;
+            if (!hasMakeup(s.id, dd.day_number)) continue;
+            if (!hasScores(dd.id, s.id)) { scoresMissing++; continue; }
+            const fb = input.demoFeedback.find(f => f.demo_day_id === dd.id && f.student_id === s.id);
+            if (!fb || !fb.feedback || fb.feedback.trim() === '') feedbackMissing++;
+          }
+          if (scoresMissing > 0) c.demo_scores_missing++;
+          if (feedbackMissing > 0) c.demo_feedback_missing++;
+        }
+
+        // 5. Make-up needed — one per absent-without-makeup student, across all demo days.
+        for (const s of activeOnly) {
+          if (!absentOnDemoDay(s.id, dd.day_number)) continue;
+          if (hasMakeup(s.id, dd.day_number)) continue;
+          c.demo_makeup_needed++;
+        }
+      }
+
+      // 6. Dropout interventions — one per active student on a ≥2 absence streak (unless snoozed).
+      for (const s of activeOnly) {
+        const streak = getAbsenceStreak(s.id, input.attendance, input.rescheduledSessions, startDate);
+        if (streak.length < 2) continue;
+        if (streak.length >= 6) {
+          if (hasActiveSnooze(s.id, 'dropout_force_decide', input.snoozes, now)) continue;
+          c.dropout_force_decide++;
+        } else if (streak.length >= 4) {
+          if (hasActiveSnooze(s.id, 'dropout_red_flag', input.snoozes, now, input.attendance, sessionDateFn)) continue;
+          c.dropout_red_flag++;
+        } else {
+          if (hasActiveSnooze(s.id, 'dropout_check_in', input.snoozes, now, input.attendance, sessionDateFn)) continue;
+          c.dropout_check_in++;
+        }
+      }
+    }
+  };
+
+  const currentWeek = getCurrentWeek(startDate, now) ?? 1;
+  tallyWeek(currentWeek, false);
+  for (let w = 1; w < currentWeek; w++) {
+    const ws = input.weekStatuses.find(s => s.week_number === w);
+    const status = ws?.status || 'open';
+    if (status === 'finalised' || status === 'reopened') continue;
+    tallyWeek(w, true);
+  }
+
+  result.total = Object.values(c).reduce((a, b) => a + b, 0);
+  return result;
+};
