@@ -52,9 +52,13 @@ const AppRoutes = () => {
         user && role === 'admin' ? <AdminDashboard /> : <AdminLoginPage />
       } />
 
-      {/* / — mod dashboard if signed in as moderator, otherwise the mod login form */}
+      {/* / — mod dashboard if signed in as moderator; an already-signed-in admin is
+          sent to their own dashboard (the PWA start_url is "/", so without this an
+          authenticated admin lands on the mod login form); otherwise the mod login form */}
       <Route path="/" element={
-        user && role === 'moderator' ? <ModDashboard /> : <LoginPage />
+        user && role === 'moderator' ? <ModDashboard />
+          : user && role === 'admin' ? <Navigate to="/admin/dashboard" replace />
+          : <LoginPage />
       } />
 
       {/* Public share page — no auth required */}
