@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek, getAbsenceStreak, hasActiveSnooze, sessionIconForBatch, type BatchSession } from '@/lib/batchtrack';
+import { logActivity, getSessionLabel, getWeekSessions, isDemoWeek, MONTHS, CRITERIA, getSessionsOccurred, computeAttendancePct, getCurrentWeek, getAbsenceStreak, hasActiveSnooze, sessionIconForBatch, dedupeDemoScores, demoScoreKey, type BatchSession } from '@/lib/batchtrack';
 import { Plus, ChevronDown, ChevronRight, Grid3X3, List, Rocket, Sparkles, ArrowRight } from 'lucide-react';
 import ScoringRubric from '@/components/ScoringRubric';
 import StudentProgressModal from '@/components/StudentProgressModal';
@@ -484,6 +484,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const batchCacheRef = useRef<Record<string, BatchCacheEntry>>({});
   const initialLoadDone = useRef(false);
   const initialLoadInFlight = useRef(false);
+  // Monotonic counter for batch loads. A response is only applied to state if it is
+  // still the newest one in flight — otherwise a slow refetch (e.g. one kicked off by
+  // a focus event) could land after a newer load and overwrite it, or worse, drop
+  // another batch's data onto the currently-open tab.
+  const loadSeqRef = useRef(0);
+  // Batches with a load in flight. While a batch is loading, its transient empty
+  // state must not be written back to the cache — otherwise a failed load leaves an
+  // empty entry behind that later batch-tab switches replay as "no data".
+  const loadingBatchesRef = useRef<Set<string>>(new Set());
+  // Mirror of activeBatchId, so async loads can check which tab is open without
+  // running side effects inside a setState updater.
+  const activeBatchIdRef = useRef<string | null>(null);
+  useEffect(() => { activeBatchIdRef.current = activeBatchId; }, [activeBatchId]);
 
   // Feedback modal state
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -496,6 +509,19 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   const [scoreValues, setScoreValues] = useState<Record<string, string>>({});
   const scoreDebounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const initializedBatchRef = useRef<string | null>(null);
+  // Cells with an edit that hasn't been confirmed by the server yet (still in the
+  // debounce window, or the write is in flight). Their on-screen value is newer than
+  // anything a refetch can return, so the server re-sync must not overwrite them.
+  const pendingScoreWrites = useRef<Set<string>>(new Set());
+  // Always-current mirror of demoScores, so the debounced save doesn't act on a
+  // snapshot captured a second earlier.
+  const demoScoresRef = useRef<DemoScore[]>([]);
+  useEffect(() => { demoScoresRef.current = demoScores; }, [demoScores]);
+  // Per-cell write queue. Two edits to the same cell in quick succession must not
+  // overlap: the second would look up the row while the first insert was still
+  // in flight, find nothing, and insert a duplicate.
+  const scoreWriteChains = useRef<Record<string, Promise<void>>>({});
+  const scoreWriteQueueDepth = useRef<Record<string, number>>({});
 
   // Absence note modal state
   const [noteModal, setNoteModal] = useState<{
@@ -569,8 +595,11 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
   // Save current state back to cache
   const saveToCacheFromState = useCallback(() => {
     if (!activeBatchId) return;
+    // Don't persist the placeholder state that exists while this batch is still
+    // loading — a load that then fails would leave that empty entry cached.
+    if (loadingBatchesRef.current.has(activeBatchId)) return;
     batchCacheRef.current[activeBatchId] = { students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions, weekStatuses };
-  }, [activeBatchId, students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions]);
+  }, [activeBatchId, students, attendance, demoDays, demoScores, demoFeedback, rescheduledSessions, weekStatuses]);
 
   // Keep cache in sync with state changes
   useEffect(() => { saveToCacheFromState(); }, [saveToCacheFromState]);
@@ -584,12 +613,21 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       supabase.from('rescheduled_sessions').select('*').eq('batch_id', batchId),
       supabase.from('week_status').select('id,batch_id,week_number,status').eq('batch_id', batchId),
     ]);
-    // Ghost-attendance guard: never treat a failed query as an empty result. If the
-    // students/attendance reads error (e.g. an expired JWT / RLS denial during the
-    // brief auth window right after login or tab-resume), throw so the caller can
-    // retry — rather than silently caching an empty grid until a manual refresh.
+    // Ghost-data guard: never treat a failed query as an empty result. If any read
+    // errors (e.g. an expired JWT / RLS denial during the brief auth window right
+    // after login or tab-resume), throw so the caller can retry — rather than
+    // silently caching an empty grid until a manual refresh.
+    //
+    // This originally covered only students/attendance ("ghost attendance", #62).
+    // The demo tables were left on `data || []`, so a transient failure on
+    // demo_days/demo_scores/demo_feedback blanked the whole Demo days section and
+    // then got cached — the "demo marks keep disappearing" report. Every read is
+    // now guarded.
     if (studentsRes.error) throw studentsRes.error;
     if (attendanceRes.error) throw attendanceRes.error;
+    if (demoDaysRes.error) throw demoDaysRes.error;
+    if (rescheduledRes.error) throw rescheduledRes.error;
+    if (weekStatusRes.error) throw weekStatusRes.error;
     const fetchedStudents = studentsRes.data || [];
     const fetchedAttendance = (attendanceRes.data || []) as AttendanceRecord[];
     const fetchedDemoDays = demoDaysRes.data || [];
@@ -600,14 +638,40 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const ddIds = fetchedDemoDays.map(d => d.id);
     if (ddIds.length > 0) {
       const [scoresRes, feedbackRes] = await Promise.all([
-        supabase.from('demo_scores').select('*').in('demo_day_id', ddIds),
-        supabase.from('demo_feedback').select('*').in('demo_day_id', ddIds),
+        supabase.from('demo_scores').select('*').in('demo_day_id', ddIds).order('id'),
+        supabase.from('demo_feedback').select('*').in('demo_day_id', ddIds).order('id'),
       ]);
-      if (scoresRes.data) fetchedDemoScores = scoresRes.data;
-      if (feedbackRes.data) fetchedDemoFeedback = feedbackRes.data as DemoFeedback[];
+      if (scoresRes.error) throw scoresRes.error;
+      if (feedbackRes.error) throw feedbackRes.error;
+      // Collapse historical duplicate rows to one per cell, deterministically —
+      // see dedupeDemoScores for why they exist and how the winner is picked.
+      const { rows, duplicates } = dedupeDemoScores((scoresRes.data || []) as DemoScore[]);
+      if (duplicates > 0) {
+        console.warn(`demo_scores: collapsed ${duplicates} duplicate row(s) for batch ${batchId}`);
+      }
+      fetchedDemoScores = rows;
+      fetchedDemoFeedback = (feedbackRes.data || []) as DemoFeedback[];
     }
     return { students: fetchedStudents, attendance: fetchedAttendance, demoDays: fetchedDemoDays, demoScores: fetchedDemoScores, demoFeedback: fetchedDemoFeedback, rescheduledSessions: fetchedRescheduled, weekStatuses: fetchedWeekStatuses };
   }, []);
+
+  // Fetch a batch, retrying transient auth/RLS errors with a short backoff. Every
+  // read path uses this — a single failed attempt must never surface as empty data.
+  const fetchBatchDataWithRetry = useCallback(async (batchId: string, attempts = 4): Promise<BatchCacheEntry> => {
+    loadingBatchesRef.current.add(batchId);
+    try {
+      for (let i = 0; ; i++) {
+        try {
+          return await fetchBatchData(batchId);
+        } catch (e) {
+          if (i >= attempts - 1) throw e;
+          await new Promise(r => setTimeout(r, 400 * (i + 1)));
+        }
+      }
+    } finally {
+      loadingBatchesRef.current.delete(batchId);
+    }
+  }, [fetchBatchData]);
 
   // Apply cached data to active state
   const applyCacheToState = useCallback((entry: BatchCacheEntry) => {
@@ -630,16 +694,15 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     }
     // If not cached yet (shouldn't happen after initial load), fetch
     if (!cached) {
-      fetchBatchData(batchId).then(entry => {
+      const seq = ++loadSeqRef.current;
+      fetchBatchDataWithRetry(batchId).then(entry => {
         batchCacheRef.current[batchId] = entry;
-        // Only apply if still active
-        setActiveBatchId(prev => {
-          if (prev === batchId) applyCacheToState(entry);
-          return prev;
-        });
-      });
+        // Only apply if this is still the newest load and the tab is still open
+        if (seq !== loadSeqRef.current) return;
+        if (activeBatchIdRef.current === batchId) applyCacheToState(entry);
+      }).catch(e => console.error('Batch load failed', batchId, e));
     }
-  }, [activeBatchId, applyCacheToState, fetchBatchData]);
+  }, [activeBatchId, applyCacheToState, fetchBatchDataWithRetry]);
 
   // Fetch snoozes for current batch's students
   useEffect(() => {
@@ -659,17 +722,6 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const filterModId = modIdOverride ?? user?.id;
     if (!filterModId) return;
     initialLoadInFlight.current = true;
-    // Retry transient auth/RLS errors with a short backoff before giving up.
-    const fetchWithRetry = async (id: string, attempts = 4): Promise<BatchCacheEntry> => {
-      for (let i = 0; ; i++) {
-        try {
-          return await fetchBatchData(id);
-        } catch (e) {
-          if (i >= attempts - 1) throw e;
-          await new Promise(r => setTimeout(r, 400 * (i + 1)));
-        }
-      }
-    };
     (async () => {
       try {
         const { data, error } = await supabase.from('batches').select('*').eq('mod_id', filterModId).order('created_at');
@@ -680,16 +732,17 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         const overridden = batchIdOverride && data.find(b => b.id === batchIdOverride);
         const firstId = overridden ? batchIdOverride : data[0].id;
         setActiveBatchId(firstId);
-        const firstData = await fetchWithRetry(firstId);
+        const seq = ++loadSeqRef.current;
+        const firstData = await fetchBatchDataWithRetry(firstId);
         batchCacheRef.current[firstId] = firstData;
-        applyCacheToState(firstData);
+        if (seq === loadSeqRef.current) applyCacheToState(firstData);
         initialLoadDone.current = true;
         // Background-load remaining batches (a failure here is non-fatal — the tab
         // can still be opened later, which triggers its own fetch).
         for (const b of data) {
           if (b.id === firstId) continue;
           try {
-            const bData = await fetchWithRetry(b.id);
+            const bData = await fetchBatchDataWithRetry(b.id);
             batchCacheRef.current[b.id] = bData;
           } catch (e) {
             console.error('Background batch load failed', b.id, e);
@@ -702,7 +755,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
         initialLoadInFlight.current = false;
       }
     })();
-  }, [user, modIdOverride, batchIdOverride, fetchBatchData, applyCacheToState]);
+  }, [user, modIdOverride, batchIdOverride, fetchBatchDataWithRetry, applyCacheToState]);
 
   // If batchIdOverride changes after initial load, force-switch to it
   useEffect(() => {
@@ -721,13 +774,21 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     if (data) setBatches(data);
   }, [user, modIdOverride]);
 
-  // Reload current batch data from Supabase (for error recovery)
+  // Reload current batch data from Supabase (for error recovery + focus re-sync).
+  // Retries like the initial load: this runs on every tab focus, so a single
+  // transient failure here used to blank the grid and poison the cache with it.
+  // On failure we keep whatever is already on screen and leave the cache alone.
   const loadBatchData = useCallback(async () => {
-    if (!activeBatchId) return;
-    const entry = await fetchBatchData(activeBatchId);
-    batchCacheRef.current[activeBatchId] = entry;
-    applyCacheToState(entry);
-  }, [activeBatchId, fetchBatchData, applyCacheToState]);
+    const batchId = activeBatchId;
+    if (!batchId) return;
+    const seq = ++loadSeqRef.current;
+    const entry = await fetchBatchDataWithRetry(batchId);
+    // Drop the result if a newer load has started or the mod switched tabs since —
+    // otherwise this would paint one batch's data onto another batch's grid.
+    if (seq !== loadSeqRef.current) return;
+    batchCacheRef.current[batchId] = entry;
+    if (activeBatchIdRef.current === batchId) applyCacheToState(entry);
+  }, [activeBatchId, fetchBatchDataWithRetry, applyCacheToState]);
 
   // Re-sync the active batch from the DB when the tab regains focus/visibility.
   // Fixes "ghost attendance": iOS Safari (and others) suspend background tabs, so on
@@ -812,7 +873,7 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
       await logActivity(user.id, profile?.name || '', 'batch_created', `Created batch ${batchName}`, batchName);
       setShowCreateBatch(false); setNewBatchStartDate('');
       // Fetch the new batch data into cache and switch to it
-      const newData = await fetchBatchData(data.id);
+      const newData = await fetchBatchDataWithRetry(data.id);
       batchCacheRef.current[data.id] = newData;
       applyCacheToState(newData);
       setActiveBatchId(data.id);
@@ -1310,7 +1371,14 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     const makeupIso = new Date(makeupDate).toISOString();
     const noteVal = makeupNote.trim() || null;
     try {
-      const existing = demoScores.filter(s => s.demo_day_id === demoDayId && s.student_id === studentId);
+      // Resolve against the DB rather than local state: this path seeds score-0 rows
+      // for any criterion it thinks is missing, so a stale local copy would create
+      // duplicate rows (demo_scores has no unique constraint to prevent it).
+      const { data: dbRows, error: dbErr } = await supabase
+        .from('demo_scores').select('id,criterion')
+        .eq('demo_day_id', demoDayId).eq('student_id', studentId);
+      if (dbErr) throw dbErr;
+      const existing = dbRows || [];
       const missingCriteria = CRITERIA.filter(c => !existing.find(e => e.criterion === c));
 
       // Update existing rows
@@ -1498,28 +1566,30 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
     return completedIndexes.size;
   })();
 
-  // Initialize scoreValues from demoScores when:
-  //  1. The active batch changed (new batch loaded), OR
-  //  2. We haven't initialized this batch yet AND demoScores now has data
-  //     (async fetch completed after the initial mount).
-  // The "scoreValues empty" gate prevents wiping in-progress typing on
-  // subsequent demoScores updates (e.g. after a debounced upsert).
+  // Keep the on-screen score inputs in sync with demoScores.
+  //
+  // This used to initialise once per batch and then refuse to run again while
+  // scoreValues was non-empty. That gate meant a successful refetch could never
+  // correct the grid: once a bad (empty) load had painted blank inputs, or once the
+  // DB had moved on, the display stayed stale until a full page reload — which is
+  // why "refresh and it comes back" was the only workaround.
+  //
+  // Now the server is always the source of truth, except for cells the mod has
+  // edited but the server hasn't acknowledged yet (pendingScoreWrites) — those hold
+  // their local value so a background refetch can't undo live typing.
   useEffect(() => {
-    const shouldInit =
-      initializedBatchRef.current !== activeBatchId ||
-      (initializedBatchRef.current === activeBatchId &&
-        Object.keys(scoreValues).length === 0 &&
-        demoScores.length > 0);
-    if (!shouldInit) return;
-
-    const vals: Record<string, string> = {};
-    for (const s of demoScores) {
-      const key = `${s.demo_day_id}|${s.student_id}|${s.criterion}`;
-      vals[key] = String(s.score);
-    }
-    setScoreValues(vals);
+    setScoreValues(prev => {
+      const next: Record<string, string> = {};
+      for (const s of demoScores) next[demoScoreKey(s)] = String(s.score);
+      for (const key of pendingScoreWrites.current) {
+        if (prev[key] !== undefined) next[key] = prev[key];
+      }
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(next);
+      const unchanged = prevKeys.length === nextKeys.length && nextKeys.every(k => prev[k] === next[k]);
+      return unchanged ? prev : next;
+    });
     initializedBatchRef.current = activeBatchId;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBatchId, demoScores]);
 
   // Fetch announcements for this mod
@@ -1581,38 +1651,86 @@ const ModDashboard: React.FC<ModDashboardProps> = ({
 
   const updateScoreValue = (demoDayId: string, studentId: string, criterion: string, rawVal: string) => {
     if (readOnly) return;
-    const key = `${demoDayId}|${studentId}|${criterion}`;
+    const key = demoScoreKey({ demo_day_id: demoDayId, student_id: studentId, criterion });
     setScoreValues(prev => ({ ...prev, [key]: rawVal }));
+    // Pin this cell until the server confirms, so a refetch can't revert it mid-edit.
+    pendingScoreWrites.current.add(key);
 
     // Debounce supabase sync
     if (scoreDebounceTimers.current[key]) clearTimeout(scoreDebounceTimers.current[key]);
     scoreDebounceTimers.current[key] = setTimeout(() => {
+      delete scoreDebounceTimers.current[key];
       const num = parseFloat(rawVal);
       const score = (!rawVal || rawVal === '.' || isNaN(num)) ? 0 : num;
-      const existing = demoScores.find(s => s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion);
+      const tempId = `temp-score-${Date.now()}-${key}`;
       showSyncStatus('syncing');
-      if (existing) {
-        supabase.from('demo_scores').update({ score }).eq('id', existing.id)
-          .then(({ error }) => {
-            if (error) { showSyncStatus('idle'); toast.error('Failed to save score — please try again', { duration: 4000 }); }
-            else {
-              setDemoScores(prev => prev.map(s => s.id === existing.id ? { ...s, score } : s));
-              showSyncStatus('saved');
+
+      const write = async () => {
+        try {
+          // Resolve the target row against the DB, not just local state. If a refetch
+          // had dropped our copy of the row, trusting local state alone would INSERT a
+          // second row for this cell — and demo_scores has no unique constraint to
+          // stop it. Duplicates are what made a mark render one value on one load and
+          // a stale one on the next.
+          const local = demoScoresRef.current.find(s =>
+            s.demo_day_id === demoDayId && s.student_id === studentId && s.criterion === criterion);
+          let rowId = local && !local.id.startsWith('temp-score-') ? local.id : undefined;
+          if (!rowId) {
+            const { data: found, error: findErr } = await supabase
+              .from('demo_scores').select('id')
+              .eq('demo_day_id', demoDayId).eq('student_id', studentId).eq('criterion', criterion)
+              .order('id').limit(1).maybeSingle();
+            if (findErr) throw findErr;
+            rowId = found?.id;
+          }
+
+          if (rowId) {
+            const savedId = rowId;
+            const { error } = await supabase.from('demo_scores').update({ score }).eq('id', savedId);
+            if (error) throw error;
+            setDemoScores(prev => prev.some(s => s.id === savedId)
+              ? prev.map(s => s.id === savedId ? { ...s, score } : s)
+              : [...prev, { id: savedId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
+          } else {
+            setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
+            const { data, error } = await supabase
+              .from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
+              .select().single();
+            if (error) throw error;
+            // Swap the optimistic row for the real one. If a refetch removed the temp
+            // row while we were saving, append instead of silently dropping the write.
+            if (data) {
+              setDemoScores(prev => prev.some(s => s.id === tempId)
+                ? prev.map(s => s.id === tempId ? data : s)
+                : prev.some(s => s.id === data.id) ? prev : [...prev, data]);
             }
-          });
-      } else {
-        const tempId = `temp-score-${Date.now()}-${key}`;
-        setDemoScores(prev => [...prev, { id: tempId, demo_day_id: demoDayId, student_id: studentId, criterion, score }]);
-        supabase.from('demo_scores').insert({ demo_day_id: demoDayId, student_id: studentId, criterion, score })
-          .select().single().then(({ data, error }) => {
-            if (error) { setDemoScores(prev => prev.filter(s => s.id !== tempId)); showSyncStatus('idle'); toast.error('Failed to save score — please try again', { duration: 4000 }); }
-            else if (data) { setDemoScores(prev => prev.map(s => s.id === tempId ? data : s)); showSyncStatus('saved'); }
-          });
-      }
-      showSaved();
-      if (user && activeBatch) {
-        logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
-      }
+          }
+          showSyncStatus('saved');
+          showSaved();
+          if (user && activeBatch) {
+            logActivity(user.id, profile?.name || '', 'demo_score_added', `Added Demo day scores`, activeBatch.name);
+          }
+        } catch (e) {
+          console.error('Failed to save demo score', e);
+          setDemoScores(prev => prev.filter(s => s.id !== tempId));
+          showSyncStatus('idle');
+          toast.error('Failed to save score — please try again', { duration: 4000 });
+        } finally {
+          // Unpin the cell only once nothing else is queued for it — another
+          // keystroke may already be waiting behind this write.
+          scoreWriteQueueDepth.current[key] = (scoreWriteQueueDepth.current[key] ?? 1) - 1;
+          if (!scoreWriteQueueDepth.current[key] && !scoreDebounceTimers.current[key]) {
+            pendingScoreWrites.current.delete(key);
+          }
+        }
+      };
+
+      // Queue behind any earlier write for this same cell, so the second edit can't
+      // look up the row while the first insert is still in flight.
+      scoreWriteQueueDepth.current[key] = (scoreWriteQueueDepth.current[key] ?? 0) + 1;
+      scoreWriteChains.current[key] = (scoreWriteChains.current[key] ?? Promise.resolve())
+        .catch(() => {})
+        .then(write);
     }, 1000);
   };
 
