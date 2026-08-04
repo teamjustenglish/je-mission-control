@@ -141,6 +141,55 @@ export const CRITERIA = [
   'Grammatical accuracy',
 ];
 
+// ── Demo score de-duplication ─────────────────────────────────────────
+// `demo_scores` has NO unique constraint on (demo_day_id, student_id, criterion),
+// so duplicates can exist: whenever the client lost its local copy of a row (e.g.
+// a refetch landed while an insert was still in flight) the next edit issued a
+// fresh INSERT instead of an UPDATE. The reads were unordered, so Postgres could
+// return those duplicates in a different order on every load — and the UI keys
+// them by cell, last-row-wins, so a mark could show one value on one load and
+// another (usually the stale 0) on the next.
+//
+// Resolution rule: keep the HIGHEST score for a cell, tie-broken by id so the
+// result is stable across loads. There is no created_at on demo_scores, so there
+// is no recency signal available; the orphaned duplicates are overwhelmingly the
+// score-0 rows seeded by the make-up flow or left behind by a clobbered insert,
+// so "highest" recovers the real mark in practice. The write path now resolves
+// the existing row against the DB before inserting, so no NEW duplicates are
+// created — this only heals rows already in the table.
+
+export interface DemoScoreRow {
+  id: string;
+  demo_day_id: string;
+  student_id: string;
+  criterion: string;
+  score: number;
+}
+
+export const demoScoreKey = (s: Pick<DemoScoreRow, 'demo_day_id' | 'student_id' | 'criterion'>) =>
+  `${s.demo_day_id}|${s.student_id}|${s.criterion}`;
+
+export const dedupeDemoScores = <T extends DemoScoreRow>(rows: T[]): { rows: T[]; duplicates: number } => {
+  const best = new Map<string, T>();
+  let duplicates = 0;
+  for (const row of rows) {
+    const key = demoScoreKey(row);
+    const current = best.get(key);
+    if (!current) { best.set(key, row); continue; }
+    duplicates++;
+    const rowScore = Number(row.score) || 0;
+    const currentScore = Number(current.score) || 0;
+    if (rowScore > currentScore || (rowScore === currentScore && row.id < current.id)) {
+      best.set(key, row);
+    }
+  }
+  // Stable output order so downstream consumers never see rows shuffle between loads.
+  const deduped = [...best.values()].sort((a, b) =>
+    demoScoreKey(a).localeCompare(demoScoreKey(b)) || a.id.localeCompare(b.id)
+  );
+  return { rows: deduped, duplicates };
+};
+
 // ── Absence-streak detection ──────────────────────────────────────────
 
 interface AttendanceRow {
