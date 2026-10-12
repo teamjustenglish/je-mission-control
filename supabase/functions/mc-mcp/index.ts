@@ -116,7 +116,7 @@ function assertSelectOnly(query: string): void {
 
 // ── Tool implementations ─────────────────────────────────────────────────────
 
-async function toolQueryData(supabase: ReturnType<typeof createClient>, args: Record<string, unknown>) {
+async function toolQueryData(supabase: any, args: Record<string, unknown>) {
   const query = String(args.query ?? '').trim()
   if (!query) throw new Error('query is required')
   assertSelectOnly(query)
@@ -127,7 +127,7 @@ async function toolQueryData(supabase: ReturnType<typeof createClient>, args: Re
 }
 
 async function toolSendAnnouncement(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   args: Record<string, unknown>,
 ) {
   const title = String(args.title ?? '').trim()
@@ -171,7 +171,7 @@ async function toolSendAnnouncement(
 }
 
 async function toolGetModEngagement(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   args: Record<string, unknown>,
 ) {
   const modNameFilter = args.mod_name ? String(args.mod_name).trim() : null
@@ -254,7 +254,7 @@ async function toolGetModEngagement(
 }
 
 async function toolListOverdueTasks(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   args: Record<string, unknown>,
 ) {
   const modNameFilter = args.mod_name ? String(args.mod_name).trim() : null
@@ -317,7 +317,7 @@ async function toolListOverdueTasks(
 }
 
 async function toolGetBatchHealth(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   args: Record<string, unknown>,
 ) {
   const batchName = String(args.batch_name ?? '').trim()
