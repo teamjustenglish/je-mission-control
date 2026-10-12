@@ -98,7 +98,7 @@ const InviteSignupPage: React.FC = () => {
       }
     }
 
-    const { error: profileErr } = await supabase.from('profiles').insert(<any>{
+    const { error: profileErr } = await supabase.from('profiles').insert({
       id: data.user!.id,
       email,
       name: displayName.trim(),
