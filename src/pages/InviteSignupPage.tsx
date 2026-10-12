@@ -104,7 +104,7 @@ const InviteSignupPage: React.FC = () => {
       name: displayName.trim(),
       role: 'moderator',
       avatar_url: avatarUrl,
-    });
+    } as any);
     if (profileErr) { setError(profileErr.message); setLoading(false); return; }
 
     const { data: rpcResult } = await supabase.rpc('setup_invite_account', {
