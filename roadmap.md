@@ -1,0 +1,1 @@
+- [x] Give user Claude connector link for mc-mcp

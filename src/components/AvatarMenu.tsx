@@ -142,7 +142,7 @@ const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
           setUploading(false);
         }
       }
-      const { error } = await supabase.from('profiles').update(update).eq('id', profile.id);
+      const { error } = await supabase.from('profiles').update(update as any).eq('id', profile.id);
       if (error) { toast.error(error.message); return; }
       await refreshProfile();
       setSettingsOpen(false);
