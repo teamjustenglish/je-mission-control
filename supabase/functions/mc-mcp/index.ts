@@ -6,8 +6,32 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// TODO(v2): add endpoint-level auth (e.g. shared secret header) so only
-// trusted claude.ai connector requests can reach this function.
+// Endpoint auth: requests must present the key stored in public.private_secrets
+// (key 'mc_mcp_key'; RLS on, no policies, so only the service role can read it).
+let cachedKey: string | null = null
+
+async function getConnectorKey(): Promise<string | null> {
+  if (cachedKey) return cachedKey
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  )
+  const { data, error } = await admin
+    .from('private_secrets')
+    .select('value')
+    .eq('key', 'mc_mcp_key')
+    .maybeSingle()
+  if (error || !data?.value) return null
+  cachedKey = data.value as string
+  return cachedKey
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
 
 // ── Tool definitions ─────────────────────────────────────────────────────────
 
@@ -424,6 +448,14 @@ Deno.serve(async (req) => {
 
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+  }
+
+  // Shared-secret gate: the connector URL must carry ?key=<private_secrets.mc_mcp_key>
+  // (or an x-mc-key header). Without it this service-role function is closed.
+  const presented = new URL(req.url).searchParams.get('key') ?? req.headers.get('x-mc-key') ?? ''
+  const expected = await getConnectorKey()
+  if (!expected || !timingSafeEqual(presented, expected)) {
+    return new Response('Unauthorized', { status: 401, headers: corsHeaders })
   }
 
   let body: any
