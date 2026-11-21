@@ -2,3 +2,5 @@ project_id = "qeecmxazjeaknlhgwfou"
 
 [functions.mc-mcp]
 verify_jwt = false
+[functions.alfred-status]
+verify_jwt = false
