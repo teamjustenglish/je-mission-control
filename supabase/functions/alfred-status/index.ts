@@ -79,7 +79,7 @@ async function buildStatus(): Promise<string> {
   const [snapRes, notesRes, mcp] = await Promise.all([
     admin.rpc('alfred_status_snapshot'),
     admin.from('alfred_notes')
-      .select('id, title, detail, status, source, created_at, fixed_at, fix, times_seen, last_seen_at')
+      .select('id, title, detail, status, source, created_at, fixed_at, fix, times_seen, last_seen_at, severity, page, about, reporter_name, reporter_role, errors')
       .or(`status.eq.open,fixed_at.gt."${new Date(Date.now() - 30 * 86_400_000).toISOString()}"`)
       .order('created_at', { ascending: false })
       .limit(50),
@@ -112,6 +112,16 @@ async function buildStatus(): Promise<string> {
   health.push(mcp)
 
   if (!snapRes.error) {
+    // "Report a problem" (25 Nov): a report someone marked "blocking" means they can't do their work.
+    const blocking = Number(s.open_blocking_reports ?? 0)
+    health.push({
+      name: 'No one blocked (problem reports)',
+      ok: blocking === 0,
+      detail: blocking === 0 ? 'no open "blocking" reports' : `${blocking} open report(s) marked blocking`,
+    })
+  }
+
+  if (!snapRes.error) {
     numbers.push(
       { label: 'Batches running', value: String(s.running_batches ?? 0) },
       { label: 'Mods with a running batch', value: String(s.mods_running ?? 0) },
@@ -120,6 +130,7 @@ async function buildStatus(): Promise<string> {
       { label: 'Mod actions (7 days)', value: String(s.mod_actions_7d ?? 0) },
       { label: 'Result links live', value: String(s.share_links_live ?? 0) },
       { label: 'Open notes', value: String(s.open_notes ?? 0) },
+      { label: 'Open problem reports', value: String(s.open_problem_reports ?? 0) },
     )
   }
 
@@ -127,6 +138,10 @@ async function buildStatus(): Promise<string> {
     id: n.id, title: n.title, detail: n.detail, status: n.status, source: n.source,
     created_at: n.created_at, fixed_at: n.fixed_at, fix: n.fix,
     times_seen: n.times_seen, last_seen_at: n.last_seen_at,
+    // Set only on people's reports (source 'report'). Reporter = their MC display name + role, nothing else.
+    severity: n.severity ?? null, page: n.page ?? null, about: n.about ?? null,
+    reported_by: n.source === 'report' ? [n.reporter_name, n.reporter_role].filter(Boolean).join(' · ') || null : null,
+    errors: n.errors ?? null,
   }))
   if (notesRes.error) health.push({ name: 'Notes list readable', ok: false, detail: notesRes.error.message })
 

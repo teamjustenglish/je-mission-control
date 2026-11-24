@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Settings, HelpCircle, LogOut, X, ArrowUpRight, MessageCircle, Phone, KeyRound } from 'lucide-react';
+import { Settings, HelpCircle, LogOut, X, ArrowUpRight, MessageCircle, Phone, KeyRound, Flag } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { recentErrors } from '@/lib/recentErrors';
 
 interface AvatarMenuProps {
   role: 'admin' | 'moderator';
@@ -56,11 +57,24 @@ const contactCardStyle: React.CSSProperties = {
   textDecoration: 'none', cursor: 'pointer',
 };
 
+const SEVERITY_OPTIONS = [
+  { value: 'blocking', label: "I can't do my work", color: '#fca5a5' },
+  { value: 'annoying', label: 'Annoying, but I can work', color: '#fbbf24' },
+  { value: 'idea', label: 'An idea or small thing', color: '#86efac' },
+] as const;
+type Severity = typeof SEVERITY_OPTIONS[number]['value'];
+const REPORT_MAX = 4000;
+
 const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportText, setReportText] = useState('');
+  const [reportSeverity, setReportSeverity] = useState<Severity>('annoying');
+  const [reportSending, setReportSending] = useState(false);
+  const [reportError, setReportError] = useState('');
   const [resetPwOpen, setResetPwOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -181,6 +195,45 @@ const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
       setResetPwError(err.message || 'Failed to update password');
     } finally {
       setResetPwSaving(false);
+    }
+  };
+
+  const openReport = () => {
+    setHelpOpen(false);
+    setReportText('');
+    setReportSeverity('annoying');
+    setReportError('');
+    setReportOpen(true);
+  };
+
+  const sendReport = async () => {
+    const detail = reportText.trim();
+    if (!detail || reportSending) return;
+    setReportSending(true);
+    setReportError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('report-problem', {
+        body: {
+          detail,
+          severity: reportSeverity,
+          page: window.location.pathname,
+          about: batchLabel ? `Batch: ${batchLabel}` : null,
+          browser: navigator.userAgent,
+          client_time: new Date().toISOString(),
+          errors: recentErrors(),
+        },
+      });
+      if (error) {
+        let msg = 'Could not send the report. Try again in a moment.';
+        try { const ctx = (error as { context?: { json?: () => Promise<{ error?: string }> } }).context; const b = await ctx?.json?.(); if (b?.error) msg = b.error; } catch { /* keep default */ }
+        setReportError(msg);
+        return;
+      }
+      if (!(data as { ok?: boolean } | null)?.ok) { setReportError('Could not send the report. Try again in a moment.'); return; }
+      setReportOpen(false);
+      toast.success('Thanks! Your report was sent to the team.');
+    } finally {
+      setReportSending(false);
     }
   };
 
@@ -331,6 +384,18 @@ const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
               <p style={{ fontSize: 13, color: '#d1d1d1', marginBottom: 16, lineHeight: 1.55 }}>
                 Need a hand with MC? Reach Dave directly — account issues, feature questions, anything.
               </p>
+              <button onClick={openReport}
+                style={{ ...contactCardStyle, width: '100%', border: 'none', textAlign: 'left', marginBottom: 10 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#2a2a2a'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#232323'; }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(251,191,36,0.12)', color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Flag size={18} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: '#fff', fontWeight: 500 }}>Report a problem</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Something broken or confusing in MC</div>
+                </div>
+              </button>
               <a href="https://discord.com/users/945392420386918473" target="_blank" rel="noopener noreferrer"
                 style={contactCardStyle}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#2a2a2a'; }}
@@ -357,6 +422,81 @@ const AvatarMenu: React.FC<AvatarMenuProps> = ({ role, batchLabel }) => {
                 </div>
                 <ArrowUpRight size={14} style={{ color: '#888', flexShrink: 0 }} />
               </a>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* Report a problem modal */}
+      {reportOpen && createPortal(
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => { if (!reportSending) setReportOpen(false); }}
+        >
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#1a1a1a', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 14, width: 420, maxWidth: '92vw' }}>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '0.5px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>Report a problem</span>
+              <button onClick={() => setReportOpen(false)} disabled={reportSending} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', display: 'flex' }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: 20 }}>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>What happened?</label>
+              <textarea
+                autoFocus
+                rows={5}
+                maxLength={REPORT_MAX}
+                value={reportText}
+                onChange={e => setReportText(e.target.value)}
+                placeholder="What were you trying to do, and what went wrong?"
+                style={{
+                  width: '100%', background: '#242424', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#fff', outline: 'none',
+                  boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5,
+                }}
+              />
+
+              <label style={{ fontSize: 12, color: '#888', display: 'block', margin: '14px 0 6px' }}>How bad is it?</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {SEVERITY_OPTIONS.map(o => {
+                  const on = reportSeverity === o.value;
+                  return (
+                    <button key={o.value} onClick={() => setReportSeverity(o.value)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 8,
+                        background: on ? '#2a2a2a' : '#202020', cursor: 'pointer', textAlign: 'left',
+                        border: on ? `1px solid ${o.color}` : '1px solid rgba(255,255,255,0.08)',
+                        color: '#e8e8e8', fontSize: 13,
+                      }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: o.color, flexShrink: 0 }} />
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p style={{ fontSize: 11, color: '#666', marginTop: 12, lineHeight: 1.5 }}>
+                We'll also send the page you're on, the time and any recent error, so you don't have to explain the technical part.
+              </p>
+              {reportError && (
+                <p style={{ fontSize: 12, color: '#f87171', marginTop: 8 }}>{reportError}</p>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 20px', borderTop: '0.5px solid rgba(255,255,255,0.08)' }}>
+              <button
+                onClick={() => setReportOpen(false)}
+                disabled={reportSending}
+                style={{ background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)', color: '#ccc', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}
+              >Cancel</button>
+              <button
+                onClick={sendReport}
+                disabled={reportSending || !reportText.trim()}
+                style={{ background: '#fbbf24', border: 'none', color: '#111', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: reportSending || !reportText.trim() ? 'not-allowed' : 'pointer', opacity: reportSending || !reportText.trim() ? 0.6 : 1 }}
+              >{reportSending ? 'Sending…' : 'Send report'}</button>
             </div>
           </div>
         </div>,

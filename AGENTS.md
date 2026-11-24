@@ -49,3 +49,14 @@ cd supabase/functions/<name> && deno check index.ts && rm -f deno.lock   # edge 
   select alfred_note_close('<id>', 'fixed', 'commit abc123, 22 Nov');                   -- or 'wont_fix'
   ```
   "Fix the open Alfred notes" = read the open ones, fix, test, then close each with a short fix line.
+
+## Report a problem (25 Nov 2026, branch feat/report-problem, built on #67)
+- Avatar menu → Help & feedback → "Report a problem": "What happened?" + "How bad?" (blocking / annoying / idea).
+  The page path, batch, browser, time and the page's last 5 errors (`src/lib/recentErrors.ts`) go along.
+- `supabase/functions/report-problem` (logged-in users only, JWT checked; 10 reports per person per hour) saves an
+  open `alfred_notes` row with `source = 'report'`. Rules: `supabase/functions/_shared/problem-rules.ts`, tested in
+  `src/lib/problem-rules.test.ts`. People's reports never merge by title; automatic notes still do.
+- alfred-status shows them in `notes` (severity, page, about, reporter = MC display name + role, errors), the
+  "Open problem reports" number and a "No one blocked" health check.
+- Go-live order: apply migration 20261125090000 → merge → Lovable deploy-only `report-problem` + `alfred-status`
+  → `deploy_project`. Each step needs Dilina's OK.
